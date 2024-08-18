@@ -1,7 +1,85 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+:root {
+  --red: #dc2626;
+  --blue: #60a5fa;
+  --yellow: #fed42a;
+}
 body {
-  @apply bg-gray-100;
+  background: url("https://www.lego.com/cdn/cs/aboutus/assets/blta2f7045752055c85/JunoEpicNewsroom_Inline_1920x1080_png.png")
+    no-repeat center center fixed;
+  background-color: rgba(0, 0, 0, 0.3);
+  background-blend-mode: color;
+}
+.glass_bg {
+  /* From https://css.glass */
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.animated-gradient {
+  background: repeating-linear-gradient(
+    to right,
+    var(--red) 0%,
+    var(--blue) 50%,
+    var(--red) 100%
+  );
+  width: 100%;
+  background-size: 200% auto;
+  background-position: 0 100%;
+  animation: gradient 2s infinite;
+  animation-fill-mode: forwards;
+  animation-timing-function: linear;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@keyframes slide {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 100% 100%;
+  }
+}
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--red); /* Tailwind's bg-red-600 */
+  border-radius: 20px;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--red) transparent;
+}
+
+/* Optional: Style for the corner where horizontal and vertical scrollbars meet */
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

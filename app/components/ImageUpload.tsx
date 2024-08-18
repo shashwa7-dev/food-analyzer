@@ -36,9 +36,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
 
   return (
     <div
-      className={`flex items-center justify-center w-full ${
-        dragActive ? "border-pink-600" : "border-gray-300"
-      } border-2 border-dashed rounded-lg p-12 transition duration-300 ease-in-out transform hover:scale-105`}
+      className={`flex items-center justify-center w-rounded-lg p-12 relativ`}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -46,15 +44,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
     >
       <label
         htmlFor="dropzone-file"
-        className="flex flex-col items-center justify-center w-full h-full cursor-pointer"
+        className="flex flex-col items-center justify-center w-full h-full cursor-pointer text-center"
       >
-        <CloudArrowUpIcon className="w-12 h-12 text-gray-400" />
-        <p className="mt-2 text-sm text-gray-500">
-          <span className="font-semibold">Click to upload</span> or drag and
-          drop
+        <img src={"./qr-code.png"} className="w-20 h-20" />
+        <p className="mt-2 text-sm text-secondary font-semibold">
+          Upload the side with ingredients and nutrition details.
         </p>
-        <p className="mt-1 text-xs text-gray-500">
-          PNG, JPG or GIF (MAX. 800x400px)
+        <p className="text-xs text-gray-400">
+          Using Gemini Flash 1.5 results may be inaccurate.
         </p>
       </label>
       <input
