@@ -9,15 +9,10 @@
   margin: 0;
 }
 :root {
-  --red: #dc2626;
-  --blue: #60a5fa;
-  --yellow: #fed42a;
+  --brand: #4f46e5;
 }
 body {
-  background: url("https://www.lego.com/cdn/cs/aboutus/assets/blta2f7045752055c85/JunoEpicNewsroom_Inline_1920x1080_png.png")
-    no-repeat center center fixed;
-  background-color: rgba(0, 0, 0, 0.3);
-  background-blend-mode: color;
+  background: rgb(21, 21, 21);
 }
 .glass_bg {
   /* From https://css.glass */
@@ -30,9 +25,9 @@ body {
 .animated-gradient {
   background: repeating-linear-gradient(
     to right,
-    var(--red) 0%,
+    var(--brand) 0%,
     var(--blue) 50%,
-    var(--red) 100%
+    var(--brand) 100%
   );
   width: 100%;
   background-size: 200% auto;
@@ -69,14 +64,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--red); /* Tailwind's bg-red-600 */
+  background-color: var(--brand); /* Tailwind's bg-red-600 */
   border-radius: 20px;
 }
 
 /* For Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--red) transparent;
+  scrollbar-color: var(--brand) transparent;
 }
 
 /* Optional: Style for the corner where horizontal and vertical scrollbars meet */

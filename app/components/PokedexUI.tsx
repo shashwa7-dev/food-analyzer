@@ -61,21 +61,19 @@ const PokedexUI = () => {
   }, [result]);
 
   return (
-    <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden">
-      <div
-        className={
-          isLoading
-            ? "animated-gradient  p-4 shadow-lg"
-            : result
-            ? "bg-red-600  p-4 shadow-lg"
-            : "bg-red-600 p-4 shadow-lg"
-        }
-      >
+    <div className="w-full max-w-lg  rounded-xl overflow-hidden border-2 p-2">
+      <div className={"p-4 shadow-lg relative rounded-xl"}>
+        <div className="w-full h-full opacity-90 absolute left-0  bottom-0 -z-10 overflow-hidden rounded-xl">
+          <img
+            src={"/foodTruck.gif"}
+            alt=""
+            className="w-full h-full object-cover object-center "
+          />
+        </div>
         <div className="flex items-center mb-4">
           <div className="w-8 h-8 bg-blue-400 rounded-full mr-2 border-4 border-white"></div>
           <div className="w-4 h-4 bg-red-400 rounded-full mr-2 border-2 border-white"></div>
           <div className="w-4 h-4 bg-yellow-400 rounded-full mr-2 border-2 border-white"></div>
-          <div className="w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
           <div className="flex flex-col gap-0 line-clamp-1 ml-auto">
             <p className="text-xl font-bold text-white  leading-5">EATRi8-AI</p>
             <p className="text-sm font-bold text-white">
@@ -84,7 +82,11 @@ const PokedexUI = () => {
           </div>
         </div>
         <div className="bg-white rounded-lg p-2 relative">
-          {uploadedImage ? (
+          {isLoading ? (
+            <div className="w-full h-64 grid place-items-center">
+              <img src={"/eating.gif"} alt="loading..." className="w-[100px]" />
+            </div>
+          ) : uploadedImage ? (
             <img
               src={uploadedImage}
               alt="Uploaded food product"
@@ -95,7 +97,7 @@ const PokedexUI = () => {
           )}
           {result && (
             <button
-              className="absolute bottom-4 right-4 bg-red-600 text-white p-2 px-4 rounded-md text-sm active:scale-95 shadow-lg shadow-red-300 font-bold"
+              className="absolute bottom-4 right-4 bg-indigo-600 text-white p-1 px-4 rounded-md text-xs active:scale-95 shadow-lg shadow-indigo-300 font-bold"
               onClick={tryNew}
             >
               Try new?
@@ -109,7 +111,7 @@ const PokedexUI = () => {
           height: `${resultHeight}px`,
           transition: "height 0.3s ease-out",
         }}
-        className="bg-white shadow-lg  max-h-[40vh] overflow-hidden overflow-y-auto relative"
+        className="bg-white shadow-lg  max-h-[40vh] overflow-hidden overflow-y-auto relative rounded-b-xl"
       >
         {result && !isLoading && (
           <>

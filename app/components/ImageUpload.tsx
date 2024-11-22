@@ -36,7 +36,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
 
   return (
     <div
-      className={`flex items-center justify-center w-rounded-lg p-12 relativ`}
+      className={`flex items-center justify-center w-rounded-lg p-12 relative h-64`}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}

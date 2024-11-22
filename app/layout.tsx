@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Source_Code_Pro } from "next/font/google";
+import { Space_Grotesk} from "next/font/google";
 import "./globals.css";
 
-const poppins = Source_Code_Pro({
+const poppins = Space_Grotesk({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
 });

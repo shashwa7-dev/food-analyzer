@@ -43,8 +43,8 @@ const AnalysisResult: React.FC<AnalysisResultProps> = ({
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4 text-red-600">{productName}</h2>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4">
+      <h2 className="text-2xl font-bold mb-4 text-indigo-600">{productName}</h2>
+      <div className="grid grid-cols-2 gap-2">
         <div>
           <p className="font-semibold">Health Score:</p>
           {renderHealthMeter(healthScore)}{" "}
