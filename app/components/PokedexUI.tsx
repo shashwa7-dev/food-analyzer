@@ -62,15 +62,15 @@ const PokedexUI = () => {
 
   return (
     <div className="w-full max-w-lg  rounded-xl overflow-hidden border-2 p-2">
-      <div className={"p-4 shadow-lg relative rounded-xl"}>
-        <div className="w-full h-full opacity-90 absolute left-0  bottom-0 -z-10 overflow-hidden rounded-xl">
+      <div className={"bg-indigo-600  p-4 shadow-lg relative rounded-t-lg overflow-hidden"}>
+        <div className="w-full h-full opacity-70 absolute left-0 top-0 -z-1 overflow-hidden">
           <img
             src={"/foodTruck.gif"}
             alt=""
             className="w-full h-full object-cover object-center "
           />
         </div>
-        <div className="flex items-center mb-4">
+        <div className="flex items-center mb-4 z-1 relative">
           <div className="w-8 h-8 bg-blue-400 rounded-full mr-2 border-4 border-white"></div>
           <div className="w-4 h-4 bg-red-400 rounded-full mr-2 border-2 border-white"></div>
           <div className="w-4 h-4 bg-yellow-400 rounded-full mr-2 border-2 border-white"></div>
@@ -111,7 +111,7 @@ const PokedexUI = () => {
           height: `${resultHeight}px`,
           transition: "height 0.3s ease-out",
         }}
-        className="bg-white shadow-lg  max-h-[40vh] overflow-hidden overflow-y-auto relative rounded-b-xl"
+        className="bg-white shadow-lg  max-h-[40vh] overflow-hidden overflow-y-auto relative rounded-b-lg"
       >
         {result && !isLoading && (
           <>
