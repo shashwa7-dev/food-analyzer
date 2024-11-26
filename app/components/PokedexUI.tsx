@@ -61,17 +61,21 @@ const PokedexUI = () => {
   }, [result]);
 
   return (
-    <div className="w-full max-w-lg  rounded-xl overflow-hidden border-2 p-2">
-      <div className={"bg-indigo-600  p-4 shadow-lg relative rounded-t-lg overflow-hidden"}>
-        <div className="w-full h-full opacity-70 absolute left-0 top-0 -z-1 overflow-hidden">
+    <div className="w-full max-w-lg  rounded-xl overflow-hidden border-2 p-1">
+      <div
+        className={`bg-gray-700  p-4 shadow-lg relative overflow-hidden ${
+          result ? "rounded-t-lg" : "rounded-lg"
+        }`}
+      >
+        <div className="w-full h-full opacity-30 absolute left-0 top-0 -z-1 overflow-hidden">
           <img
-            src={"/foodTruck.gif"}
+            src={"/bg.png"}
             alt=""
             className="w-full h-full object-cover object-center "
           />
         </div>
         <div className="flex items-center mb-4 z-1 relative">
-          <div className="w-8 h-8 bg-blue-400 rounded-full mr-2 border-4 border-white"></div>
+          <div className="w-8 h-8 bg-blue-500 rounded-full mr-2 border-4 border-white"></div>
           <div className="w-4 h-4 bg-red-400 rounded-full mr-2 border-2 border-white"></div>
           <div className="w-4 h-4 bg-yellow-400 rounded-full mr-2 border-2 border-white"></div>
           <div className="flex flex-col gap-0 line-clamp-1 ml-auto">
@@ -81,7 +85,7 @@ const PokedexUI = () => {
             </p>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-2 relative">
+        <div className="bg-white rounded-lg p-1 relative">
           {isLoading ? (
             <div className="w-full h-64 grid place-items-center">
               <img src={"/eating.gif"} alt="loading..." className="w-[100px]" />
