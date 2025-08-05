@@ -92,7 +92,11 @@ const EatRi8 = ({ isOpen }: { isOpen: boolean }) => {
         <div className="bg-card rounded-lg p-1 relative">
           {isLoading ? (
             <div className="w-full h-64 grid place-items-center">
-              <img src={"/eating.gif"} alt="loading..." className="w-[100px]" />
+              <img
+                src={"/price-scanner.gif"}
+                alt="loading..."
+                className="w-[120px] rounded-full"
+              />
             </div>
           ) : uploadedImage ? (
             <img

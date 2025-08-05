@@ -150,7 +150,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
             </p>
 
             <p className="text-xs text-muted-foreground mb-4">
-              Using Gemini Flash 1.5 results may be inaccurate
+              Using Gemini Flash 2.5 results may be inaccurate
             </p>
 
             <div className="flex gap-2">
