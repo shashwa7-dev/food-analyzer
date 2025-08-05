@@ -109,9 +109,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
   };
 
   return (
-    <div className="w-full rounded-lg shadow-md p-1">
+    <div className="w-full rounded-lg shadow-md p-1 bg-card">
       {cameraError && (
-        <div className="text-red-500 text-sm mb-2 text-center">
+        <div className="text-destructive text-sm mb-2 text-center">
           {cameraError}
         </div>
       )}
@@ -123,7 +123,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
         >
           <video
             ref={videoRef}
-            className={`w-full bg-red-200 aspect-video object-cover rounded-lg ${
+            className={`w-full bg-health-poor aspect-video object-cover rounded-lg ${
               isCameraActive ? "" : "hidden"
             }`}
           />
@@ -134,8 +134,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
         <div
           className={`flex flex-col h-64 items-center justify-center w-full rounded-lg p-6 border-2 ${
             dragActive
-              ? "border-blue-500 bg-blue-50"
-              : "border-dashed border-gray-300"
+              ? "border-primary bg-primary/10"
+              : "border-dashed border-border"
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -145,25 +145,25 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
           <div className="flex flex-col items-center text-center">
             <img src="./qr-code.png" className="w-20 h-20 mb-4" alt="Upload" />
 
-            <p className="text-sm text-secondary font-semibold mb-2">
+            <p className="text-sm font-semibold mb-2">
               Upload the side with ingredients and nutrition details
             </p>
 
-            <p className="text-xs text-gray-400 mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Using Gemini Flash 1.5 results may be inaccurate
             </p>
 
             <div className="flex gap-2">
               <button
                 onClick={startCamera}
-                className="btn btn-outline btn-primary flex items-center hover:font-medium text-sm border p-1 px-2 rounded-lg gap-1 bg-blue-500 text-white"
+                className="btn btn-outline btn-primary flex items-center hover:font-medium text-sm border p-1 px-2 rounded-lg gap-1 bg-primary text-primary-foreground"
               >
                 <Camera className="w-5 h-5" />
                 Use Camera
               </button>
               <button
                 onClick={openFileInput}
-                className="btn btn-outline btn-primary flex items-center hover:font-medium text-sm border p-1 px-2 rounded-lg gap-1 bg-red-400 text-white"
+                className="btn btn-outline btn-primary flex items-center hover:font-medium text-sm border p-1 px-2 rounded-lg gap-1 bg-health-poor text-primary-foreground"
               >
                 <CloudUpload className="w-5 h-5" />
                 Upload File
@@ -183,7 +183,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onImageUpload }) => {
       )}
 
       {isCameraActive && (
-        <div className="mt-1 p-2.5 rounded-lg gap-4 bg-blue-500 text-white grid grid-cols-3">
+        <div className="mt-1 p-2.5 rounded-lg gap-4 bg-primary text-primary-foreground grid grid-cols-3">
           <button
             onClick={captureImage}
             className="btn btn-primary w-full flex justify-center items-center gap-1 text-sm"

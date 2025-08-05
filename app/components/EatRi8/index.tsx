@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import AnalysisResult from "./AnalysisResult";
+import AnalysisResult from "../AnalyzeResult";
 import ImageUpload from "./ImageUpload";
 
 const analyzeImage = async (file: File) => {
@@ -32,7 +32,7 @@ const analyzeImage = async (file: File) => {
   }
 };
 
-const PokedexUI = () => {
+const EatRi8 = ({ isOpen }: { isOpen: boolean }) => {
   const [result, setResult] = useState<any>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,9 +61,13 @@ const PokedexUI = () => {
   }, [result]);
 
   return (
-    <div className="w-full max-w-lg  rounded-xl overflow-hidden border-2 p-1">
+    <div
+      className={`w-full max-w-md  rounded-xl overflow-hidden border-2 border-border bg-card transition-all ${
+        isOpen && "-translate-x-1/3"
+      }`}
+    >
       <div
-        className={`bg-gray-700  p-4 shadow-lg relative overflow-hidden ${
+        className={`bg-foreground p-4 shadow-lg relative overflow-hidden ${
           result ? "rounded-t-lg" : "rounded-lg"
         }`}
       >
@@ -71,21 +75,21 @@ const PokedexUI = () => {
           <img
             src={"/bg.png"}
             alt=""
-            className="w-full h-full object-cover object-center "
+            className="w-full h-full object-cover object-center"
           />
         </div>
         <div className="flex items-center mb-4 z-1 relative">
-          <div className="w-8 h-8 bg-blue-500 rounded-full mr-2 border-4 border-white"></div>
-          <div className="w-4 h-4 bg-red-400 rounded-full mr-2 border-2 border-white"></div>
-          <div className="w-4 h-4 bg-yellow-400 rounded-full mr-2 border-2 border-white"></div>
+          <div className="w-8 h-8 bg-primary rounded-full mr-2 border-4 border-card"></div>
+          <div className="w-4 h-4 bg-health-poor rounded-full mr-2 border-2 border-card"></div>
+          <div className="w-4 h-4 bg-health-fair rounded-full mr-2 border-2 border-card"></div>
           <div className="flex flex-col gap-0 line-clamp-1 ml-auto">
-            <p className="text-xl font-bold text-white  leading-5">EATRi8-AI</p>
-            <p className="text-sm font-bold text-white">
+            <p className="text-xl font-bold text-card leading-5">EATRi8-AI</p>
+            <p className="text-sm font-bold text-card">
               {isLoading ? "analyzing..." : "prod@s7.dev"}
             </p>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-1 relative">
+        <div className="bg-card rounded-lg p-1 relative">
           {isLoading ? (
             <div className="w-full h-64 grid place-items-center">
               <img src={"/eating.gif"} alt="loading..." className="w-[100px]" />
@@ -101,7 +105,7 @@ const PokedexUI = () => {
           )}
           {result && (
             <button
-              className="absolute bottom-4 right-4 bg-indigo-600 text-white p-1 px-4 rounded-md text-xs active:scale-95 shadow-lg shadow-indigo-300 font-bold"
+              className="absolute bottom-4 right-4 bg-primary text-primary-foreground p-1 px-4 rounded-md text-xs active:scale-95 shadow-lg shadow-primary/30 font-bold"
               onClick={tryNew}
             >
               Try new?
@@ -109,23 +113,11 @@ const PokedexUI = () => {
           )}
         </div>
       </div>
-      <div
-        ref={resultRef}
-        style={{
-          height: `${resultHeight}px`,
-          transition: "height 0.3s ease-out",
-        }}
-        className="bg-white shadow-lg  max-h-[40vh] overflow-hidden overflow-y-auto relative rounded-b-lg"
-      >
-        {result && !isLoading && (
-          <>
-            <AnalysisResult {...result} />
-            <div className="sticky mt-auto bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
-          </>
-        )}
+      <div ref={resultRef}>
+        {result && !isLoading && <AnalysisResult {...result} />}
       </div>
     </div>
   );
 };
 
-export default PokedexUI;
+export default EatRi8;
