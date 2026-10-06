@@ -12,12 +12,10 @@ import { targetsFor } from "@/lib/nutrition/targets";
 import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
+import type { FoodHit } from "./types";
 
+export type { FoodHit };
 export type FoodRow = typeof food.$inferSelect;
-export interface FoodHit {
-  id: string; name: string; brand: string | null; kind: string; grade: string | null; source: string;
-  defaultPortion: { label: string; grams: number | null; kcal: number | null };
-}
 
 export function toHit(f: Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade" | "source" | "portions" | "defaultPortion" | "per100">): FoodHit {
   const p = f.portions[f.defaultPortion] ?? f.portions[0]!;
