@@ -19,8 +19,9 @@
 3. Every fact shown carries provenance: *Verified (database)*, *Read from label*, or *Estimated*.
 4. Running cost ≈ ₹0/month at low usage (free tiers); AI cost per scan ≲ ₹0.5.
 5. Sellable foundation: auth, per-user data, a credit/plan system ready for a paid Pro tier.
+6. Daily habit: every scan is kept in History, and any scan can be added to a meal in one tap; the Today screen tracks the day's calories and macros against the user's targets (optional — scanning works without ever logging).
 
-**Non-goals (v1):** payments/Pro checkout (UI shows "coming soon"), store-level availability or prices, native apps, admin dashboard, public share links, product comparison page, contributing data back to Open Food Facts.
+**Non-goals (v1):** payments/Pro checkout (UI shows "coming soon"), store-level availability or prices, native apps, admin dashboard, public share links / share cards, product comparison page, favourites, family profiles, weekly insights, meal planning/suggestions, manual food entry by database search (only quick manual entry in v1), contributing data back to Open Food Facts.
 
 ---
 
@@ -50,17 +51,20 @@ Single Next.js app. API = Next route handlers under `/api/v1/*`. Core logic live
 app/
   (marketing)/page.tsx, privacy/, terms/
   (auth)/sign-in/
-  (app)/scan/, scans/[id]/, history/, settings/, credits/   ← authed shell (bottom tabs)
+  (app)/today/, scan/, scans/[id]/, history/, settings/, credits/   ← authed shell (bottom tabs: Today · Scan · History · Settings)
   api/auth/[...all]/route.ts                                ← Better Auth
   api/v1/scans/route.ts                                     ← POST create scan
   api/v1/scans/[id]/route.ts                                ← GET status/result, DELETE
   api/v1/me/route.ts                                        ← GET profile + balance
+  api/v1/log/route.ts                                       ← GET day log, POST entry
+  api/v1/log/[id]/route.ts                                  ← PATCH, DELETE entry
 lib/
   engine/          index.ts (runEngine) · triage-extract.ts · merge.ts · validate.ts
                    score/packaged.ts · score/meal.ts · personalise.ts · alternatives.ts
                    explain.ts · schema.ts · model.ts · errors.ts
                    sources/off.ts · sources/food-tables.ts
   credits/         logic.ts (pure) · ledger.ts (DB ops)
+  log/             targets.ts (pure) · totals.ts (pure) · service.ts (DB ops)
   scans/           service.ts (orchestrates engine + credits + storage + DB)
   db/              schema.ts · client.ts · migrations/
   auth.ts · env.ts · storage.ts · location.ts · rate-limit.ts
@@ -84,6 +88,7 @@ profile {
   allergies       text[]  (canonical keys: 'peanut','tree_nut','milk','egg','gluten','soy','sesame','fish','shellfish','mustard')
   goal            enum('general','weight_loss','muscle','low_sugar','low_sodium') default 'general'
   plan            enum('basic','pro') default 'basic'
+  targets         jsonb null  (DailyTargets override; null = derived from goal, §5.8)
   credits         integer not null default 0, CHECK (credits >= 0)
   allowancePeriod text    (e.g. '2026-10'; last month the allowance was granted)
   createdAt, updatedAt
@@ -140,7 +145,22 @@ scan {
   INDEX (userId, createdAt DESC), INDEX (createdAt)
 }
 
+food_log {
+  id          uuid PK (v7)
+  userId      text → user.id
+  date        date        (user's local date, sent by client; never derived server-side from UTC)
+  meal        enum('breakfast','lunch','dinner','snack')
+  scanId      uuid null → scan.id   (null for quick manual entries)
+  name        text                  (snapshot of product/dish name)
+  portion     jsonb  { amount: number; unit: 'g'|'ml'|'serving'|'pack'; grams: number }
+  nutrients   jsonb  Nutrients for this portion (snapshot — later product edits don't change past logs)
+  createdAt, updatedAt
+  INDEX (userId, date)
+}
+
 waitlist { userId PK, createdAt }   ← Pro "notify me"
+
+`Nutrients` = `{ energyKcal, protein, carbs, fat, fibre?, sugars?, satFat?, sodiumMg? }` (all numbers; g unless named).
 ```
 
 ---
@@ -284,6 +304,12 @@ EngineResult {
 - Usage → `tokensIn/out` and `costMicros` (price table in `model.ts`, per model id).
 - Swapping provider (Claude Haiku 4.5, Qwen3-VL via OpenRouter) = new provider package + env change.
 
+### 5.8 Daily targets & portions (`lib/log`, pure)
+- **Default targets by goal** (reference-intake style, adult, not personalised by body metrics — no medical claims): `general` 2000 kcal · protein 60 g · carbs 275 g · fat 67 g · fibre 30 g · sugars ≤ 50 g · sodium ≤ 2000 mg. Goal presets adjust these (e.g. `weight_loss` 1700 kcal; `muscle` protein 100 g; `low_sugar` sugars ≤ 25 g; `low_sodium` sodium ≤ 1500 mg). Constants live in `targets.ts`.
+- User may override any target in Settings (`profile.targets`).
+- **Portion → grams:** `g`/`ml` direct (ml ≈ g); `serving` uses label `servingSize`; `pack` uses `packSize`; missing size ⇒ unit not offered. Meal scans default to the engine's estimated grams.
+- `totals.ts`: sums entries per day and per meal; `remaining = target − total` (floors at 0 for "≤" limits shown as "over by").
+
 ---
 
 ## 6. API (`/api/v1`)
@@ -297,7 +323,14 @@ All JSON; auth via Better Auth session cookie (Bearer plugin enabled for future 
 | `DELETE /scans/:id` | — | `204` | 401, 404 |
 | `GET /me` | — | `200 { profile, credits, plan, allowance, periodResetsAt }` (applies lazy monthly reset) | 401 |
 
-Profile updates, account deletion, waitlist join = **server actions** (UI-only, not part of the public API).
+| `GET /log?date=YYYY-MM-DD` | — | `200 { date, entries[], totals: Nutrients, targets: DailyTargets, byMeal: Record<Meal, Nutrients> }` | 400, 401 |
+| `POST /log` | `{ date, meal, scanId, portion }` **or** `{ date, meal, name, portion, nutrients }` (quick manual entry) | `201 { entry }` — nutrients for scan entries computed server-side from `scan.result` facts × portion | 400, 401, 404 (scan not owned/not done) |
+| `PATCH /log/:id` | `{ meal?, portion?, date? }` (recomputes snapshot nutrients from the scan if portion changes) | `200 { entry }` | 400, 401, 404 |
+| `DELETE /log/:id` | — | `204` | 401, 404 |
+
+Logging is free (no credits). A scan may be logged multiple times (e.g. same snack twice a day).
+
+Profile updates (incl. custom targets), account deletion, waitlist join = **server actions** (UI-only, not part of the public API).
 
 **POST /scans flow:** auth → validate (zod) → rate limit → lazy reset → barcode fast-path (sync, free) → else daily-cap check → create `scan(queued)` → debit → upload thumbnail to R2 → respond 202 → `after()`: `status=processing` → `runEngine` → save result/`done` or `failed`+refund → upsert crowd `product` (label/front scans with name + facts) → increment `scanCount`.
 Route config: `export const maxDuration = 60`.
@@ -322,6 +355,7 @@ Route config: `export const maxDuration = 60`.
 
 ## 8. Testing & quality
 - **Unit (Vitest), offline:** credits logic, validation checks, Nutri-Score (against published reference examples), meal scoring, per-serving→per-100 g conversion, allergen/diet matching, merge precedence, alternatives ranking, `runEngine` with fake deps for each input kind (barcode-hit, label, front-matched, front-unmatched, meal, unreadable, not-food).
+- **Log unit tests:** portion→grams for each unit, nutrient snapshot = facts × grams/100, day/meal totals, goal-preset targets + overrides.
 - **Integration (Vitest + Neon branch or local Postgres via Docker):** debit/refund idempotency under concurrent requests (two parallel debits with balance 1 → exactly one succeeds), monthly reset, stuck-scan sweep.
 - **Eval (`pnpm eval`):** 25–30 fixtures (Indian + international packs, Hindi/regional labels, blurry/angled, fronts, meals) with hand-written expected JSON. Reports per-field accuracy (±5 % numeric tolerance), schema-failure rate, triage accuracy, p50/p95 latency, cost/scan per model. Used to choose `MODEL_FAST`/`MODEL_STRONG`. Not in CI (costs money); run manually.
 - **CI:** lint (ESLint 9 + next core-web-vitals, 0 warnings), `tsc --noEmit`, `vitest run`, `next build`.
@@ -352,9 +386,11 @@ Route config: `export const maxDuration = 60`.
 4. Engine: schema, validate, scoring, personalise, explain (pure, tested) → model layer → OFF source → alternatives.
 5. Scans service + `/api/v1` routes + R2 thumbnails.
 6. Eval harness + fixtures; pick models.
-7. Minimal functional UI wiring (unstyled) to exercise end-to-end — real styling comes from sub-project 2.
+7. Food log: `lib/log` (pure, tested) → table + `/api/v1/log` routes.
+8. Minimal functional UI wiring (unstyled) to exercise end-to-end — real styling comes from sub-project 2.
 
 ## 11. Open items (decide later, not blocking)
 - Final plan pricing/allowances and Pro payment provider (Razorpay likely) + hosting move off Vercel Hobby when Pro launches.
 - USDA FDC / IFCT integration for meals (v1.1).
 - Contributing crowd data back to Open Food Facts.
+- Later list (from scoping): share cards, compare two products, favourites/"my usual", family profiles (Pro), weekly insights (Pro), meal suggestions/planning (Pro).
