@@ -4,7 +4,7 @@ export const ALLERGEN_KEYS = ["peanut", "tree_nut", "milk", "egg", "gluten", "so
 export type AllergenKey = (typeof ALLERGEN_KEYS)[number];
 
 const ALLERGEN_WORDS: Record<AllergenKey, RegExp> = {
-  peanut: /\b(peanuts?|groundnuts?|moongphali|mungfali)\b/i,
+  peanut: /\b(peanuts?|groundnuts?|moongphali|moongfali|mungfali|mungphali)\b/i,
   tree_nut: /\b(almonds?|badam|cashews?|kaju|walnuts?|akhrot|pistachios?|pista|hazelnuts?)\b/i,
   milk: /\b(milk|paneer|ghee|butter|cream|malai|khoa|khoya|curd|dahi|cheese|whey|casein|lactose|milk solids|yogurt|yoghurt|buttermilk|chaas|lassi)\b/i,
   egg: /\b(eggs?|anda|albumin)\b/i,
@@ -15,6 +15,9 @@ const ALLERGEN_WORDS: Record<AllergenKey, RegExp> = {
   shellfish: /\b(prawns?|shrimps?|crab|lobster|shellfish)\b/i,
   mustard: /\b(mustard|sarson|rai)\b/i,
 };
+// "Peanut butter", "cocoa butter", "coconut milk" etc. are not dairy.
+const NON_DAIRY = /\b(peanut|cocoa|apple|nut|almond|cashew|shea|coconut|soy|soya|oat|rice) (butter|milk)\b/gi;
+const dairyText = (s: string) => s.replace(NON_DAIRY, "");
 const OFF_TAG: Record<string, AllergenKey> = {
   "en:peanuts": "peanut", "en:nuts": "tree_nut", "en:milk": "milk", "en:eggs": "egg", "en:gluten": "gluten",
   "en:soybeans": "soy", "en:sesame-seeds": "sesame", "en:fish": "fish", "en:crustaceans": "shellfish", "en:mustard": "mustard",
@@ -29,18 +32,21 @@ const CHECK = " Check the pack to confirm.";
 const pct = (v: number, of: number) => Math.round((v / of) * 100);
 
 export function personalise(input: {
-  allergens: string[]; ingredients: string[]; mayContain?: string[]; perPortion: Nutrients; portionLabel: string;
+  name: string; allergens: string[]; ingredients: string[]; mayContain?: string[]; perPortion: Nutrients; portionLabel: string;
   profile: { allergies: string[]; diet: Diet; goal: Goal; targets: DailyTargets };
 }): Flag[] {
   const flags: Flag[] = [];
-  const text = input.ingredients.join(", ");
+  // Without an ingredient list, the food's name is the best evidence we have ("Paneer butter masala").
+  const fromName = input.ingredients.length === 0;
+  const text = dairyText(fromName ? input.name : input.ingredients.join(", "));
+  const suffix = fromName ? " Going by the name — check before eating." : CHECK;
   const declared = new Set(input.allergens.map((t) => OFF_TAG[t]).filter(Boolean));
   const traces = new Set((input.mayContain ?? []).map((t) => OFF_TAG[t]).filter(Boolean));
   for (const key of input.profile.allergies as AllergenKey[]) {
     if (!(key in ALLERGEN_WORDS)) continue;
     const label = key.replace("_", " ");
     if (declared.has(key) || ALLERGEN_WORDS[key].test(text)) {
-      flags.push({ type: "allergen", key, severity: "contains", text: `Contains ${label}.${CHECK}` });
+      flags.push({ type: "allergen", key, severity: "contains", text: `Contains ${label}.${declared.has(key) ? CHECK : suffix}` });
     } else if (traces.has(key)) {
       flags.push({ type: "allergen", key, severity: "may_contain", text: `May contain traces of ${label}.${CHECK}` });
     }
@@ -48,7 +54,10 @@ export function personalise(input: {
   if (input.profile.diet !== "none" && text) {
     const rule = DIET_RULES[input.profile.diet];
     const hit = text.match(rule.words);
-    if (hit) flags.push({ type: "diet", key: input.profile.diet, severity: "contains", text: `Not ${rule.label}: contains ${hit[0].toLowerCase()}.${CHECK}` });
+    if (hit) flags.push({ type: "diet", key: input.profile.diet, severity: "contains", text: `Not ${rule.label}: contains ${hit[0].toLowerCase()}.${suffix}` });
+  }
+  if (fromName && (input.profile.allergies.length > 0 || input.profile.diet !== "none")) {
+    flags.push({ type: "allergen", key: "unknown", severity: "note", text: "Ingredients unknown — check before eating." });
   }
   const t = input.profile.targets, p = input.perPortion;
   const limits: [string, number | undefined, number, string][] = [

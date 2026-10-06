@@ -93,7 +93,7 @@ export async function foodDetail(userId: string, id: string): Promise<{ food: Fo
   const perPortion = portion.grams ? nutrientsFor(f.per100, portion.grams) : f.per100;
   const g: GradeResult = { grade: f.grade as Grade | null, value: f.gradeValue, components: f.gradeComponents };
   const reasons = explain({ grade: g, per100: f.per100, basis: f.basis, perPortion, portionLabel: portion.label, targets });
-  const flags = personalise({ allergens: f.allergens, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
+  const flags = personalise({ name: f.name, allergens: f.allergens, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
     profile: { allergies: prof.allergies, diet: prof.diet, goal: prof.goal, targets } });
   const alternatives = f.kind === "packaged" && f.grade && f.grade > "B" && f.categories.length
     ? (await db.select(HIT_COLUMNS).from(food)

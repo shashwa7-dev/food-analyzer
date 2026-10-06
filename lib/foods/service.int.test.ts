@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { createUser, resetDb } from "@/tests/helpers/db";
+import { db } from "@/lib/db/client";
+import { profile } from "@/lib/db/schema";
 import { upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
 import { createCustomFood, deleteCustomFood, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoods, updateCustomFood } from "./service";
@@ -72,6 +75,15 @@ describe("foods service", () => {
     expect(f.per100.energyKcal).toBe(140);
     expect(f.portions[0]).toMatchObject({ label: "1 serving", grams: 250 });
     expect(f.gradeCategory).toBe("dish");
+  });
+
+  it("flags allergens from the name when a food has no ingredient list", async () => {
+    const a = await createUser();
+    await db.update(profile).set({ allergies: ["milk"] }).where(eq(profile.userId, a));
+    const [hit] = await searchFoods(a, "paneer butter masala", "IN");
+    const d = await foodDetail(a, hit!.id);
+    expect(d?.flags.some((f) => f.type === "allergen" && f.key === "milk" && f.severity === "contains")).toBe(true);
+    expect(d?.flags.some((f) => f.key === "unknown")).toBe(true);
   });
 
   it("returns recents for the user only", async () => {

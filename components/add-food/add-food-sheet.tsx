@@ -10,9 +10,15 @@ import { QuickAddForm } from "@/components/add-food/quick-add-form";
 import { AddToMeal } from "@/components/food/add-to-meal";
 import { api } from "@/lib/api-client";
 import type { FoodHit } from "@/lib/foods/types";
-import type { Meal, Nutrients, Portion } from "@/lib/nutrition/types";
+import { GradeBadge } from "@/components/grade-badge";
+import { FlagList, ReasonList } from "@/components/food/food-verdict";
+import type { Flag, Meal, Nutrients, Portion, Reason } from "@/lib/nutrition/types";
 
-type DetailFood = { id: string; name: string; per100: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml" };
+type DetailFood = {
+  id: string; name: string; brand: string | null; grade: string | null; source: string;
+  per100: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml";
+};
+type Detail = { food: DetailFood; reasons: Reason[]; flags: Flag[] };
 
 const TABS = ["search", "scan", "quick"] as const;
 type Tab = (typeof TABS)[number];
@@ -23,7 +29,7 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
   const [picked, setPicked] = useState<FoodHit | null>(null);
   const detail = useQuery({
     queryKey: ["foods", picked?.id],
-    queryFn: () => api<{ food: DetailFood }>(`/api/v1/foods/${picked!.id}`),
+    queryFn: () => api<Detail>(`/api/v1/foods/${picked!.id}`),
     enabled: picked !== null,
   });
 
@@ -39,7 +45,20 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
         </button>
         {detail.isLoading && <p className="text-sm text-subtle">Loading…</p>}
         {detail.isError && <p className="text-sm text-bad">Couldn’t load that food. Try again.</p>}
-        {detail.data && <AddToMeal food={detail.data.food} date={date} defaultMeal={meal} onDone={() => onOpenChange(false)} />}
+        {detail.data && (
+          <>
+            <div className="flex items-center gap-3">
+              <GradeBadge grade={detail.data.food.grade} />
+              <div className="min-w-0">
+                <div className="font-semibold">{detail.data.food.name}</div>
+                {detail.data.food.brand && <div className="text-sm text-subtle">{detail.data.food.brand}</div>}
+              </div>
+            </div>
+            <div className="text-sm"><ReasonList reasons={detail.data.reasons} /></div>
+            <FlagList flags={detail.data.flags} />
+            <AddToMeal food={detail.data.food} date={date} defaultMeal={meal} onDone={() => onOpenChange(false)} />
+          </>
+        )}
       </div>
     );
   }

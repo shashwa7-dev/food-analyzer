@@ -5,6 +5,7 @@ import { todayIn } from "@/lib/dates";
 import { GradeStrip, GradeBadge } from "@/components/grade-badge";
 import { AddToMeal } from "@/components/food/add-to-meal";
 import { FoodOwnerActions } from "@/components/food/food-owner-actions";
+import { FlagList, ReasonList } from "@/components/food/food-verdict";
 import { nutrientsFor } from "@/lib/nutrition/portions";
 import Link from "next/link";
 
@@ -32,10 +33,9 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
           <section className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-5 shadow-card">
             <div className="flex flex-wrap items-center justify-between gap-3.5"><GradeStrip grade={food.grade} />
               {food.gradeValue !== null && <div className="text-right"><div className="num text-[26px] font-bold">{food.gradeValue}<span className="text-sm text-subtle">/100</span></div><div className="text-sm text-subtle">Health score</div></div>}</div>
-            <ul className="flex flex-col gap-2.5">{reasons.map((r) => (
-              <li key={r.text} className="flex items-start gap-2.5"><span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${r.tone === "good" ? "bg-ok" : r.tone === "warn" ? "bg-warn" : "bg-bad"}`} />{r.text}</li>))}</ul>
+            <ReasonList reasons={reasons} />
           </section>
-          {flags.map((f) => <div key={f.key + f.type} className={`rounded-md border p-3.5 text-sm ${f.type === "goal" ? "border-line bg-accent-soft" : "border-bad"}`}>{f.text}</div>)}
+          <FlagList flags={flags} />
           <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
             <AddToMeal food={food} date={todayIn(profile.timezone)} defaultMeal={defaultMeal} />
           </section>
