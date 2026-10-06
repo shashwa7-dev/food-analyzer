@@ -5,6 +5,7 @@ import { food, foodLog, userFoodStats } from "@/lib/db/schema";
 import { DateSchema } from "@/lib/dates";
 import { InvalidError, NotFoundError } from "@/lib/errors";
 import { getFoodForUser } from "@/lib/foods/service";
+import { isFreeGramsPortion } from "@/lib/log/format";
 import { nutrientsFor, rescaleEntry } from "@/lib/nutrition/portions";
 import { targetsFor } from "@/lib/nutrition/targets";
 import { dayTotals } from "@/lib/nutrition/totals";
@@ -24,7 +25,10 @@ export const AddEntrySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("quick"), date: DateSchema, meal: Meal, name: z.string().trim().min(1).max(120), nutrients: NutrientsInput }),
 ]);
 export type AddEntryInput = z.infer<typeof AddEntrySchema>;
-export const UpdateEntrySchema = z.object({ meal: Meal.optional(), date: DateSchema.optional(), quantity: z.number().min(0.25).max(20).optional() });
+// quantity multiplies a labelled portion; grams replaces the weight of a free-grams entry (label "g"/"ml").
+export const UpdateEntrySchema = z.object({
+  meal: Meal.optional(), date: DateSchema.optional(), quantity: z.number().min(0.25).max(20).optional(), grams: z.number().min(1).max(5000).optional(),
+});
 
 export async function addEntry(userId: string, raw: AddEntryInput): Promise<EntryRow> {
   const input = AddEntrySchema.parse(raw);
@@ -70,11 +74,20 @@ export async function updateEntry(userId: string, id: string, raw: z.infer<typeo
   const [cur] = await db.select().from(foodLog).where(and(eq(foodLog.id, id), eq(foodLog.userId, userId)));
   if (!cur) return null;
   let portion = cur.portion, nutrients = cur.nutrients;
-  if (patch.quantity !== undefined && patch.quantity !== cur.portion.amount) {
+  const freeGrams = isFreeGramsPortion(cur.portion);
+  if (patch.grams !== undefined && !freeGrams) throw new InvalidError("Change the quantity instead.");
+  if (patch.quantity !== undefined && freeGrams) throw new InvalidError("Change the grams instead.");
+  let next: Portion | null = null;
+  if (patch.grams !== undefined && patch.grams !== cur.portion.grams) {
+    const g = Math.round(patch.grams * 10) / 10;
+    next = { ...cur.portion, amount: g, grams: g };
+  } else if (patch.quantity !== undefined && patch.quantity !== cur.portion.amount) {
     const perUnit = cur.portion.grams ? cur.portion.grams / cur.portion.amount : null;
     const nextGrams = perUnit ? Math.round(perUnit * patch.quantity * 10) / 10 : null;
     if (nextGrams !== null && (nextGrams < 1 || nextGrams > 5000)) throw new InvalidError("Portion is out of range.");
-    const next: Portion = { ...cur.portion, amount: patch.quantity, grams: nextGrams };
+    next = { ...cur.portion, amount: patch.quantity, grams: nextGrams };
+  }
+  if (next) {
     const scaled = rescaleEntry({ portion: cur.portion, nutrients: cur.nutrients }, next);
     if (!scaled) throw new InvalidError("Can't change this portion.");
     if (!NutrientsInput.safeParse(scaled).success) throw new InvalidError("Portion is out of range.");

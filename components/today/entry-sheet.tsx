@@ -11,16 +11,15 @@ import { Button } from "@/components/ui/button";
 import { GradeBadge } from "@/components/grade-badge";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { api, ApiError } from "@/lib/api-client";
-import { portionMeta } from "@/lib/log/format";
+import { isFreeGramsPortion, portionMeta } from "@/lib/log/format";
 import { stepQuantity } from "@/lib/log/quantity";
 import { MEALS, type Meal } from "@/lib/nutrition/types";
 import type { EntryRow } from "@/lib/log/service";
 
-const isFreeGrams = (entry: EntryRow) => entry.portion.label === "g" || entry.portion.label === "ml";
-
 function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => void }) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(entry.portion.amount);
+  const [gramsText, setGramsText] = useState(String(entry.portion.grams ?? ""));
   const [meal, setMeal] = useState<Meal>(entry.meal);
   const [confirming, setConfirming] = useState(false);
   // Only link to the food while it is still visible to the user (custom foods can be soft-deleted).
@@ -30,12 +29,19 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
     enabled: entry.foodId !== null,
     retry: false,
   });
-  const freeGrams = isFreeGrams(entry);
-  const kcal = Math.round(entry.portion.amount > 0 ? (entry.nutrients.energyKcal * quantity) / entry.portion.amount : entry.nutrients.energyKcal);
-  const patch: { quantity?: number; meal?: Meal } = {};
+  const freeGrams = isFreeGramsPortion(entry.portion);
+  const unit = entry.portion.unit === "ml" ? "ml" : "g";
+  const grams = Number(gramsText);
+  const gramsValid = !freeGrams || (gramsText.trim() !== "" && Number.isFinite(grams) && grams >= 1 && grams <= 5000);
+  const factor = freeGrams
+    ? (gramsValid && entry.portion.grams ? grams / entry.portion.grams : 1)
+    : (entry.portion.amount > 0 ? quantity / entry.portion.amount : 1);
+  const kcal = Math.round(entry.nutrients.energyKcal * factor);
+  const patch: { quantity?: number; grams?: number; meal?: Meal } = {};
+  if (freeGrams && gramsValid && grams !== entry.portion.grams) patch.grams = grams;
   if (!freeGrams && quantity !== entry.portion.amount) patch.quantity = quantity;
   if (meal !== entry.meal) patch.meal = meal;
-  const dirty = Object.keys(patch).length > 0;
+  const dirty = Object.keys(patch).length > 0 && gramsValid;
   const done = (message: string) => {
     toast.success(message);
     router.refresh();
@@ -66,7 +72,18 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
           </Link>
         )}
       </div>
-      {!freeGrams && (
+      {freeGrams ? (
+        <label className="flex items-center justify-between gap-3 text-sm text-subtle">
+          Amount ({unit})
+          <input
+            inputMode="decimal"
+            value={gramsText}
+            onChange={(e) => setGramsText(e.target.value)}
+            aria-invalid={!gramsValid}
+            className="num min-h-11 w-28 rounded-md border border-line bg-surface px-3 text-right text-base text-ink outline-none focus-visible:border-accent aria-invalid:border-bad"
+          />
+        </label>
+      ) : (
         <div className="flex items-center justify-between">
           <span className="text-sm text-subtle">How many?</span>
           <div className="flex items-center overflow-hidden rounded-md border border-line">

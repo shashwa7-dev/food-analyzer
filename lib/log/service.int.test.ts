@@ -77,6 +77,28 @@ describe("food log", () => {
     expect(e.nutrients.energyKcal).toBe(90);
   });
 
+  it("edits free grams via the grams field", async () => {
+    const u = await createUser(); const f = await dal();
+    const e = await addEntry(u, { kind: "grams", date: today, meal: "dinner", foodId: f.id, grams: 75 });
+    const r = await updateEntry(u, e.id, { grams: 150 });
+    expect(r?.portion).toMatchObject({ label: "g", amount: 150, unit: "g", grams: 150 });
+    expect(r?.nutrients.energyKcal).toBe(180);
+  });
+
+  it("rejects grams on a labelled portion", async () => {
+    const u = await createUser(); const f = await dal();
+    const e = await addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: f.id, portionIndex: 0, quantity: 1 });
+    await expect(updateEntry(u, e.id, { grams: 150 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  it("treats quantity on a 100 g base portion as a multiplier", async () => {
+    const u = await createUser(); const f = await dal();
+    const base = f.portions.findIndex((p) => p.label === "100 g");
+    const e = await addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: f.id, portionIndex: base, quantity: 1.5 });
+    expect(e.portion).toMatchObject({ label: "100 g", amount: 1.5, grams: 150 });
+    expect((await updateEntry(u, e.id, { quantity: 2 }))?.portion).toMatchObject({ amount: 2, grams: 200 });
+  });
+
   it("bumps recents", async () => {
     const u = await createUser(); const f = await dal();
     await addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: f.id, portionIndex: 0, quantity: 1 });
