@@ -75,7 +75,7 @@ Single Next.js app; API = route handlers under `/api/v1/*` (JSON; a Bearer-token
 | Client data | Server components read DB directly; TanStack Query for interactive bits (search-as-you-type, scan polling, diary mutations with optimistic updates, credit balance) |
 | Validation | zod 4 everywhere (env, API input, AI output, forms via react-hook-form) |
 | Auth | Better Auth, Google OAuth, Drizzle adapter |
-| DB | Neon Postgres (free tier) + Drizzle + drizzle-kit; extensions `pg_trgm`, `unaccent`. Driver: `drizzle-orm/neon-serverless` with the `@neondatabase/serverless` **Pool (WebSocket)** — required because credits/log use interactive transactions, which the `neon-http` driver can't do. Tests run against Docker Postgres 17 via `drizzle-orm/node-postgres`. Neon scales to zero: first query after idle adds ~0.5–1 s. |
+| DB | Neon Postgres (free tier) + Drizzle + drizzle-kit; extension `pg_trgm` (diacritics are stripped in JS, so `unaccent` isn't needed). Driver: `drizzle-orm/neon-serverless` with the `@neondatabase/serverless` **Pool (WebSocket)** — required because credits/log use interactive transactions, which the `neon-http` driver can't do. Tests run against Docker Postgres 17 via `drizzle-orm/node-postgres`. Neon scales to zero: first query after idle adds ~0.5–1 s. |
 | AI | Vercel AI SDK, `@ai-sdk/google` default; model ids from env |
 | Storage | Cloudflare R2 (free tier), scan thumbnails only, via `aws4fetch` |
 | Errors | Sentry (free tier), basic PII scrubbing |
@@ -163,16 +163,16 @@ food {
   nutriscoreSource char(1) null · nova smallint null      (as supplied by OFF)
   grade char(1) null · gradeValue smallint null · gradeVersion text   (ours, §5.3; null = not graded; `scripts/regrade.ts` recomputes on version bump)
   normName text · normBrand text      (lowercase, unaccented, punctuation stripped — dedupe keys)
-  searchName text GENERATED ALWAYS AS (normName || ' ' || array_to_string(aliases,' ')) STORED   (trigram target incl. aliases)
   deletedAt timestamp null          (soft delete for custom foods: hidden from search/detail, keeps FKs valid)
   imageUrl text null
   popularity integer default 0      (times logged across users)
-  searchText tsvector GENERATED ALWAYS AS (to_tsvector('simple', immutable_unaccent(name || ' ' || coalesce(brand,'') || ' ' || array_to_string(aliases,' ')))) STORED
-      (immutable_unaccent = IMMUTABLE SQL wrapper around unaccent(), created in the first migration; plain unaccent() is not IMMUTABLE and is rejected in generated columns)
+  searchName text                    (normName + normBrand + normalised aliases, space-joined — trigram target)
+  searchText tsvector                (to_tsvector('simple', searchName))
+      Both are written by the app on every insert/update via `buildSearchFields()` in lib/foods/normalise.ts
+      (JS NFD diacritic stripping) — no generated columns, so no IMMUTABLE problems with unaccent()/array_to_string().
   createdAt, updatedAt
   INDEX GIN(searchText), GIN(searchName gin_trgm_ops), (ownerId), (barcode), GIN(categories), GIN(countries)
   UNIQUE (source, normName, normBrand) WHERE barcode IS NULL AND source = 'crowd'   (crowd dedupe)
-  Note: array_to_string is STABLE, so searchName/searchText are maintained by the app at insert/update (normalise.ts) rather than as GENERATED columns if Postgres rejects them; the migration test decides (see plan).
 }
 
 scan {
@@ -294,7 +294,7 @@ INDB ships as spreadsheets; `scripts/fetch-sources.ts` downloads each source and
 IFCT 2017 not used (raw ingredients only; commercial data licensing unclear; INDB builds on it). `aliases-in.csv` adds Hinglish/Hindi names (chawal, aloo, sabzi, dahi, chai…). Seeding computes grades and portions.
 
 ### 6.2 Search (Postgres only)
-1. Normalise (lowercase, unaccent, strip punctuation, alias expansion).
+1. Normalise with the same `normalise()` used at write time (lowercase, NFD diacritic strip, punctuation strip, alias expansion).
 2. Candidates: `searchText @@ websearch_to_tsquery('simple', q)` OR `q <% searchName` (word-similarity operator, index-backed; `pg_trgm.word_similarity_threshold = 0.4` set per transaction) — handles prefixes ("dal" → "dal tadka") and typos ("biriyani", "panner"); visible = `visibleFoodWhere(userId)` (non-custom + own custom, `deletedAt IS NULL`).
 3. Rank: own recents/custom → exact/prefix name → `kind ≠ ingredient` (raw ingredients last, so "rice" returns cooked rice before "rice, raw, milled") → country match → source priority (IN: custom > crowd > indb > off > fndds; elsewhere fndds before indb) → popularity → word_similarity.
    Ranking is pinned by a fixture test of the top 50 Indian queries (`tests/fixtures/search-in.json`: query → expected first result).
@@ -474,7 +474,7 @@ Logging/search are free. Logging bumps `user_food_stats` and `food.popularity`.
 
 ## 14. Review log (rev 3)
 Fixes applied after review on 2026-10-06:
-1. `unaccent()` is not IMMUTABLE → generated `searchText` uses an IMMUTABLE wrapper.
+1. `unaccent()` is not IMMUTABLE → search columns are app-maintained (superseded wrapper idea).
 2. Upload caps fit Vercel's 4.5 MB body limit (≤ 1.2 MB × 3 + 80 KB thumb, ≤ 4 MB total); magic-byte checks.
 3. Open Food Facts search is rate-limited (10/min/IP) → India subset bulk-imported; runtime = barcode lookups only.
 4. Monthly reset serialised by row lock + idempotent keys; stuck sweep at 3 min with conditional terminal writes (no late-job overwrite, no double refund).
