@@ -20,8 +20,9 @@
 4. Running cost ≈ ₹0/month at low usage (free tiers); AI cost per scan ≲ ₹0.5.
 5. Sellable foundation: auth, per-user data, a credit/plan system ready for a paid Pro tier.
 6. Daily habit: every scan is kept in History, and any scan can be added to a meal in one tap; the Today screen tracks the day's calories and macros against the user's targets (optional — scanning works without ever logging).
+7. Type-to-log like MyFitnessPal: search a built-in food catalogue ("boiled rice", "dal tadka", "coffee with milk") including Indian dishes and household portions (katori, roti, cup), plus the user's own custom foods and recents.
 
-**Non-goals (v1):** payments/Pro checkout (UI shows "coming soon"), store-level availability or prices, native apps, admin dashboard, public share links / share cards, product comparison page, favourites, family profiles, weekly insights, meal planning/suggestions, manual food entry by database search (only quick manual entry in v1), contributing data back to Open Food Facts.
+**Non-goals (v1):** payments/Pro checkout (UI shows "coming soon"), store-level availability or prices, native apps, admin dashboard, public share links / share cards, product comparison page, favourites, family profiles, weekly insights, meal planning/suggestions, natural-language meal entry ("2 rotis and dal") via LLM, barcode-less branded-food search beyond cached OFF products, contributing data back to Open Food Facts.
 
 ---
 
@@ -65,6 +66,9 @@ lib/
                    sources/off.ts · sources/food-tables.ts
   credits/         logic.ts (pure) · ledger.ts (DB ops)
   log/             targets.ts (pure) · totals.ts (pure) · service.ts (DB ops)
+  foods/           search.ts (DB query) · portions.ts (pure) · normalise.ts (pure)
+scripts/           seed-foods.ts (imports data/sources/* → food table)
+data/sources/      indb/ · fndds/ · portions-in.csv · aliases-in.csv · ATTRIBUTION.md
   scans/           service.ts (orchestrates engine + credits + storage + DB)
   db/              schema.ts · client.ts · migrations/
   auth.ts · env.ts · storage.ts · location.ts · rate-limit.ts
@@ -145,12 +149,32 @@ scan {
   INDEX (userId, createdAt DESC), INDEX (createdAt)
 }
 
+food {
+  id          uuid PK
+  source      enum('indb','fndds','off','crowd','custom')
+  sourceRef   text null          (source's own id; UNIQUE with source)
+  ownerId     text null → user.id (only for source='custom'; private to owner)
+  name        text               (display name, e.g. "Dal tadka")
+  aliases     text[]             (e.g. "dal fry", "tadka dal", "दाल तड़का")
+  brand       text null
+  productId   uuid null → product.id (branded items mirrored from product)
+  per100g     jsonb  Nutrients
+  portions    jsonb  [{ label: "1 katori", grams: 150 }, { label: "1 cup", grams: 240 }]  (always also "100 g")
+  defaultPortion smallint        (index into portions)
+  countries   text[]             (relevance boost; INDB → ['IN'])
+  popularity  integer default 0  (incremented when logged)
+  searchText  tsvector GENERATED (name + aliases + brand)
+  createdAt, updatedAt
+  INDEX GIN(searchText), GIN(name gin_trgm_ops), (ownerId)
+}
+
 food_log {
   id          uuid PK (v7)
   userId      text → user.id
   date        date        (user's local date, sent by client; never derived server-side from UTC)
   meal        enum('breakfast','lunch','dinner','snack')
-  scanId      uuid null → scan.id   (null for quick manual entries)
+  scanId      uuid null → scan.id
+  foodId      uuid null → food.id   (exactly one of scanId / foodId / neither-for-quick-entry)
   name        text                  (snapshot of product/dish name)
   portion     jsonb  { amount: number; unit: 'g'|'ml'|'serving'|'pack'; grams: number }
   nutrients   jsonb  Nutrients for this portion (snapshot — later product edits don't change past logs)
@@ -310,6 +334,30 @@ EngineResult {
 - **Portion → grams:** `g`/`ml` direct (ml ≈ g); `serving` uses label `servingSize`; `pack` uses `packSize`; missing size ⇒ unit not offered. Meal scans default to the engine's estimated grams.
 - `totals.ts`: sums entries per day and per meal; `remaining = target − total` (floors at 0 for "≤" limits shown as "over by").
 
+### 5.9 Food catalogue & search
+**Seed data (imported once by `pnpm seed:foods`, re-runnable/idempotent on `(source, sourceRef)`):**
+
+| Source | What | Size | License |
+|---|---|---|---|
+| **INDB** — Indian Nutrient Databank (Anuvaad / Jaacks et al., 2024) | ~1,014 commonly consumed Indian recipes (dal, roti, poha, biryani…) per 100 g + serving size; ~1,095 ingredients | ~2k rows | CC BY 4.0 (attribution required) |
+| **USDA FNDDS** (FoodData Central) | ~5–7k common foods & drinks "as eaten" with household portion weights (cup, slice, piece) | ~6k rows | CC0 / public domain |
+| **Open Food Facts** | branded packaged products — not bulk-imported; mirrored into `food` when first cached via barcode/scan | grows organically | ODbL (attribution; share-alike applies to the database if we redistribute it — we only display, so attribution suffices) |
+| **Crowd** | products our users scanned (from `product`) | grows | ours |
+| **Custom** | user-created foods, private | — | user's |
+
+IFCT 2017 (NIN) is *not* used: it covers raw ingredients only and its data licensing for commercial use is unclear; INDB already incorporates IFCT-derived values for recipes.
+
+**Indian household portions & aliases:** `data/sources/portions-in.csv` maps food groups to units (katori 150 g, roti 40 g, idli 40 g, dosa 80 g, glass 250 ml, cup 150 ml, tbsp 15 g, tsp 5 g, piece by item). `aliases-in.csv` adds Hinglish/Hindi names (chawal→rice, aloo→potato, sabzi, etc.). Both are small hand-curated files, versioned in the repo.
+
+**Search (Postgres only — `pg_trgm` + full-text, no external search service):**
+1. Normalise query (lowercase, strip punctuation, alias expansion).
+2. Candidates: `searchText @@ websearch_to_tsquery(q)` OR `similarity(name, q) > 0.3` (typo tolerance: "biriyani", "panner").
+3. Visible rows: all non-custom + `custom` where `ownerId = me`.
+4. Rank: own custom foods & recents first → exact/prefix name match → `countries` contains user country → source priority (custom > crowd > indb > off > fndds for IN; fndds before indb elsewhere) → `popularity`.
+5. Return `FoodHit { id, name, brand?, source, kcalPer100g, defaultPortion: {label, grams, kcal} }`.
+
+Target: p95 < 150 ms on Neon free for ~10k rows.
+
 ---
 
 ## 6. API (`/api/v1`)
@@ -324,11 +372,15 @@ All JSON; auth via Better Auth session cookie (Bearer plugin enabled for future 
 | `GET /me` | — | `200 { profile, credits, plan, allowance, periodResetsAt }` (applies lazy monthly reset) | 401 |
 
 | `GET /log?date=YYYY-MM-DD` | — | `200 { date, entries[], totals: Nutrients, targets: DailyTargets, byMeal: Record<Meal, Nutrients> }` | 400, 401 |
-| `POST /log` | `{ date, meal, scanId, portion }` **or** `{ date, meal, name, portion, nutrients }` (quick manual entry) | `201 { entry }` — nutrients for scan entries computed server-side from `scan.result` facts × portion | 400, 401, 404 (scan not owned/not done) |
+| `POST /log` | `{ date, meal, portion }` + one of `scanId` · `foodId` · `{ name, nutrients }` (quick entry) | `201 { entry }` — nutrients computed server-side from scan facts / food per100g × portion grams | 400, 401, 404 (scan/food not visible to user) |
+| `GET /foods?q=&limit=20` | `q` ≥ 2 chars | `200 { results: FoodHit[] }` — see §5.9 ranking | 400, 401 |
+| `GET /foods/recent` | — | `200 { results: FoodHit[] }` — user's 20 most recently/frequently logged foods + scans | 401 |
+| `POST /foods` | `{ name, brand?, per: {amount, unit}, nutrients, portions? }` (custom food; per-serving input converted to per100g) | `201 { food }` | 400, 401 |
+| `PATCH /foods/:id`, `DELETE /foods/:id` | custom foods owned by the user only | `200` / `204` | 401, 404 |
 | `PATCH /log/:id` | `{ meal?, portion?, date? }` (recomputes snapshot nutrients from the scan if portion changes) | `200 { entry }` | 400, 401, 404 |
 | `DELETE /log/:id` | — | `204` | 401, 404 |
 
-Logging is free (no credits). A scan may be logged multiple times (e.g. same snack twice a day).
+Logging and food search are free (no credits). A scan may be logged multiple times (e.g. same snack twice a day). A scan result can be saved as a custom food ("Save to my foods") so it's searchable later.
 
 Profile updates (incl. custom targets), account deletion, waitlist join = **server actions** (UI-only, not part of the public API).
 
@@ -349,12 +401,14 @@ Route config: `export const maxDuration = 60`.
 - Secrets server-only; `lib/env.ts` validates with zod at boot (empty string = unset). No `NEXT_PUBLIC_` secrets. **Rotate the old Gemini key** (it is in git history, commit `4d2b34c`).
 - Gemini paid tier at launch for any real users (free tier may use inputs for training); free tier acceptable for dev/eval.
 - Disclaimers on result + terms: informational, not medical advice; allergens "check the pack".
+- Data attribution page (`/about/data`) credits INDB (CC BY), USDA FoodData Central, and Open Food Facts (ODbL).
 - OFF API calls send a descriptive `User-Agent` (`EATRi8/2.0 (contact email)`) as OFF requires.
 
 ---
 
 ## 8. Testing & quality
 - **Unit (Vitest), offline:** credits logic, validation checks, Nutri-Score (against published reference examples), meal scoring, per-serving→per-100 g conversion, allergen/diet matching, merge precedence, alternatives ranking, `runEngine` with fake deps for each input kind (barcode-hit, label, front-matched, front-unmatched, meal, unreadable, not-food).
+- **Foods unit tests:** query normalisation + alias expansion, per-serving→per100g conversion for custom foods, portion resolution; **integration:** search ranking fixtures ("rice" returns boiled rice before rice flour; "panner" finds paneer; another user's custom food never appears).
 - **Log unit tests:** portion→grams for each unit, nutrient snapshot = facts × grams/100, day/meal totals, goal-preset targets + overrides.
 - **Integration (Vitest + Neon branch or local Postgres via Docker):** debit/refund idempotency under concurrent requests (two parallel debits with balance 1 → exactly one succeeds), monthly reset, stuck-scan sweep.
 - **Eval (`pnpm eval`):** 25–30 fixtures (Indian + international packs, Hindi/regional labels, blurry/angled, fronts, meals) with hand-written expected JSON. Reports per-field accuracy (±5 % numeric tolerance), schema-failure rate, triage accuracy, p50/p95 latency, cost/scan per model. Used to choose `MODEL_FAST`/`MODEL_STRONG`. Not in CI (costs money); run manually.
@@ -386,11 +440,13 @@ Route config: `export const maxDuration = 60`.
 4. Engine: schema, validate, scoring, personalise, explain (pure, tested) → model layer → OFF source → alternatives.
 5. Scans service + `/api/v1` routes + R2 thumbnails.
 6. Eval harness + fixtures; pick models.
-7. Food log: `lib/log` (pure, tested) → table + `/api/v1/log` routes.
-8. Minimal functional UI wiring (unstyled) to exercise end-to-end — real styling comes from sub-project 2.
+7. Food catalogue: `food` table, seed script (INDB + FNDDS + portions/aliases) → search + recents + custom foods routes.
+8. Food log: `lib/log` (pure, tested) → table + `/api/v1/log` routes.
+9. Minimal functional UI wiring (unstyled) to exercise end-to-end — real styling comes from sub-project 2.
 
 ## 11. Open items (decide later, not blocking)
 - Final plan pricing/allowances and Pro payment provider (Razorpay likely) + hosting move off Vercel Hobby when Pro launches.
 - USDA FDC / IFCT integration for meals (v1.1).
 - Contributing crowd data back to Open Food Facts.
+- Natural-language quick add ("2 rotis and dal") — cheap LLM parse mapped onto catalogue items; likely Pro or 1 credit.
 - Later list (from scoping): share cards, compare two products, favourites/"my usual", family profiles (Pro), weekly insights (Pro), meal suggestions/planning (Pro).
