@@ -35,7 +35,8 @@ export function classify(input: {
     case "indb":
       // INDB contains only cooked recipes — RAW_INGREDIENT is not applied here (it would catch words
       // like "flour" or "dry" that appear in dish names, e.g. "Gram flour and semolina dhokla").
-      if (BASIC_INGREDIENT.test(input.name.trim())) return { kind: "ingredient", gradeCategory: "none" };
+      // "Gulab jamun with milk powder" is a dish, not the powder.
+      if (!/ with /i.test(input.name) && BASIC_INGREDIENT.test(input.name.trim())) return { kind: "ingredient", gradeCategory: "none" };
       return { kind: "dish", gradeCategory: "dish" };
     case "fndds": {
       const w = input.wweia ?? "";

@@ -41,6 +41,16 @@ describe("toFoodDraft", () => {
     expect(d.gradePortionGrams).toBe(120);
     expect(d.defaultPortion).toBe(2);
   });
+  it("defaults to the first real portion of at least 30 g, but grades on the first real portion", () => {
+    const d = toFoodDraft({ source: "indb", sourceRef: "S1", name: "Spinach sabzi", basis: "per_100g",
+      per100: { energyKcal: 90, protein: 3, carbs: 8, fat: 5 },
+      portions: [{ label: "1 leaf", amount: 1, unit: "household", grams: 5 }, { label: "1 katori", amount: 1, unit: "household", grams: 120 }], countries: ["IN"] }, []);
+    expect(d.defaultPortion).toBe(1);
+    expect(d.gradePortionGrams).toBe(100);
+    const tiny = toFoodDraft({ source: "fndds", sourceRef: "S2", name: "Broccoli floweret", basis: "per_100g", wweia: "Broccoli",
+      per100: { energyKcal: 35, protein: 2.4, carbs: 7, fat: 0.4 }, portions: [{ label: "1 floweret", amount: 1, unit: "household", grams: 11 }], countries: ["US"] }, []);
+    expect(tiny.portions[tiny.defaultPortion ?? 0]?.label).toBe("100 g");
+  });
   it("Apple, raw is a graded generic food with fruit credit", () => {
     const d = toFoodDraft({ source: "fndds", sourceRef: "A1", name: "Apple, raw", basis: "per_100g", wweia: "Apples",
       per100: { energyKcal: 52, protein: 0.3, carbs: 13.8, fat: 0.2, fibre: 2.4, sugars: 10.4, satFat: 0, sodiumMg: 1 },

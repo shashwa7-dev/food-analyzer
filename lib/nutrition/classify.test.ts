@@ -11,6 +11,9 @@ describe("classify", () => {
     expect(classify({ source: "indb", name: "Honey chilli potato" })).toEqual({ kind: "dish", gradeCategory: "dish" });
     expect(classify({ source: "indb", name: "Mustard oil" })).toEqual({ kind: "ingredient", gradeCategory: "none" });
   });
+  it("INDB dishes 'with' a basic ingredient are dishes", () => {
+    expect(classify({ source: "indb", name: "Gulab jamun with milk powder" })).toEqual({ kind: "dish", gradeCategory: "dish" });
+  });
   it("INDB cooked dishes are not misclassified as raw ingredients", () => {
     expect(classify({ source: "indb", name: "Gram flour and semolina dhokla" })).toEqual({ kind: "dish", gradeCategory: "dish" });
     expect(classify({ source: "indb", name: "Chickpea flour cookies" })).toEqual({ kind: "dish", gradeCategory: "dish" });

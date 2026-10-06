@@ -55,6 +55,13 @@ export function representativePortion(portions: Portion[]): number {
   return i >= 0 ? i : 0;
 }
 
+const MIN_DEFAULT_GRAMS = 30;
+/** Default (displayed) portion: the first real portion of at least 30 g, so hits don't default to "1 leaf". */
+export function defaultPortionIndex(portions: Portion[]): number {
+  const i = portions.findIndex((p) => p.grams && p.grams >= MIN_DEFAULT_GRAMS && !NOT_A_PORTION.test(p.label));
+  return i >= 0 ? i : representativePortion(portions);
+}
+
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function householdFor(name: string, rules: HouseholdRule[]): Portion[] {
@@ -68,9 +75,10 @@ export function toFoodDraft(rec: SourceRecord, rules: HouseholdRule[]): FoodDraf
   const sourcePortions = rec.portions.filter((p) => !BARE_UNIT_LABEL.test(p.label));
   const portions = ensureBasePortion(rec.basis, [...sourcePortions, ...(rec.source === "indb" ? householdFor(rec.name, rules) : [])]);
   // Dishes are graded on one frozen reference portion: the first real portion, but never less than 100 g, so a
-  // single small piece (one chikki, one roti) can't make a dense recipe look light. Search hits show the same portion.
-  const defaultPortion = representativePortion(portions);
-  const gradePortionGrams = gradeCategory === "dish" ? Math.max(portions[defaultPortion]?.grams ?? MIN_GRADE_GRAMS, MIN_GRADE_GRAMS) : null;
+  // single small piece (one chikki, one roti) can't make a dense recipe look light.
+  const gradePortion = portions[representativePortion(portions)];
+  const defaultPortion = defaultPortionIndex(portions);
+  const gradePortionGrams = gradeCategory === "dish" ? Math.max(gradePortion?.grams ?? MIN_GRADE_GRAMS, MIN_GRADE_GRAMS) : null;
   const g = gradeFood({ gradeCategory, per100: rec.per100, gradePortionGrams, additives: rec.additives, nova: rec.nova, fvlPercent });
   const categories = rec.categories ?? (rec.wweia ? [`${WWEIA_PREFIX}${rec.wweia}`] : []);
   const prov: Provenance = rec.source === "off" ? "community" : "reference";
