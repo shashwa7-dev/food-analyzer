@@ -2,7 +2,7 @@ import { ENGLISH_TO_HINGLISH, HINGLISH, MISSPELLINGS } from "./aliases";
 
 export function normalise(s: string): string {
   return s
-    .normalize("NFD").replace(/[̀-ͯ]/g, "") // escape sequence, not literal combining characters
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // escape sequence, not literal combining characters
     .normalize("NFC")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\p{M}]+/gu, " ")

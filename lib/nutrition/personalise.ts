@@ -6,7 +6,7 @@ export type AllergenKey = (typeof ALLERGEN_KEYS)[number];
 const ALLERGEN_WORDS: Record<AllergenKey, RegExp> = {
   peanut: /\b(peanuts?|groundnuts?|moongphali|mungfali)\b/i,
   tree_nut: /\b(almonds?|badam|cashews?|kaju|walnuts?|akhrot|pistachios?|pista|hazelnuts?)\b/i,
-  milk: /\b(milk|paneer|ghee|butter|cream|malai|khoa|khoya|curd|dahi|cheese|whey|casein|lactose|milk solids)\b/i,
+  milk: /\b(milk|paneer|ghee|butter|cream|malai|khoa|khoya|curd|dahi|cheese|whey|casein|lactose|milk solids|yogurt|yoghurt|buttermilk|chaas|lassi)\b/i,
   egg: /\b(eggs?|anda|albumin)\b/i,
   gluten: /\b(wheat|atta|maida|suji|sooji|semolina|rava|barley|rye|gluten)\b/i,
   soy: /\b(soy|soya|soybeans?|tofu)\b/i,
@@ -20,10 +20,10 @@ const OFF_TAG: Record<string, AllergenKey> = {
   "en:soybeans": "soy", "en:sesame-seeds": "sesame", "en:fish": "fish", "en:crustaceans": "shellfish", "en:mustard": "mustard",
 };
 const DIET_RULES: Record<Exclude<Diet, "none">, { words: RegExp; label: string }> = {
-  vegetarian: { words: /\b(chicken|mutton|lamb|beef|pork|fish|prawns?|shrimps?|eggs?|gelatin|e120|carmine)\b/i, label: "vegetarian" },
-  eggetarian: { words: /\b(chicken|mutton|lamb|beef|pork|fish|prawns?|shrimps?|gelatin|e120|carmine)\b/i, label: "eggetarian" },
-  vegan: { words: /\b(milk|ghee|butter|paneer|cream|curd|dahi|cheese|whey|casein|honey|eggs?|chicken|mutton|fish|gelatin|e120|milk solids)\b/i, label: "vegan" },
-  jain: { words: /\b(onions?|garlic|potato(es)?|aloo|carrots?|beetroot|radish|ginger|chicken|mutton|fish|eggs?|honey|gelatin)\b/i, label: "Jain" },
+  vegetarian: { words: /\b(chicken|mutton|lamb|beef|pork|fish|prawns?|shrimps?|shellfish|crab|lobster|eggs?|gelatin|e120|carmine)\b/i, label: "vegetarian" },
+  eggetarian: { words: /\b(chicken|mutton|lamb|beef|pork|fish|prawns?|shrimps?|shellfish|crab|lobster|gelatin|e120|carmine)\b/i, label: "eggetarian" },
+  vegan: { words: /\b(milk|ghee|butter|paneer|cream|curd|dahi|cheese|whey|casein|yogurt|yoghurt|buttermilk|chaas|lassi|honey|eggs?|chicken|mutton|fish|gelatin|e120|milk solids)\b/i, label: "vegan" },
+  jain: { words: /\b(onions?|garlic|potato(es)?|aloo|carrots?|beetroot|radish|ginger|chicken|mutton|fish|shellfish|crab|lobster|eggs?|honey|gelatin)\b/i, label: "Jain" },
 };
 const CHECK = " Check the pack to confirm.";
 const pct = (v: number, of: number) => Math.round((v / of) * 100);

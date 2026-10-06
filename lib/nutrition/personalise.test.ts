@@ -28,4 +28,28 @@ describe("personalise", () => {
   it("adds no flags when ingredients are unknown and nothing is over", () => {
     expect(personalise({ allergens: [], ingredients: [], perPortion: { energyKcal: 100, protein: 3, carbs: 10, fat: 2 }, portionLabel: "1 katori", profile: prof({}) })).toEqual([]);
   });
+  it("flags yogurt and buttermilk as milk allergen", () => {
+    const f1 = personalise({ allergens: [], ingredients: ["yogurt"], perPortion: portion, portionLabel: "1 bowl", profile: prof({ allergies: ["milk"] }) });
+    expect(f1.some((x) => x.type === "allergen" && x.key === "milk")).toBe(true);
+    const f2 = personalise({ allergens: [], ingredients: ["buttermilk"], perPortion: portion, portionLabel: "1 bowl", profile: prof({ allergies: ["milk"] }) });
+    expect(f2.some((x) => x.type === "allergen" && x.key === "milk")).toBe(true);
+  });
+  it("flags yogurt and buttermilk as vegan violations", () => {
+    const f1 = personalise({ allergens: [], ingredients: ["yogurt"], perPortion: portion, portionLabel: "1 bowl", profile: prof({ diet: "vegan" }) });
+    expect(f1.some((x) => x.type === "diet")).toBe(true);
+    const f2 = personalise({ allergens: [], ingredients: ["buttermilk"], perPortion: portion, portionLabel: "1 bowl", profile: prof({ diet: "vegan" }) });
+    expect(f2.some((x) => x.type === "diet")).toBe(true);
+  });
+  it("flags shellfish as vegetarian violation", () => {
+    const f = personalise({ allergens: [], ingredients: ["shellfish"], perPortion: portion, portionLabel: "1 bowl", profile: prof({ diet: "vegetarian" }) });
+    expect(f.some((x) => x.type === "diet")).toBe(true);
+  });
+  it("does not flag lentil as sesame (til word boundary test)", () => {
+    const f = personalise({ allergens: [], ingredients: ["lentil"], perPortion: portion, portionLabel: "1 bowl", profile: prof({ allergies: ["sesame"] }) });
+    expect(f.filter((x) => x.type === "allergen").length).toBe(0);
+  });
+  it("does not flag grain as mustard (rai word boundary test)", () => {
+    const f = personalise({ allergens: [], ingredients: ["grain"], perPortion: portion, portionLabel: "1 bowl", profile: prof({ allergies: ["mustard"] }) });
+    expect(f.filter((x) => x.type === "allergen").length).toBe(0);
+  });
 });
