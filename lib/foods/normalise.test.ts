@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aliasesFor, buildSearchFields, canonicalQuery, normalise } from "./normalise";
+import { aliasesFor, buildSearchFields, canonicalQuery, normalise, stapleAliasesFor } from "./normalise";
 
 describe("normalise", () => {
   it("lowercases, strips diacritics and punctuation", () => {
@@ -32,5 +32,15 @@ describe("aliasesFor and buildSearchFields", () => {
     expect(buildSearchFields({ name: "Aloo Bhujia", brand: "Sample Brand", aliases: ["potato bhujia"] })).toEqual({
       normName: "aloo bhujia", normBrand: "sample brand", searchName: "aloo bhujia sample brand potato bhujia",
     });
+  });
+});
+
+describe("stapleAliasesFor", () => {
+  it("adds curated staple aliases by whole-word normName match", () => {
+    expect(stapleAliasesFor("boiled rice uble chawal")).toEqual(["rice", "chawal"]);
+    expect(stapleAliasesFor("hot tea garam chai")).toEqual(["chai", "tea"]);
+    expect(stapleAliasesFor("chickpeas curry safed channa curry")).toEqual(["chole", "chana"]);
+    expect(stapleAliasesFor("rice upma")).toEqual([]);
+    expect(stapleAliasesFor("boiled eggplant")).toEqual([]);
   });
 });

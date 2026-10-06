@@ -16,3 +16,23 @@ export const ENGLISH_TO_HINGLISH: Record<string, string[]> = Object.entries(HING
   (acc[en] ??= []).push(hi);
   return acc;
 }, {} as Record<string, string[]>);
+
+// Curated aliases for everyday staples, so a one-word query ("rice", "chai", "chole") ranks the plain food first.
+// Key: a phrase matched as whole words inside the food's normalised name. Value: exact query words it answers.
+export const STAPLE_ALIASES: [phrase: string, aliases: string[]][] = [
+  ["boiled rice", ["rice", "chawal"]],
+  // "chawal" means Indian boiled rice — only the INDB staple answers it exactly.
+  ["rice cooked nfs", ["rice"]],
+  ["rice white cooked no added fat", ["rice"]],
+  ["hot tea garam chai", ["chai", "tea"]],
+  ["boiled egg", ["egg", "anda"]],
+  ["egg whole boiled", ["egg", "anda"]],
+  ["banana raw", ["banana", "kela"]],
+  ["apple raw", ["apple", "seb"]],
+  ["chapati roti", ["roti", "chapati"]],
+  ["chickpeas curry", ["chole", "chana"]],
+  ["kidney bean curry", ["rajma"]],
+  ["yogurt nfs", ["curd", "dahi"]],
+  ["instant coffee", ["coffee"]],
+  ["coffee brewed", ["coffee"]],
+];

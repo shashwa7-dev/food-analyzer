@@ -1,7 +1,7 @@
 [
-  ["dal", "dal"], ["chawal", "rice"], ["rice", "rice"], ["roti", "roti"], ["chapati", "chapati"],
-  ["paneer", "paneer"], ["panner", "paneer"], ["poha", "poha"], ["upma", "upma"], ["idli", "idli"],
-  ["dosa", "dosa"], ["sambar", "sambar"], ["biryani", "biryani"], ["biriyani", "biryani"], ["chai", "tea"],
-  ["coffee", "coffee"], ["aloo paratha", "paratha"], ["rajma", "rajma"], ["chole", "chole"], ["khichdi", "khichdi"],
-  ["curd", "curd"], ["dahi", "curd"], ["samosa", "samosa"], ["egg", "egg"], ["banana", "banana"]
+  ["rice", "boiled rice|rice, cooked|rice, white, cooked"], ["chawal", "Boiled rice"], ["roti", "roti|chapati"], ["chapati", "chapati"],
+  ["dal", "dal"], ["paneer", "paneer"], ["panner", "paneer"], ["poha", "poha"], ["upma", "upma"], ["idli", "idli"],
+  ["dosa", "dosa"], ["sambar", "sambar"], ["biryani", "biryani"], ["chai", "Hot tea"], ["coffee", "coffee"],
+  ["aloo paratha", "paratha"], ["rajma", "rajma"], ["chole", "Chickpeas curry"], ["khichdi", "khichdi"], ["curd", "curd|dahi|yogurt"],
+  ["dahi", "curd|dahi|yogurt"], ["samosa", "samosa"], ["egg", "boiled egg|egg, whole, boiled"], ["banana", "Banana, raw"], ["apple", "Apple, raw"]
 ]

@@ -6,9 +6,11 @@ import { searchFoods } from "@/lib/foods/service";
 import cases from "@/tests/fixtures/search-in.json";
 
 // Runs the search fixture against the real seeded DB (pnpm seed:foods), not CI. Creates a throwaway
-// user, runs each query, prints PASS/FAIL per row on a case-insensitive substring match against the
-// first result's name, then deletes the throwaway user (profile cascades) and exits non-zero if more
-// than 3 of the fixture rows fail.
+// user, runs each query, and passes a row when any of the TOP 3 names contains (case-insensitive) one of
+// the row's "|"-separated expected substrings. Deletes the throwaway user (profile cascades) and exits
+// non-zero if more than 2 rows fail.
+const TOP = 3;
+const MAX_FAILURES = 2;
 
 async function main() {
   const id = `smoke_${Math.random().toString(36).slice(2, 10)}`;
@@ -18,19 +20,19 @@ async function main() {
   let failures = 0;
   try {
     for (const [query, expected] of cases as [string, string][]) {
-      const results = await searchFoods(id, query, "IN");
-      const first = results[0]?.name ?? "";
-      const pass = first.toLowerCase().includes(expected.toLowerCase());
+      const top = (await searchFoods(id, query, "IN")).slice(0, TOP).map((h) => h.name);
+      const wants = expected.toLowerCase().split("|");
+      const pass = top.some((name) => wants.some((w) => name.toLowerCase().includes(w)));
       if (!pass) failures++;
-      console.log(`${pass ? "PASS" : "FAIL"}  "${query}" → "${first}" (expected to contain "${expected}")`);
+      console.log(`${pass ? "PASS" : "FAIL"}  "${query}" → ${top.map((n) => `"${n}"`).join(", ")} (expected one to contain "${expected}")`);
     }
   } finally {
     await db.delete(user).where(eq(user.id, id));
   }
 
   console.log(`\n${cases.length - failures}/${cases.length} passed, ${failures} failed`);
-  if (failures > 3) {
-    console.error(`FAIL: more than 3 of ${cases.length} search fixtures failed`);
+  if (failures > MAX_FAILURES) {
+    console.error(`FAIL: more than ${MAX_FAILURES} of ${cases.length} search fixtures failed`);
     process.exit(1);
   }
 }

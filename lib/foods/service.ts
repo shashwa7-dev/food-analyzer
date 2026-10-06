@@ -25,6 +25,9 @@ export function toHit(f: Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade
 
 const HIT_COLUMNS = { id: food.id, name: food.name, brand: food.brand, kind: food.kind, grade: food.grade, source: food.source, portions: food.portions, defaultPortion: food.defaultPortion, per100: food.per100 };
 
+const QUALIFIER = "(cooked|boiled|plain|nfs|raw)";
+const GENERIC_QUALIFIERS = `^(${QUALIFIER} )+|( ${QUALIFIER})+$`;
+
 export async function searchFoods(userId: string, q: string, country: string, limit = 20): Promise<FoodHit[]> {
   const raw = normalise(q);
   const canon = canonicalQuery(q);
@@ -38,12 +41,20 @@ export async function searchFoods(userId: string, q: string, country: string, li
           OR ${raw} <% ${food.searchName} OR ${canon} <% ${food.searchName})`))
       .orderBy(
         sql`(COALESCE(${food.ownerId} = ${userId}, false) OR ${userFoodStats.uses} IS NOT NULL) DESC`,
-        sql`(${food.normName} IN (${raw}, ${canon}) OR ${food.normName} LIKE ${raw + "%"} OR ${food.normName} LIKE ${canon + "%"}) DESC`,
+        // 1. exact name; 2. exact after dropping a generic qualifier ("Rice, cooked, NFS", "Banana, raw",
+        // "Plain dosa") or an exact curated staple alias ("Boiled rice (Uble chawal)" for "chawal"). Hits on
+        // the words the user typed rank above hits on the canonical expansion ("chawal" → "rice").
+        sql`CASE WHEN ${food.normName} = ${raw} THEN 0
+          WHEN regexp_replace(${food.normName}, ${GENERIC_QUALIFIERS}, '', 'g') = ${raw} OR ${raw} = ANY(${food.aliases}) THEN 1
+          WHEN ${food.normName} = ${canon} THEN 2
+          WHEN regexp_replace(${food.normName}, ${GENERIC_QUALIFIERS}, '', 'g') = ${canon} OR ${canon} = ANY(${food.aliases}) THEN 3
+          ELSE 4 END`,
         sql`(${food.kind} <> 'ingredient') DESC`,
+        // 3. whole-name similarity, so "Rice upma" doesn't beat "Rice, white, cooked" on a shared prefix.
+        sql`GREATEST(similarity(${food.normName}, ${raw}), similarity(${food.normName}, ${canon})) DESC`,
         sql`(${country} = ANY(${food.countries})) DESC`,
         sql`CASE ${food.source} WHEN 'custom' THEN 0 WHEN 'crowd' THEN 1 WHEN ${country === "IN" ? sql`'indb'` : sql`'fndds'`} THEN 2 WHEN 'off' THEN 3 ELSE 4 END`,
         desc(food.popularity),
-        sql`GREATEST(word_similarity(${raw}, ${food.searchName}), word_similarity(${canon}, ${food.searchName})) DESC`,
         sql`length(${food.name})`,
       )
       .limit(limit);

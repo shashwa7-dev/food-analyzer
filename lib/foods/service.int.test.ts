@@ -32,6 +32,19 @@ describe("foods service", () => {
     expect(names.indexOf("Rice, white, boiled")).toBeLessThan(names.indexOf("Rice flour, raw"));
   });
 
+  it("ranks the plain staple above dishes that merely start with the word", async () => {
+    await upsertFoods([
+      rec("10", "Rice upma"), rec("11", "Rice murukku"), rec("12", "Rice, cooked, NFS", undefined, "fndds"),
+      rec("13", "Boiled rice (Uble chawal)"), rec("14", "Rice milk", undefined, "fndds"), rec("15", "Rice cake", undefined, "fndds"),
+    ]);
+    const u = await createUser();
+    const names = (await searchFoods(u, "rice", "IN")).map((h) => h.name);
+    expect(names.indexOf("Rice, cooked, NFS")).toBeLessThan(names.indexOf("Rice upma"));
+    expect(names.indexOf("Rice, cooked, NFS")).toBeLessThan(names.indexOf("Rice murukku"));
+    expect(names.slice(0, 3)).toContain("Boiled rice (Uble chawal)");
+    expect((await searchFoods(u, "chawal", "IN"))[0]?.name).toBe("Boiled rice (Uble chawal)");
+  });
+
   it("never returns or exposes another user's custom food", async () => {
     const a = await createUser(); const b = await createUser();
     const mine = await createCustomFood(a, { name: "Mom's rajma", per: { amount: 1, unit: "serving" }, servingGrams: 250, nutrients: { energyKcal: 350, protein: 14, carbs: 48, fat: 10 } });

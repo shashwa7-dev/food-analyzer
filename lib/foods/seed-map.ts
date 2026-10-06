@@ -3,7 +3,7 @@ import { classify } from "@/lib/nutrition/classify";
 import { gradeFood, GRADE_VERSION } from "@/lib/nutrition/grade";
 import { ensureBasePortion } from "@/lib/nutrition/portions";
 import { NUTRIENT_KEYS, type Nutrients, type Portion, type Provenance } from "@/lib/nutrition/types";
-import { aliasesFor, buildSearchFields, normalise } from "./normalise";
+import { aliasesFor, buildSearchFields, normalise, stapleAliasesFor } from "./normalise";
 
 export interface SourceRecord {
   source: "indb" | "fndds" | "off";
@@ -75,13 +75,16 @@ export function toFoodDraft(rec: SourceRecord, rules: HouseholdRule[]): FoodDraf
   const categories = rec.categories ?? (rec.wweia ? [`${WWEIA_PREFIX}${rec.wweia}`] : []);
   const prov: Provenance = rec.source === "off" ? "community" : "reference";
   const provenance = Object.fromEntries(NUTRIENT_KEYS.filter((k) => rec.per100[k] !== undefined).map((k) => [k, prov])) as FoodDraft["provenance"];
-  const aliases = aliasesFor(rec.name);
+  // `aliases` holds only curated staple aliases (search ranks an exact alias hit like an exact name); the
+  // per-word Hinglish expansions only feed the search text.
+  const aliases = stapleAliasesFor(normalise(rec.name));
+  const searchAliases = [...new Set([...aliases, ...aliasesFor(rec.name)])];
   return {
     source: rec.source, sourceRef: rec.sourceRef, ownerId: null, kind, gradeCategory, name: rec.name, brand: rec.brand ?? null,
     aliases, barcode: rec.barcode ?? null, basis: rec.basis, per100: rec.per100 as Nutrients, provenance, portions,
     defaultPortion, gradePortionGrams, ingredients: rec.ingredients ?? [], allergens: rec.allergens ?? [], additives: rec.additives ?? [],
     categories, countries: rec.countries, nutriscoreSource: rec.nutriscore ?? null, nova: rec.nova ?? null,
     grade: g.grade, gradeValue: g.value, gradeComponents: g.components, gradeVersion: GRADE_VERSION, imageUrl: rec.imageUrl ?? null,
-    ...buildSearchFields({ name: rec.name, brand: rec.brand, aliases }),
+    ...buildSearchFields({ name: rec.name, brand: rec.brand, aliases: searchAliases }),
   };
 }
