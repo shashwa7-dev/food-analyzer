@@ -1,7 +1,7 @@
 # EATRi8 v2 — Product & System Design
 
 - **Date:** 2026-10-06 (rev 2 — restructured around daily tracking)
-- **Status:** Draft for review
+- **Status:** Reviewed (rev 3 — review fixes applied, see §14)
 - **Branch:** `v2` (fresh rewrite; `main` keeps the old app live until v2 merges)
 - **Companion:** UI/visual spec (sub-project 2) follows after the mock dry run; this spec defines product behaviour, screens' responsibilities, data, API and engine.
 
@@ -41,7 +41,7 @@ Every scan is also kept in **History**, logged or not. Any food (searched, scann
 ### 1.4 Scope
 **v1 (this spec):** onboarding, Today/diary, add-food sheet (search · scan · quick add), food detail + portion + log, food catalogue (INDB + USDA + OFF + crowd + custom), recents, custom foods, scanning engine (4 input kinds), grades & personalisation, healthier alternatives by country, History (scans + past days), Settings (profile, diet, allergies, goal, targets, country, units, theme), Credits page with Basic plan + Pro waitlist, PWA install.
 
-**Later list:** natural-language add ("2 rotis and dal"), share cards, compare two products, favourites / saved meals, copy yesterday's meal, family profiles (Pro), weekly insights & trends (Pro), meal planning/suggestions (Pro), water tracking, Pro payments (Razorpay), store-level availability/prices, native apps, contributing data back to OFF.
+**Later list:** workout tracker (M4), natural-language add ("2 rotis and dal"), share cards, compare two products, favourites / saved meals, copy yesterday's meal, family profiles (Pro), weekly insights & trends (Pro), meal planning/suggestions (Pro), water tracking, Pro payments (Razorpay), store-level availability/prices, native apps, contributing data back to OFF.
 
 ### 1.5 Routes & responsibilities
 Bottom tabs (mobile-first): **Today · Foods · ( Scan ) · History · Me** — Scan is the raised centre button.
@@ -156,7 +156,8 @@ food {
   grade char(1) · gradeValue smallint · gradeVersion text   (ours, §5.3; recomputed on gradeVersion bump)
   imageUrl text null
   popularity integer default 0      (times logged across users)
-  searchText tsvector GENERATED (unaccent(name || aliases || brand))
+  searchText tsvector GENERATED ALWAYS AS (to_tsvector('simple', immutable_unaccent(name || ' ' || coalesce(brand,'') || ' ' || array_to_string(aliases,' ')))) STORED
+      (immutable_unaccent = IMMUTABLE SQL wrapper around unaccent(), created in the first migration; plain unaccent() is not IMMUTABLE and is rejected in generated columns)
   createdAt, updatedAt
   INDEX GIN(searchText), GIN(name gin_trgm_ops), (ownerId), (barcode), GIN(categories), GIN(countries)
 }
@@ -182,8 +183,8 @@ food_log {
   userId → user.id
   date date                         (user's local date, sent by client)
   meal enum('breakfast','lunch','dinner','snack')
-  foodId uuid null → food.id
-  scanId uuid null → scan.id        (set when logged from a scan result; foodId also set)
+  foodId uuid null → food.id ON DELETE SET NULL
+  scanId uuid null → scan.id ON DELETE SET NULL   (set when logged from a scan result)
   name text                         (snapshot)
   portion jsonb { amount, unit: 'g'|'ml'|'serving'|'pack'|'household', label, grams }
   nutrients jsonb Nutrients         (snapshot for this portion)
@@ -204,7 +205,9 @@ credit_txn {
 waitlist { userId PK, createdAt }
 ```
 
-**How scans become foods:** a barcode hit reuses the existing `food`. A label/front scan upserts a `crowd` food keyed by barcode if one was read, else creates a new crowd food (deduped by normalised name + brand). Meal scans create a private `custom` food owned by the scanner (so it shows in their search/recents but not others'). Food rows created from scans are shared only when they're packaged products (crowd), never meals.
+**How scans become foods:** a barcode hit reuses the existing `food`. A label/front scan upserts a `crowd` food keyed by barcode if one was read, else creates a new crowd food (deduped by normalised name + brand). Meal scans do **not** create food rows: they are logged straight from the scan result (`food_log.scanId`, `foodId` null); "Save to my foods" turns any scan into a private `custom` food. Only packaged products become shared (crowd) foods.
+
+**Log entries are self-contained:** `nutrients` + `portion.grams` are a snapshot. Editing an entry's portion rescales the snapshot (`nutrients × newGrams / oldGrams`), so edits keep working after the source food or scan is deleted.
 
 ---
 
@@ -217,17 +220,16 @@ Credits = monthly allowance of **AI scans**. Tracking, search, barcode hits, log
 | AI scans / month | 20 (config) | 200 (config) |
 | Search, barcode, logging, custom foods | unlimited | unlimited |
 | Alternatives shown | top 1 | top 5 |
-| History | 90 days | unlimited |
 
 **Rules**
 1. **Signup:** profile created on first sign-in; allowance granted (key `grant:{userId}:{YYYY-MM}`).
-2. **Monthly reset, lazy** (on any balance read/spend): if `allowancePeriod` ≠ current UTC month → `expire` leftover (key `expire:{userId}:{prev}`) then `grant` new allowance. No cron, no rollover.
+2. **Monthly reset, lazy** (on any balance read/spend): in one transaction, `SELECT … FROM profile WHERE user_id=$1 FOR UPDATE`; if `allowancePeriod` ≠ current UTC month → insert `expire` (key `expire:{userId}:{prev}`) and `grant` (key `grant:{userId}:{period}`) with `ON CONFLICT (idempotency_key) DO NOTHING`, set `credits = allowance`, `allowancePeriod = period`. The row lock serialises concurrent requests; the unique keys make replays no-ops. No cron, no rollover.
 3. **Cost:** 1 credit only when the engine makes a model call.
 4. **Debit (atomic):** one transaction: `UPDATE profile SET credits = credits - 1 WHERE user_id=$1 AND credits >= 1 RETURNING credits` → none ⇒ `NO_CREDITS`; insert debit txn (key `scan:{scanId}`); `scan.charged = true`.
 5. **Refund:** any failure after charging (model error, timeout, unreadable, not food) → refund txn (key `refund:{scanId}`) + increment, one transaction.
-6. **Stuck scans:** on read, `queued|processing` older than 2 min → `failed`/`TIMEOUT` + refund. No cron.
-7. **Pre-check:** `POST /scans` returns 402 only if balance is 0 **and** no barcode was supplied.
-8. **Guards:** per-user 5 scans/60 s → 429; global `DAILY_AI_SCAN_CAP` model-calling scans/UTC day → 503 `SERVICE_BUSY` (no charge); Google Cloud budget alert $5 (manual).
+6. **Stuck scans:** on read, `queued|processing` with `createdAt` older than **3 min** (> `maxDuration` 60 s + margin, so the function is certainly dead) → `failed`/`TIMEOUT` + refund. All terminal writes are conditional (`UPDATE scan … WHERE id=$1 AND status IN ('queued','processing')`), so a late job can never overwrite a swept scan and a swept scan can never be completed; refund key `refund:{scanId}` makes double refunds impossible. No cron.
+7. **Barcode is decided synchronously, before any charge.** Barcode hit with complete data → `done`, free. Barcode miss/incomplete: if no images → `done` with `errorCode BARCODE_NOT_FOUND` (free; UI asks for a label photo); if images → continue as an AI scan, which requires a credit (402 `NO_CREDITS` if balance 0, returned before the scan row is created).
+8. **Guards:** per-user 5 scans/60 s → 429; global `DAILY_AI_SCAN_CAP` = count of `scan` rows with `charged = true` and `createdAt` ≥ start of UTC day → 503 `SERVICE_BUSY` (no charge); Google Cloud budget alert $5 (manual).
 9. Pure logic (`logic.ts`): `currentPeriod`, `needsReset`, `allowanceFor`, `canStartScan` — unit-tested.
 
 ---
@@ -242,10 +244,11 @@ Credits = monthly allowance of **AI scans**. Tracking, search, barcode hits, log
 ### 5.2 Daily targets
 - Presets (adult reference-intake style; not body-metric personalised; no medical claims): `general` 2000 kcal · protein 60 g · carbs 275 g · fat 67 g · fibre 30 g · sugars ≤ 50 g · sodium ≤ 2000 mg. `weight_loss` 1700 kcal; `muscle` protein 100 g; `low_sugar` sugars ≤ 25 g; `low_sodium` sodium ≤ 1500 mg.
 - Any target overridable (`profile.targets`). Onboarding step 4 shows the preset for editing.
+- `DailyTargets = { energyKcal, protein, carbs, fat, fibre, sugarsMax, sodiumMgMax, satFatMax }` (numbers). `ScoreComponent = { key, label, points, maxPoints, direction: 'negative'|'positive', estimated: boolean, approximate?: boolean }`.
 - `totals.ts`: per day and per meal; `remaining` for "aim for" targets, `over by` for "limit" targets (sugar, sodium, sat fat).
 
 ### 5.3 Grades (deterministic; `gradeVersion` bump ⇒ background recompute via script)
-- **Packaged & generic foods (`per_100g/ml`):** Nutri-Score 2023 algorithm (general / beverages / fats-oils / cheese) → points → A–E; fruit/veg/legume % estimated from ingredient order when not printed (component marked `estimated`). Processing modifier: NOVA 4 (OFF) or ≥ 3 additives / ultra-processed markers → at most one grade down, with reason. `gradeValue` 0–100 = linear map within grade band.
+- **Packaged & generic foods (`per_100g/ml`):** Nutri-Score 2023 algorithm → points → A–E. v1 implements the **general foods** and **beverages** tables (beverage = `basis per_100ml` or category `en:beverages`; plain water = A). Fats/oils/nuts and cheese use the general table in v1 and are marked `approximate` in the grade components (their dedicated tables are v1.1); fruit/veg/legume % estimated from ingredient order when not printed (component marked `estimated`). Processing modifier: NOVA 4 (OFF) or ≥ 3 additives / ultra-processed markers → at most one grade down, with reason. `gradeValue` 0–100 = linear map within grade band.
 - **Dishes (INDB recipes, meal scans):** graded per default portion: start 100; penalties sodium > 600 mg, sugars > 15 g, satFat > 7 g, energy > 700 kcal (scaled); bonuses protein ≥ 20 g, fibre ≥ 6 g; bands ≥80 A, ≥65 B, ≥50 C, ≥35 D, else E. Constants in one file.
 - **Goal adjustment** (display-time, per user): reweight penalties/bonuses by goal (`low_sodium` doubles sodium penalty, `muscle` doubles protein bonus, …) → shown as "Adjusted for your goal". Stored `food.grade` is the neutral grade; personal grade computed on read (cheap, pure).
 
@@ -266,9 +269,11 @@ Template reasons from grade components + flags, ordered by impact, top 3 surface
 |---|---|---|---|
 | **INDB** — Indian Nutrient Databank (2024) | ~1,014 common Indian recipes (per 100 g + serving) + ~1,095 ingredients | ~2k | CC BY 4.0 — attribution |
 | **USDA FNDDS** (FoodData Central) | ~5–7k foods "as eaten" with household portion weights | ~6k | CC0 |
-| **Open Food Facts** | branded products, fetched on demand (barcode, front-of-pack match, alternatives) and cached as `source='off'` (refreshed after 30 days) | grows | ODbL — attribution; we display, don't redistribute the DB |
+| **Open Food Facts** | **India subset bulk-imported at seed time** (products with `countries_tags` ∋ `en:india` and usable nutriments), refreshed by re-running the seed; at runtime only single-barcode lookups (`/api/v2/product/{code}`, cached, OFF limit ~100 req/min) for barcodes not in our DB. **No runtime OFF search** (OFF limits search to 10 req/min per IP, and Vercel IPs are shared) — front-of-pack matching and alternatives query our own `food` table only. | ~10–40k | ODbL — attribution; we display, don't redistribute the DB |
 | **Crowd** | packaged products created from user scans | grows | ours |
 | **Custom** | user-created + meal scans, private | — | user's |
+
+INDB ships as spreadsheets; `scripts/fetch-sources.ts` downloads each source and converts it to normalised CSV/JSONL under `data/sources/` (committed, with `ATTRIBUTION.md`), so seeding never depends on third-party uptime.
 
 IFCT 2017 not used (raw ingredients only; commercial data licensing unclear; INDB builds on it). `aliases-in.csv` adds Hinglish/Hindi names (chawal, aloo, sabzi, dahi, chai…). Seeding computes grades and portions.
 
@@ -290,7 +295,7 @@ Create with name, brand?, "per" amount (serving or 100 g), nutrients, optional p
 
 ```ts
 EngineInput { barcode?; images: {mime; data: Uint8Array}[] (0–3, compressed client-side); profile }
-EngineDeps  { findFoodByBarcode(code); fetchOffByBarcode(code); searchFoods({name, brand, country, category?});
+EngineDeps  { findFoodByBarcode(code); fetchOffByBarcode(code); searchFoods({name, brand, country, category?});  // searchFoods = our DB only
               searchAlternatives({categories, country, betterThan}); extract(images, {model:'fast'|'strong', repairHint?}); now() }
 EngineOutput { food: FoodDraft | {existingFoodId}; scan: ScanResult; usage? }
 ```
@@ -326,16 +331,18 @@ Extraction {
   printedLanguage?: string
 }
 ```
-Per-serving → per-100 conversion in code. Prompt: transcribe, don't judge; leave unknown fields empty (except explicit meal/front estimates).
+Per-serving → per-100 conversion in code. Prompt: transcribe, don't judge; leave unknown fields empty (except explicit meal/front estimates). **Label text is untrusted data:** the prompt says so; output is schema-constrained (no tools); strings are length-capped in the zod schema (name ≤ 120 chars, ≤ 80 ingredients × ≤ 80 chars, ≤ 20 meal items) and numbers range-checked (0 ≤ macro ≤ 100 per 100 g, energy ≤ 900 kcal/100 g).
+
+`FoodDraft` = the insertable subset of `food` (no `id`, `popularity`, `searchText`).
 
 ### 7.3 Model layer
-- `MODEL_FAST` default `gemini-3.1-flash-lite`, `MODEL_STRONG` default `gemini-3.5-flash` (ids verified against provider docs at implementation; Gemini 2.5 retiring). Final choice by `pnpm eval`.
+- `MODEL_FAST` default `gemini-3.1-flash-lite`, `MODEL_STRONG` default `gemini-3.5-flash` (both stable ids, verified 2026-10-06; Gemini 2.5 retiring). `pnpm eval` also tries newer Flash releases and Claude Haiku 4.5; final choice by eval.
 - AI SDK `generateObject`; low temperature where supported; 45 s timeout.
 - Retry 429/5xx/network/timeout ≤ 2× with jitter; never retry 4xx/safety/schema failures (schema failures → the single repair path).
 - Usage → tokens + `costMicros` (price table per model id). Provider swap (Claude Haiku 4.5, Qwen3-VL via OpenRouter) = package + env.
 
 ### 7.4 Alternatives
-Same category (OFF tags or `categoryGuess` mapped), `countries` ∋ user country, grade strictly better; `food` table first then OFF search (cached); rank by grade then popularity. Store top 5; Basic shows 1. No match → static category tip ("Roasted chana or makhana are lower in fat and sodium"). Also shown on catalogue food detail pages for packaged foods.
+Same category (OFF tags or `categoryGuess` mapped), `countries` ∋ user country, grade strictly better; **`food` table only** (no runtime OFF search); rank by grade then popularity. Store top 5; Basic shows 1. No match → static category tip ("Roasted chana or makhana are lower in fat and sodium"). Also shown on catalogue food detail pages for packaged foods.
 
 ### 7.5 Scan result
 ```ts
@@ -365,10 +372,10 @@ JSON; Better Auth session cookie (Bearer plugin enabled). Errors `{ error: { cod
 | `POST /foods` | custom food (§6.3) or `{ fromScanId }` | `201 { food }` | 400, 401, 404 |
 | `PATCH /foods/:id` · `DELETE /foods/:id` | own custom only | `200` · `204` | 401, 404 |
 | `GET /log?date=` | YYYY-MM-DD | `{ date, entries[], totals, byMeal, targets, remaining }` | 400, 401 |
-| `POST /log` | `{ date, meal, portion }` + `foodId` (± `scanId`) **or** `{ name, nutrients }` | `201 { entry }` (nutrients computed server-side) | 400, 401, 404 |
+| `POST /log` | `{ date, meal, portion }` + one of `foodId` · `scanId` (done, owned) · `{ name, nutrients }` | `201 { entry }` (nutrients computed server-side; client-sent nutrients only accepted for quick add, range-checked) | 400, 401, 404 |
 | `PATCH /log/:id` | `{ meal?, portion?, date? }` | `200 { entry }` | 400, 401, 404 |
 | `DELETE /log/:id` | — | `204` | 401, 404 |
-| `POST /scans` | multipart `images[]` (0–3, ≤ 1.5 MB, jpeg/webp/png), `thumbnail?` (≤ 100 KB), `barcode?` — ≥ 1 of images/barcode | `202 { scanId, status }` / `200 { scanId, status:'done' }` (barcode sync) | 400 `INVALID_INPUT`, 401, 402 `NO_CREDITS`, 413 `TOO_LARGE`, 429 `RATE_LIMITED`, 503 `SERVICE_BUSY` |
+| `POST /scans` | multipart `images[]` (0–3, each ≤ 1.2 MB, jpeg/webp/png verified by magic bytes, not the claimed MIME), `thumbnail?` (≤ 80 KB webp), `barcode?` (digits, valid EAN-8/13 or UPC-A check digit) — ≥ 1 of images/barcode; whole body ≤ 4 MB (Vercel limit is 4.5 MB). Client targets ~400 KB/image. | `202 { scanId, status }` / `200 { scanId, status:'done' }` (barcode sync) | 400 `INVALID_INPUT`, 401, 402 `NO_CREDITS`, 413 `TOO_LARGE`, 429 `RATE_LIMITED`, 503 `SERVICE_BUSY` |
 | `GET /scans?cursor=&grade=&q=` | — | `{ scans[], nextCursor }` | 401 |
 | `GET /scans/:id` | — | `{ id, status, result?, errorCode?, createdAt, thumbnailUrl? }` (stuck sweep) | 401, 404 |
 | `DELETE /scans/:id` | — | `204` | 401, 404 |
@@ -376,6 +383,8 @@ JSON; Better Auth session cookie (Bearer plugin enabled). Errors `{ error: { cod
 Server actions (UI-only): profile/onboarding/targets update, delete account, join waitlist.
 
 Logging/search are free. Logging bumps `user_food_stats` and `food.popularity`.
+
+**Validation & authz rules (all routes):** every query is scoped by the session `userId` (scans, log entries, custom foods) — a foreign id returns 404, never 403, to avoid leaking existence. `date` must be a valid `YYYY-MM-DD` within [server UTC today − 365 days, server UTC today + 1 day] (covers every timezone). Portions: `grams` 1–5000. Quick-add nutrients: energy 0–5000 kcal, macros 0–500 g, sodium 0–20000 mg. Search `q` 2–60 chars.
 
 **POST /scans flow:** auth → zod → rate limit → lazy reset → barcode fast path (sync, free) → daily cap → `scan(queued)` → debit → thumbnail → R2 → 202 → `after()`: processing → `runEngine` → persist food + result → `done`, or `failed` + refund. `maxDuration = 60`.
 
@@ -386,7 +395,7 @@ Logging/search are free. Logging bumps `user_food_stats` and `food.popularity`.
 ---
 
 ## 9. Auth, privacy, security
-- Better Auth Google only; `proxy.ts` guards `(app)`; profile created in `user.create.after`; first visit without `onboardedAt` → `/onboarding`.
+- Better Auth Google only; `proxy.ts` does an **optimistic** session-cookie check for `(app)` routes (redirect to `/sign-in`); the authoritative check is `requireUser()` in every server component, server action and route handler; profile created in `user.create.after`; first visit without `onboardedAt` → `/onboarding`.
 - Full-size images never stored (memory only); 320 px thumbnail at R2 `u/{userId}/{scanId}.webp`, short-lived signed URLs.
 - Delete account: cascade user data + custom foods + R2 prefix. Crowd foods created by the user remain (anonymous, no user link).
 - `lib/env.ts` zod-validated at boot; no `NEXT_PUBLIC_` secrets. **Rotate the old Gemini key** (in git history, commit `4d2b34c`).
@@ -418,7 +427,7 @@ Logging/search are free. Logging bumps `user_food_stats` and `food.popularity`.
 ---
 
 ## 12. Delivery milestones (input to the implementation plan)
-**M0 — Mock dry run (UI only, no backend):** clickable mobile prototype of all v1 screens with fake data → lock visual direction → UI spec.
+**M0 — Mock dry run (done):** clickable prototype, direction **B · Clean** chosen (Geist; type scale 12·13·15·17·22·30·40; spacing 4·8·12·16·20·24·32; accent #15803D / dark #4ADE80; radius 8/12/18). Reference copy: `docs/design/mock.html`. Visual polish continues during build.
 
 **M1 — Tracker (no AI, ₹0 to run):**
 1. Scaffold v2 (wipe old files; Next 16, Tailwind v4, shadcn, lint/test/CI, env schema, PWA manifest).
@@ -435,6 +444,22 @@ Logging/search are free. Logging bumps `user_food_stats` and `food.popularity`.
 
 **M3 — Launch polish:** Sentry, error states, empty states, accessibility pass, privacy/terms/attribution, Lighthouse mobile pass, deploy.
 
+**M4 — Workout tracker (post-launch):** exercise catalogue from free-exercise-db (public domain, 800+ exercises with images, self-hosted copies), workouts → exercises → sets (reps/weight/duration), calories burned via MET values, "Exercise" section on Today and net calories. Separate spec.
+
 ## 13. Open items (non-blocking)
 - Final pricing/allowances; Pro payments (Razorpay) + hosting move when Pro launches.
 - Natural-language quick add (LLM parse onto catalogue items) — Pro or 1 credit.
+
+## 14. Review log (rev 3)
+Fixes applied after review on 2026-10-06:
+1. `unaccent()` is not IMMUTABLE → generated `searchText` uses an IMMUTABLE wrapper.
+2. Upload caps fit Vercel's 4.5 MB body limit (≤ 1.2 MB × 3 + 80 KB thumb, ≤ 4 MB total); magic-byte checks.
+3. Open Food Facts search is rate-limited (10/min/IP) → India subset bulk-imported; runtime = barcode lookups only.
+4. Monthly reset serialised by row lock + idempotent keys; stuck sweep at 3 min with conditional terminal writes (no late-job overwrite, no double refund).
+5. Barcode decided before charging; `BARCODE_NOT_FOUND` is free.
+6. Log entries are self-contained snapshots; FKs `ON DELETE SET NULL`; meal scans don't create foods.
+7. Nutri-Score v1 = general + beverages tables; fats/oils/cheese marked approximate.
+8. Explicit authz (404 on foreign ids), date window, numeric ranges, label text treated as untrusted data.
+9. History retention gating cut from v1.
+10. Undefined types defined (`DailyTargets`, `ScoreComponent`, `FoodDraft`).
+11. Workout tracker scheduled as M4.
