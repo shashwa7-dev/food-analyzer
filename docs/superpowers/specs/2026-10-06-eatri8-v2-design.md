@@ -283,13 +283,13 @@ Template reasons from grade components + flags, ordered by impact, top 3 surface
 ### 6.1 Seed data (`pnpm seed:foods`, idempotent on `(source, sourceRef)`)
 | Source | What | Size | License |
 |---|---|---|---|
-| **INDB** — Indian Nutrient Databank (2024) | ~1,014 common Indian recipes (per 100 g + serving) + ~1,095 ingredients | ~2k | CC BY 4.0 — attribution |
-| **USDA FNDDS** (FoodData Central) | ~5–7k foods "as eaten" with household portion weights | ~6k | CC0 |
-| **Open Food Facts** | **India subset bulk-imported at seed time** (products with `countries_tags` ∋ `en:india` and usable nutriments), refreshed by re-running the seed; at runtime only single-barcode lookups (`/api/v2/product/{code}`, cached, OFF limit ~100 req/min) for barcodes not in our DB. **No runtime OFF search** (OFF limits search to 10 req/min per IP, and Vercel IPs are shared) — front-of-pack matching and alternatives query our own `food` table only. | ~10–40k | ODbL — attribution; we display, don't redistribute the DB |
+| **INDB** — Indian Nutrient Databank (2024), `INDB.xlsx` from github.com/lindsayjaacks/Indian-Nutrient-Databank-INDB- | 1,014 Indian recipes: per-100 g nutrients + a named serving (`servings_unit`, e.g. "tea cup") with per-serving nutrients (serving grams = 100 × serving kcal ÷ kcal). Recipes only — raw ingredients come from IFCT, which isn't redistributable. | ~1k | CC BY 4.0 — attribution |
+| **USDA FNDDS** (FoodData Central, `FoodData_Central_survey_food_json_2024-10-31.zip`, 3.7 MB) | 5,432 foods "as eaten", nutrient numbers 208/203/205/204/269/291/606/307, `foodPortions` with `gramWeight`, WWEIA category for classification | ~5.4k | CC0 |
+| **Open Food Facts** | **India subset bulk-imported at fetch time** from the daily Parquet export (`hf://datasets/openfoodfacts/product-database/food.parquet`, queried with DuckDB: `'en:india' IN countries_tags` and usable nutriments — the search API is rate-limited and was returning 503 during review), refreshed by re-running the seed; at runtime only single-barcode lookups (`/api/v2/product/{code}`, cached, OFF limit ~100 req/min) for barcodes not in our DB. **No runtime OFF search** (OFF limits search to 10 req/min per IP, and Vercel IPs are shared) — front-of-pack matching and alternatives query our own `food` table only. | ~10–40k | ODbL — attribution; we display, don't redistribute the DB |
 | **Crowd** | packaged products created from user scans | grows | ours |
 | **Custom** | user-created or "Save to my foods" from a scan, private | — | user's |
 
-INDB ships as spreadsheets; `scripts/fetch-sources.ts` downloads each source and converts it to normalised CSV/JSONL under `data/sources/` (committed, with `ATTRIBUTION.md`), so seeding never depends on third-party uptime.
+INDB ships as a spreadsheet; `scripts/fetch-sources.ts` downloads each source and converts it to normalised CSV/JSONL under `data/sources/` (committed, with `ATTRIBUTION.md`), so seeding never depends on third-party uptime.
 
 IFCT 2017 not used (raw ingredients only; commercial data licensing unclear; INDB builds on it). `aliases-in.csv` adds Hinglish/Hindi names (chawal, aloo, sabzi, dahi, chai…). Seeding computes grades and portions.
 
