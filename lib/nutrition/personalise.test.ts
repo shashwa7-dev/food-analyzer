@@ -69,6 +69,19 @@ describe("personalise", () => {
       expect(personalise({ ...base, name: "Peanut butter", profile: prof({ allergies: ["milk"] }) }).some((x) => x.key === "milk")).toBe(false);
       expect(personalise({ ...base, name: "Coconut milk curry", profile: prof({ diet: "vegan" }) }).some((x) => x.type === "diet")).toBe(false);
     });
+    const allergyKeys = (name: string, allergies: string[]) =>
+      personalise({ ...base, name, profile: prof({ allergies }) }).filter((x) => x.type === "allergen" && x.severity === "contains").map((x) => x.key).sort();
+    it("strips plant milks/butters only for the dairy check", () => {
+      expect(allergyKeys("Peanut butter", ["peanut", "milk"])).toEqual(["peanut"]);
+      expect(allergyKeys("Almond milk", ["tree_nut", "milk"])).toEqual(["tree_nut"]);
+      expect(allergyKeys("Cashew butter", ["tree_nut"])).toEqual(["tree_nut"]);
+      expect(allergyKeys("Soy milk", ["soy", "milk"])).toEqual(["soy"]);
+      expect(allergyKeys("Paneer butter masala", ["milk"])).toEqual(["milk"]);
+      expect(personalise({ ...base, name: "Peanut butter", profile: prof({ diet: "vegan" }) }).some((x) => x.type === "diet")).toBe(false);
+    });
+    it("flags peanut for the OFF product name 'Peanut Butter Creamy'", () => {
+      expect(allergyKeys("Peanut Butter Creamy", ["peanut", "milk"])).toEqual(["peanut"]);
+    });
     it("adds an unknown-ingredients note only when the user has allergies or a diet", () => {
       const note = { type: "allergen", key: "unknown", severity: "note", text: "Ingredients unknown — check before eating." };
       expect(personalise({ ...base, name: "Plain dosa", profile: prof({ allergies: ["sesame"] }) })).toContainEqual(note);

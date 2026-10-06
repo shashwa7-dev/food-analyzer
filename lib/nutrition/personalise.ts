@@ -38,14 +38,16 @@ export function personalise(input: {
   const flags: Flag[] = [];
   // Without an ingredient list, the food's name is the best evidence we have ("Paneer butter masala").
   const fromName = input.ingredients.length === 0;
-  const text = dairyText(fromName ? input.name : input.ingredients.join(", "));
+  const text = fromName ? input.name : input.ingredients.join(", ");
+  // Plant "milks"/"butters" are stripped only for dairy checks — "Peanut butter" must still flag peanut.
+  const dairyChecked = dairyText(text);
   const suffix = fromName ? " Going by the name — check before eating." : CHECK;
   const declared = new Set(input.allergens.map((t) => OFF_TAG[t]).filter(Boolean));
   const traces = new Set((input.mayContain ?? []).map((t) => OFF_TAG[t]).filter(Boolean));
   for (const key of input.profile.allergies as AllergenKey[]) {
     if (!(key in ALLERGEN_WORDS)) continue;
     const label = key.replace("_", " ");
-    if (declared.has(key) || ALLERGEN_WORDS[key].test(text)) {
+    if (declared.has(key) || ALLERGEN_WORDS[key].test(key === "milk" ? dairyChecked : text)) {
       flags.push({ type: "allergen", key, severity: "contains", text: `Contains ${label}.${declared.has(key) ? CHECK : suffix}` });
     } else if (traces.has(key)) {
       flags.push({ type: "allergen", key, severity: "may_contain", text: `May contain traces of ${label}.${CHECK}` });
@@ -53,7 +55,8 @@ export function personalise(input: {
   }
   if (input.profile.diet !== "none" && text) {
     const rule = DIET_RULES[input.profile.diet];
-    const hit = text.match(rule.words);
+    // Vegan is the only rule with dairy words; the stripped phrases contain no other diet words.
+    const hit = (input.profile.diet === "vegan" ? dairyChecked : text).match(rule.words);
     if (hit) flags.push({ type: "diet", key: input.profile.diet, severity: "contains", text: `Not ${rule.label}: contains ${hit[0].toLowerCase()}.${suffix}` });
   }
   if (fromName && (input.profile.allergies.length > 0 || input.profile.diet !== "none")) {
