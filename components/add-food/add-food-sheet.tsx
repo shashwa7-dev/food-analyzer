@@ -12,6 +12,7 @@ import { api } from "@/lib/api-client";
 import type { FoodHit } from "@/lib/foods/types";
 import { GradeBadge } from "@/components/grade-badge";
 import { FlagList, ReasonList } from "@/components/food/food-verdict";
+import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import type { Flag, Meal, Nutrients, Portion, Reason } from "@/lib/nutrition/types";
 
 type DetailFood = {
@@ -56,6 +57,7 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
             </div>
             <div className="text-sm"><ReasonList reasons={detail.data.reasons} /></div>
             <FlagList flags={detail.data.flags} />
+            <IndbSodiumNote source={detail.data.food.source} />
             <AddToMeal food={detail.data.food} date={date} defaultMeal={meal} onDone={() => onOpenChange(false)} />
           </>
         )}

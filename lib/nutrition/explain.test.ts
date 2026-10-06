@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { explain } from "./explain";
+import { explain, INDB_SODIUM_REASON } from "./explain";
 import { nutriScore } from "./grade/packaged";
 import { PRESETS } from "./targets";
 
@@ -22,6 +22,15 @@ describe("explain", () => {
     const reasons = explain({ grade: dishScore(per100, per100), per100, basis: "per_100g", targets: PRESETS.general });
     expect(reasons.some((r) => /High sugar: 44 g per 100 g/.test(r.text))).toBe(true);
     expect(new Set(reasons.map((r) => r.text)).size).toBe(reasons.length);
+  });
+  it("warns that INDB savoury dishes may not count cooking salt", () => {
+    const per100 = { energyKcal: 120, protein: 6, carbs: 14, fat: 4.5, sodiumMg: 40 };
+    const grade = { grade: "A" as const, value: 95, components: [] };
+    const base = { grade, per100, basis: "per_100g" as const, targets: PRESETS.general };
+    expect(explain({ ...base, source: "indb", name: "Dal makhani" }).at(-1)).toEqual({ tone: "warn", text: INDB_SODIUM_REASON });
+    expect(explain({ ...base, source: "indb", name: "Gulab jamun" }).some((r) => r.text === INDB_SODIUM_REASON)).toBe(false);
+    expect(explain({ ...base, source: "fndds", name: "Dal" }).some((r) => r.text === INDB_SODIUM_REASON)).toBe(false);
+    expect(explain({ ...base, per100: { ...per100, sodiumMg: 400 }, source: "indb", name: "Dal makhani" }).some((r) => r.text === INDB_SODIUM_REASON)).toBe(false);
   });
   it("returns an honest note for ungraded foods", () => {
     expect(explain({ grade: { grade: null, value: null, components: [] }, per100: { energyKcal: 900, protein: 0, carbs: 0, fat: 100 }, basis: "per_100g", targets: PRESETS.general }))

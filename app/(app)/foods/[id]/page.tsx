@@ -6,6 +6,7 @@ import { GradeStrip, GradeBadge } from "@/components/grade-badge";
 import { AddToMeal } from "@/components/food/add-to-meal";
 import { FoodOwnerActions } from "@/components/food/food-owner-actions";
 import { FlagList, ReasonList } from "@/components/food/food-verdict";
+import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { nutrientsFor } from "@/lib/nutrition/portions";
 import Link from "next/link";
 
@@ -50,6 +51,7 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
                 <tr key={l as string} className="border-b border-line"><td className="py-2.5">{l}</td><td className="num py-2.5 text-right">{u === "mg" || u === "kcal" ? Math.round(v as number) : Math.round((v as number) * 10) / 10} {u}</td></tr>))}
             </tbody></table>
             {food.ingredients.length > 0 && <p className="mt-2.5 text-sm text-subtle">Ingredients: {food.ingredients.join(", ")}</p>}
+            <div className="mt-2.5"><IndbSodiumNote source={food.source} /></div>
           </section>
           {alternatives.length > 0 && <section className="rounded-lg border border-line bg-surface p-5 shadow-card"><h2 className="section-title mb-2.5">Healthier options</h2>
             {alternatives.slice(0, 1).map((a) => <Link key={a.id} href={`/foods/${a.id}`} className="flex items-center gap-3 rounded-md border border-line p-3"><GradeBadge grade={a.grade} /><span className="font-semibold">{a.name}</span></Link>)}</section>}
