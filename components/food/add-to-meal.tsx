@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { stepQuantity } from "@/lib/log/quantity";
 import { MEALS, type Meal, type Nutrients, type Portion } from "@/lib/nutrition/types";
 
 export function AddToMeal({ food, date, defaultMeal, onDone }: {
@@ -20,7 +21,7 @@ export function AddToMeal({ food, date, defaultMeal, onDone }: {
   const grams = (food.portions[portionIndex]?.grams ?? 0) * quantity;
   const kcal = Math.round((food.per100.energyKcal * grams) / 100);
   const unit = food.basis === "per_100ml" ? "ml" : "g";
-  const step = (dir: 1 | -1) => setQuantity((q) => Math.max(0.25, Math.min(20, q <= 0.5 ? (dir > 0 ? q * 2 : q / 2) : q < 1 || (q === 1 && dir < 0) ? q + dir * 0.5 : q + dir)));
+  const step = (dir: 1 | -1) => setQuantity((q) => stepQuantity(q, dir));
   const add = useMutation({
     mutationFn: () => api("/api/v1/log", { method: "POST", body: JSON.stringify({ kind: "food", date, meal, foodId: food.id, portionIndex, quantity }) }),
     onSuccess: () => {
