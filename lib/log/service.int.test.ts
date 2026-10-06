@@ -7,7 +7,7 @@ import { db } from "@/lib/db/client";
 import { food } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { addEntry, deleteEntry, getDay, updateEntry } from "./service";
-import { NotFoundError } from "@/lib/errors";
+import { InvalidError, NotFoundError } from "@/lib/errors";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -82,5 +82,43 @@ describe("food log", () => {
     await addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: f.id, portionIndex: 0, quantity: 1 });
     const { recentFoods } = await import("@/lib/foods/service");
     expect((await recentFoods(u))[0]?.id).toBe(f.id);
+  });
+
+  it("rejects a quantity edit that would push a weighed portion out of range", async () => {
+    const a = await createUser();
+    const f = await createCustomFood(a, { name: "Big batch", per: { amount: 1, unit: "serving" }, servingGrams: 2000, nutrients: { energyKcal: 500, protein: 20, carbs: 60, fat: 15 } });
+    const e = await addEntry(a, { kind: "food", date: today, meal: "lunch", foodId: f.id, portionIndex: 0, quantity: 1 });
+    await expect(updateEntry(a, e.id, { quantity: 20 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  it("rejects a quantity edit that would push free grams below 1 g", async () => {
+    const u = await createUser(); const f = await dal();
+    const e = await addEntry(u, { kind: "grams", date: today, meal: "dinner", foodId: f.id, grams: 75 });
+    await expect(updateEntry(u, e.id, { quantity: 0.25 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  it("rejects a quantity edit on a quick-add that would push nutrients out of range", async () => {
+    const u = await createUser();
+    const e = await addEntry(u, { kind: "quick", date: today, meal: "snack", name: "Cookie", nutrients: { energyKcal: 350, protein: 4, carbs: 40, fat: 15 } });
+    await expect(updateEntry(u, e.id, { quantity: 20 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  it("still allows a valid quantity edit", async () => {
+    const u = await createUser(); const f = await dal();
+    const e = await addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: f.id, portionIndex: 0, quantity: 1 });
+    expect((await updateEntry(u, e.id, { quantity: 2 }))?.nutrients.energyKcal).toBe(360);
+  });
+
+  it("rejects adding an unknown portion index", async () => {
+    const u = await createUser(); const f = await dal();
+    await expect(addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: f.id, portionIndex: 5, quantity: 1 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  it("rejects adding a portion with no known weight", async () => {
+    await upsertFoods([toFoodDraft({ source: "indb", sourceRef: "NG1", name: "Mystery item", basis: "per_100g",
+      per100: { energyKcal: 100, protein: 1, carbs: 1, fat: 1 }, portions: [{ label: "1 serving", amount: 1, unit: "serving", grams: null }], countries: ["IN"] }, [])]);
+    const [row] = await db.select().from(food).where(eq(food.sourceRef, "NG1"));
+    const u = await createUser();
+    await expect(addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: row!.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(InvalidError);
   });
 });

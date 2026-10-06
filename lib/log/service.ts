@@ -72,9 +72,12 @@ export async function updateEntry(userId: string, id: string, raw: z.infer<typeo
   let portion = cur.portion, nutrients = cur.nutrients;
   if (patch.quantity !== undefined && patch.quantity !== cur.portion.amount) {
     const perUnit = cur.portion.grams ? cur.portion.grams / cur.portion.amount : null;
-    const next: Portion = { ...cur.portion, amount: patch.quantity, grams: perUnit ? Math.round(perUnit * patch.quantity * 10) / 10 : null };
+    const nextGrams = perUnit ? Math.round(perUnit * patch.quantity * 10) / 10 : null;
+    if (nextGrams !== null && (nextGrams < 1 || nextGrams > 5000)) throw new InvalidError("Portion is out of range.");
+    const next: Portion = { ...cur.portion, amount: patch.quantity, grams: nextGrams };
     const scaled = rescaleEntry({ portion: cur.portion, nutrients: cur.nutrients }, next);
     if (!scaled) throw new InvalidError("Can't change this portion.");
+    if (!NutrientsInput.safeParse(scaled).success) throw new InvalidError("Portion is out of range.");
     portion = next; nutrients = scaled;
   }
   const [row] = await db.update(foodLog).set({ meal: patch.meal ?? cur.meal, date: patch.date ?? cur.date, portion, nutrients, updatedAt: new Date() })

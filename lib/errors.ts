@@ -1,2 +1,12 @@
-export class NotFoundError extends Error {}
-export class InvalidError extends Error {}
+export class NotFoundError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+export class InvalidError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = "InvalidError";
+  }
+}
