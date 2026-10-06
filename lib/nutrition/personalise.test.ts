@@ -82,6 +82,14 @@ describe("personalise", () => {
     it("flags peanut for the OFF product name 'Peanut Butter Creamy'", () => {
       expect(allergyKeys("Peanut Butter Creamy", ["peanut", "milk"])).toEqual(["peanut"]);
     });
+    it("checks the name for allergens even when ingredients are listed", () => {
+      const f = personalise({ ...base, ingredients: ["100% TURAL D"], name: "Peanut Butter All Natural Creamy Unsweetened", profile: prof({ allergies: ["peanut", "milk"] }) });
+      expect(f.filter((x) => x.type === "allergen").map((x) => x.key)).toEqual(["peanut"]);
+    });
+    it("does not apply diet rules to the name when ingredients are listed", () => {
+      const f = personalise({ ...base, ingredients: ["potato", "oil", "flavouring"], name: "Chicken flavoured crisps", profile: prof({ diet: "vegetarian" }) });
+      expect(f.some((x) => x.type === "diet")).toBe(false);
+    });
     it("adds an unknown-ingredients note only when the user has allergies or a diet", () => {
       const note = { type: "allergen", key: "unknown", severity: "note", text: "Ingredients unknown — check before eating." };
       expect(personalise({ ...base, name: "Plain dosa", profile: prof({ allergies: ["sesame"] }) })).toContainEqual(note);
