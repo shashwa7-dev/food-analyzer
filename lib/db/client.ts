@@ -23,6 +23,34 @@ export function createDb(url: string): Db {
 
 export type Db = NodePgDatabase<typeof fullSchema>;
 
+const MISSING_URL = "DATABASE_URL is missing or invalid. Set it to a postgres:// connection string (see .env.example).";
+
+export function databaseUrl(raw: string | undefined): string {
+  if (!raw) throw new Error(MISSING_URL);
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(MISSING_URL);
+  }
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") throw new Error(MISSING_URL);
+  return raw;
+}
+
 const globalForDb = globalThis as unknown as { __db?: Db };
-export const db: Db = globalForDb.__db ?? createDb(process.env.DATABASE_URL!);
-if (process.env.NODE_ENV !== "production") globalForDb.__db = db;
+function getDb(): Db {
+  globalForDb.__db ??= createDb(databaseUrl(process.env.DATABASE_URL));
+  return globalForDb.__db;
+}
+
+// Created on first use, so importing this module (e.g. during `next build` without env) never connects or throws.
+export const db: Db = new Proxy({} as Db, {
+  get(_target, prop) {
+    const real = getDb();
+    const value: unknown = Reflect.get(real, prop, real);
+    return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(real) : value;
+  },
+  has(_target, prop) {
+    return Reflect.has(getDb(), prop);
+  },
+});

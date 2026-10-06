@@ -4,7 +4,8 @@ const nonEmpty = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(
 const optional = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional());
 
 const schema = z.object({
-  DATABASE_URL: nonEmpty,
+  // Validated lazily by lib/db/client.ts on first query, so `next build` works without a database URL.
+  DATABASE_URL: optional,
   BETTER_AUTH_SECRET: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(32)),
   BETTER_AUTH_URL: z.preprocess((v) => (v === "" ? undefined : v), z.url()),
   GOOGLE_CLIENT_ID: nonEmpty,

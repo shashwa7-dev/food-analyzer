@@ -1,5 +1,5 @@
 import { requireApiUser } from "@/lib/session";
-import { apiError, invalid, json, notFound } from "@/lib/http";
+import { apiError, invalid, json, notFound, serverError } from "@/lib/http";
 import { InvalidError } from "@/lib/errors";
 import { deleteEntry, UpdateEntrySchema, updateEntry } from "@/lib/log/service";
 
@@ -20,7 +20,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(req: Request, { params }: Ctx) {
-  const userId = await requireApiUser(req);
-  if (userId instanceof Response) return userId;
-  return (await deleteEntry(userId, (await params).id)) ? new Response(null, { status: 204 }) : notFound();
+  try {
+    const userId = await requireApiUser(req);
+    if (userId instanceof Response) return userId;
+    return (await deleteEntry(userId, (await params).id)) ? new Response(null, { status: 204 }) : notFound();
+  } catch {
+    return serverError();
+  }
 }

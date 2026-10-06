@@ -1,14 +1,18 @@
 import { requireApiUser } from "@/lib/session";
-import { invalid, json, notFound } from "@/lib/http";
+import { invalid, json, notFound, serverError } from "@/lib/http";
 import { CustomFoodSchema, deleteCustomFood, foodDetail, updateCustomFood } from "@/lib/foods/service";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, { params }: Ctx) {
-  const userId = await requireApiUser(req);
-  if (userId instanceof Response) return userId;
-  const detail = await foodDetail(userId, (await params).id);
-  return detail ? json(detail) : notFound();
+  try {
+    const userId = await requireApiUser(req);
+    if (userId instanceof Response) return userId;
+    const detail = await foodDetail(userId, (await params).id);
+    return detail ? json(detail) : notFound();
+  } catch {
+    return serverError();
+  }
 }
 export async function PATCH(req: Request, { params }: Ctx) {
   const userId = await requireApiUser(req);
@@ -19,7 +23,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
   return row ? json({ food: row }) : notFound();
 }
 export async function DELETE(req: Request, { params }: Ctx) {
-  const userId = await requireApiUser(req);
-  if (userId instanceof Response) return userId;
-  return (await deleteCustomFood(userId, (await params).id)) ? new Response(null, { status: 204 }) : notFound();
+  try {
+    const userId = await requireApiUser(req);
+    if (userId instanceof Response) return userId;
+    return (await deleteCustomFood(userId, (await params).id)) ? new Response(null, { status: 204 }) : notFound();
+  } catch {
+    return serverError();
+  }
 }
