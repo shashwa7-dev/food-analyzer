@@ -13,6 +13,11 @@ describe("gradeFood", () => {
     expect(a).toEqual(b);
     expect(a.grade).toBe("A");
   });
+  it("grades a sugary 'water' as a beverage", () => {
+    const r = gradeFood({ gradeCategory: "water", per100: { energyKcal: 34, protein: 0, carbs: 8.8, fat: 0, sugars: 8.8 } });
+    expect(r.grade).not.toBe("A");
+    expect(gradeFood({ gradeCategory: "water", per100: { energyKcal: 0, protein: 0, carbs: 0, fat: 0 } }).grade).toBe("A");
+  });
   it("falls back to 250 g for dishes without a reference portion", () => {
     expect(gradeFood({ gradeCategory: "dish", per100: dal, gradePortionGrams: null }).grade).toBe(
       gradeFood({ gradeCategory: "dish", per100: dal, gradePortionGrams: 250 }).grade);

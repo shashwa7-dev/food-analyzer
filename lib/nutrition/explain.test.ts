@@ -16,6 +16,13 @@ describe("explain", () => {
     const reasons = explain({ grade: nutriScore({ category: "general", per100 }), per100, basis: "per_100g", targets: PRESETS.general });
     expect(reasons.some((r) => r.tone === "good" && /protein|fibre/i.test(r.text))).toBe(true);
   });
+  it("explains dish density penalties without duplicate reasons", async () => {
+    const { dishScore } = await import("./grade/dish");
+    const per100 = { energyKcal: 520, protein: 12, carbs: 60, fat: 25, sugars: 44 };
+    const reasons = explain({ grade: dishScore(per100, per100), per100, basis: "per_100g", targets: PRESETS.general });
+    expect(reasons.some((r) => /High sugar: 44 g per 100 g/.test(r.text))).toBe(true);
+    expect(new Set(reasons.map((r) => r.text)).size).toBe(reasons.length);
+  });
   it("returns an honest note for ungraded foods", () => {
     expect(explain({ grade: { grade: null, value: null, components: [] }, per100: { energyKcal: 900, protein: 0, carbs: 0, fat: 100 }, basis: "per_100g", targets: PRESETS.general }))
       .toEqual([{ tone: "warn", text: "Cooking ingredient — not graded on its own." }]);

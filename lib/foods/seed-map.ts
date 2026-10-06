@@ -40,6 +40,21 @@ export function parseHouseholdCsv(text: string): HouseholdRule[] {
   });
 }
 
+// Measures that are not a real eating portion: FNDDS "Guideline amount per …", tiny spoon/inch measures.
+const NOT_A_PORTION = /guideline amount|fl oz|cubic inch|surface inch|tablespoon|teaspoon|tbsp|tsp/i;
+const MIN_GRADE_GRAMS = 100;
+// FNDDS has no category tags; its WWEIA category is kept in `categories` with this prefix so regrade can
+// recompute the fruit/vegetable credit.
+export const WWEIA_PREFIX = "wweia:";
+export const wweiaOf = (categories: string[]): string | undefined =>
+  categories.find((c) => c.startsWith(WWEIA_PREFIX))?.slice(WWEIA_PREFIX.length);
+
+/** Index of the first real eating portion with a known weight (the 100 g/ml base always qualifies). */
+export function representativePortion(portions: Portion[]): number {
+  const i = portions.findIndex((p) => p.grams && !NOT_A_PORTION.test(p.label));
+  return i >= 0 ? i : 0;
+}
+
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function householdFor(name: string, rules: HouseholdRule[]): Portion[] {
@@ -49,19 +64,23 @@ function householdFor(name: string, rules: HouseholdRule[]): Portion[] {
 }
 
 export function toFoodDraft(rec: SourceRecord, rules: HouseholdRule[]): FoodDraft {
-  const { kind, gradeCategory } = classify({ source: rec.source, name: rec.name, categories: rec.categories, wweia: rec.wweia });
+  const { kind, gradeCategory, fvlPercent } = classify({ source: rec.source, name: rec.name, categories: rec.categories, wweia: rec.wweia, per100: rec.per100 });
   const sourcePortions = rec.portions.filter((p) => !BARE_UNIT_LABEL.test(p.label));
   const portions = ensureBasePortion(rec.basis, [...sourcePortions, ...(rec.source === "indb" ? householdFor(rec.name, rules) : [])]);
-  const gradePortionGrams = gradeCategory === "dish" ? (portions.find((p) => p.grams && p.unit !== "g" && p.unit !== "ml")?.grams ?? 250) : null;
-  const g = gradeFood({ gradeCategory, per100: rec.per100, gradePortionGrams, additives: rec.additives, nova: rec.nova });
+  // Dishes are graded on one frozen reference portion: the first real portion, but never less than 100 g, so a
+  // single small piece (one chikki, one roti) can't make a dense recipe look light. Search hits show the same portion.
+  const defaultPortion = representativePortion(portions);
+  const gradePortionGrams = gradeCategory === "dish" ? Math.max(portions[defaultPortion]?.grams ?? MIN_GRADE_GRAMS, MIN_GRADE_GRAMS) : null;
+  const g = gradeFood({ gradeCategory, per100: rec.per100, gradePortionGrams, additives: rec.additives, nova: rec.nova, fvlPercent });
+  const categories = rec.categories ?? (rec.wweia ? [`${WWEIA_PREFIX}${rec.wweia}`] : []);
   const prov: Provenance = rec.source === "off" ? "community" : "reference";
   const provenance = Object.fromEntries(NUTRIENT_KEYS.filter((k) => rec.per100[k] !== undefined).map((k) => [k, prov])) as FoodDraft["provenance"];
   const aliases = aliasesFor(rec.name);
   return {
     source: rec.source, sourceRef: rec.sourceRef, ownerId: null, kind, gradeCategory, name: rec.name, brand: rec.brand ?? null,
     aliases, barcode: rec.barcode ?? null, basis: rec.basis, per100: rec.per100 as Nutrients, provenance, portions,
-    defaultPortion: 0, gradePortionGrams, ingredients: rec.ingredients ?? [], allergens: rec.allergens ?? [], additives: rec.additives ?? [],
-    categories: rec.categories ?? [], countries: rec.countries, nutriscoreSource: rec.nutriscore ?? null, nova: rec.nova ?? null,
+    defaultPortion, gradePortionGrams, ingredients: rec.ingredients ?? [], allergens: rec.allergens ?? [], additives: rec.additives ?? [],
+    categories, countries: rec.countries, nutriscoreSource: rec.nutriscore ?? null, nova: rec.nova ?? null,
     grade: g.grade, gradeValue: g.value, gradeComponents: g.components, gradeVersion: GRADE_VERSION, imageUrl: rec.imageUrl ?? null,
     ...buildSearchFields({ name: rec.name, brand: rec.brand, aliases }),
   };

@@ -16,6 +16,12 @@ export function explain(input: {
     satFat: () => ({ tone: "bad", text: `High saturated fat: ${fmt(n.satFat ?? 0)} g per ${unit}` }),
     sugars: () => ({ tone: "bad", text: `High sugar: ${fmt(n.sugars ?? 0)} g per ${unit}${share(input.perPortion?.sugars, input.targets.sugarsMax)}` }),
     energy: () => ({ tone: "warn", text: `Energy-dense: ${fmt(n.energyKcal)} kcal per ${unit}` }),
+    sugarsDensity: () => ({ tone: "bad", text: `High sugar: ${fmt(n.sugars ?? 0)} g per ${unit}` }),
+    energyDensity: () => ({ tone: "warn", text: `Energy-dense: ${fmt(n.energyKcal)} kcal per ${unit}` }),
+    sodiumDensity: () => ({ tone: "bad", text: `High sodium: ${fmt(n.sodiumMg ?? 0)} mg per ${unit}` }),
+    satFatDensity: () => ({ tone: "bad", text: `High saturated fat: ${fmt(n.satFat ?? 0)} g per ${unit}` }),
+    fatDensity: () => ({ tone: "warn", text: `High fat: ${fmt(n.fat)} g per ${unit}` }),
+    fvl: () => ({ tone: "good", text: "Fruit, vegetables or legumes" }),
     fatShare: () => ({ tone: "warn", text: "Most of its calories come from fat" }),
     sweeteners: () => ({ tone: "warn", text: "Contains artificial sweeteners" }),
     processing: () => ({ tone: "warn", text: "Ultra-processed: several additives" }),
@@ -29,7 +35,7 @@ export function explain(input: {
   const out: Reason[] = [];
   for (const c of [...negatives, ...positives]) {
     const r = templates[c.key]?.(c);
-    if (r) out.push(r);
+    if (r && !out.some((o) => o.text === r.text)) out.push(r);
     if (out.length === 3) break;
   }
   if (out.length === 0) out.push({ tone: "good", text: "Nothing stands out as too high." });
