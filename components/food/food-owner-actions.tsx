@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -11,11 +11,13 @@ import { api, ApiError } from "@/lib/api-client";
 
 export function FoodOwnerActions({ id, name }: { id: string; name: string }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const del = useMutation({
     mutationFn: () => api(`/api/v1/foods/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Deleted. Past diary entries keep their values.");
+      await qc.invalidateQueries({ queryKey: ["foods"] });
       router.push("/foods");
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn't delete that. Try again."),
@@ -36,8 +38,8 @@ export function FoodOwnerActions({ id, name }: { id: string; name: string }) {
           <DialogTitle>Delete {name}?</DialogTitle>
           <DialogDescription>This removes it from search and My foods. Past diary entries keep their values.</DialogDescription>
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button type="button" variant="destructive" disabled={del.isPending} onClick={() => del.mutate()}>
+            <DialogClose render={<Button variant="outline" className="h-11" />}>Cancel</DialogClose>
+            <Button type="button" variant="destructive" className="h-11" disabled={del.isPending} onClick={() => del.mutate()}>
               {del.isPending ? "Deleting…" : "Delete"}
             </Button>
           </DialogFooter>

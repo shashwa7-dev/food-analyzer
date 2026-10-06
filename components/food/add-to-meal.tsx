@@ -37,7 +37,7 @@ export function AddToMeal({ food, date, defaultMeal, onDone }: {
         <div className="flex flex-wrap gap-2">
           {loggable.map(({ p, i }) => (
             <button key={p.label} type="button" aria-pressed={i === portionIndex} onClick={() => setPortionIndex(i)}
-              className="min-h-10 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">
+              className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">
               {p.label} <span className="num opacity-70">{p.grams} {unit}</span>
             </button>
           ))}
@@ -52,7 +52,7 @@ export function AddToMeal({ food, date, defaultMeal, onDone }: {
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm text-subtle">Meal</span>
         <div className="flex flex-wrap gap-2">{MEALS.map((m) => (
-          <button key={m} type="button" aria-pressed={m === meal} onClick={() => setMeal(m)} className="min-h-10 rounded-md border border-line bg-surface px-3 text-sm font-medium capitalize aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">{m}</button>
+          <button key={m} type="button" aria-pressed={m === meal} onClick={() => setMeal(m)} className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium capitalize aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">{m}</button>
         ))}</div>
       </div>
       <Button className="h-12 w-full" disabled={add.isPending || loggable.length === 0} onClick={() => add.mutate()}>

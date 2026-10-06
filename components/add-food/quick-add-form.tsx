@@ -25,6 +25,7 @@ export function QuickAddForm({ date, meal, onDone }: { date: string; meal: Meal;
   function validate() {
     const trimmed = name.trim();
     if (!trimmed) return "Name it so you can find it again.";
+    if (values.energyKcal.trim() === "") return "Enter the calories.";
     for (const f of FIELDS) {
       const raw = values[f.key];
       const v = raw === "" ? 0 : Number(raw);

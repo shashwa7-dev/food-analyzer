@@ -33,7 +33,7 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
         <button
           type="button"
           onClick={() => setPicked(null)}
-          className="flex min-h-10 items-center gap-1.5 self-start text-sm font-semibold text-subtle"
+          className="flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold text-subtle"
         >
           <ChevronLeft className="size-4" aria-hidden /> Back
         </button>
@@ -54,7 +54,7 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className="min-h-10 flex-1 rounded-[8px] text-sm font-semibold text-subtle aria-selected:bg-surface aria-selected:text-ink aria-selected:shadow-card"
+            className="min-h-11 flex-1 rounded-[8px] text-sm font-semibold text-subtle aria-selected:bg-surface aria-selected:text-ink aria-selected:shadow-card"
           >
             {TAB_LABEL[t]}
           </button>

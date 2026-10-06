@@ -148,7 +148,7 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
               type="button"
               aria-pressed={unit === u}
               onClick={() => setUnit(u)}
-              className="min-h-10 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg"
+              className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg"
             >
               {UNIT_LABEL[u]}
             </button>
