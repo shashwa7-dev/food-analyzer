@@ -11,6 +11,7 @@ export async function upsertFoods(drafts: FoodDraft[]): Promise<number> {
       target: [food.source, food.sourceRef],
       set: {
         name: sql`excluded.name`, brand: sql`excluded.brand`, aliases: sql`excluded.aliases`, kind: sql`excluded.kind`,
+        barcode: sql`excluded.barcode`,
         gradeCategory: sql`excluded.grade_category`, per100: sql`excluded.per100`, provenance: sql`excluded.provenance`,
         portions: sql`excluded.portions`, gradePortionGrams: sql`excluded.grade_portion_grams`, grade: sql`excluded.grade`,
         gradeValue: sql`excluded.grade_value`, gradeComponents: sql`excluded.grade_components`, gradeVersion: sql`excluded.grade_version`,

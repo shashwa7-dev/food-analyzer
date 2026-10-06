@@ -11,6 +11,11 @@ describe("classify", () => {
     expect(classify({ source: "indb", name: "Honey chilli potato" })).toEqual({ kind: "dish", gradeCategory: "dish" });
     expect(classify({ source: "indb", name: "Mustard oil" })).toEqual({ kind: "ingredient", gradeCategory: "none" });
   });
+  it("INDB cooked dishes are not misclassified as raw ingredients", () => {
+    expect(classify({ source: "indb", name: "Gram flour and semolina dhokla" })).toEqual({ kind: "dish", gradeCategory: "dish" });
+    expect(classify({ source: "indb", name: "Chickpea flour cookies" })).toEqual({ kind: "dish", gradeCategory: "dish" });
+    expect(classify({ source: "indb", name: "Cabbage rolls (dry)" })).toEqual({ kind: "dish", gradeCategory: "dish" });
+  });
   it("FNDDS uses WWEIA categories", () => {
     expect(classify({ source: "fndds", name: "Chicken curry", wweia: "Poultry mixed dishes" }).gradeCategory).toBe("dish");
     expect(classify({ source: "fndds", name: "Coffee, with milk", wweia: "Coffee" }).gradeCategory).toBe("beverage");

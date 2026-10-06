@@ -3,7 +3,9 @@ import type { GradeCategory } from "./types";
 type Kind = "dish" | "generic" | "packaged" | "ingredient";
 // An ingredient is a name that IS a cooking basic (optionally with a qualifier), not a dish that mentions one.
 const BASIC_INGREDIENT = /^(pure |desi |refined |cow |buffalo |table |rock |black )?(ghee|oil|[a-z]+ oil|vanaspati|butter|salt|sugar|jaggery|gur|honey|vinegar|baking soda|[a-z ]*masala powder|garam masala|[a-z ]*spice mix|[a-z ]*powder)( \([^)]*\))?$/i;
-const RAW_INGREDIENT = /\b(raw|flour|atta|besan|maida|uncooked|dry|dried)\b/i;
+// FNDDS only — INDB contains only cooked recipes, so this would misclassify dishes like
+// "Gram flour and semolina dhokla" or "Cabbage rolls (dry)" as ingredients.
+const RAW_INGREDIENT = /\b(raw|flour|atta|besan|maida|uncooked)\b/i;
 const FNDDS_DISH = /mixed dishes|soups?|sandwich|burgers?|pizza|burritos|tacos|stir-fr|fried rice|egg rolls|dumplings|curr(y|ies)|macaroni and cheese|lasagna|pasta/i;
 const FNDDS_DRINK = /coffee|tea|soft drinks|juice|nectar|smoothies|sport and energy drinks|diet soft drinks|beer|wine|liquor|flavored milk|milk shakes|plant-based milk|nutritional beverages/i;
 const FNDDS_WATER = /water/i;
@@ -15,8 +17,9 @@ export function classify(input: {
   const cats = input.categories ?? [];
   switch (input.source) {
     case "indb":
+      // INDB contains only cooked recipes — RAW_INGREDIENT is not applied here (it would catch words
+      // like "flour" or "dry" that appear in dish names, e.g. "Gram flour and semolina dhokla").
       if (BASIC_INGREDIENT.test(input.name.trim())) return { kind: "ingredient", gradeCategory: "none" };
-      if (RAW_INGREDIENT.test(input.name)) return { kind: "ingredient", gradeCategory: "general" };
       return { kind: "dish", gradeCategory: "dish" };
     case "fndds": {
       const w = input.wweia ?? "";

@@ -40,9 +40,11 @@ export function parseHouseholdCsv(text: string): HouseholdRule[] {
   });
 }
 
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 function householdFor(name: string, rules: HouseholdRule[]): Portion[] {
   const n = normalise(name);
-  const rule = rules.find((r) => r.keywords.some((k) => new RegExp(`\\b${k}\\b`).test(n)));
+  const rule = rules.find((r) => r.keywords.some((k) => new RegExp(`\\b${escapeRegExp(k)}\\b`).test(n)));
   return rule ? [{ label: rule.label, amount: 1, unit: "household", grams: rule.grams }] : [];
 }
 
