@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PRESETS } from "@/lib/nutrition/targets";
 import { gatedTargetsWrite, sameOverrides, targetsToSave } from "./targets-gate";
 
-const text = (o: Record<string, number | string>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])) as never;
+const text = (o: object) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])) as never;
 
 describe("sameOverrides", () => {
   it("ignores key order and undefined keys; null and {} are the same", () => {
