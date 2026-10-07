@@ -5,8 +5,11 @@ describe("stepper", () => {
     expect(stepFor("household")).toBe(0.5); expect(stepFor("serving")).toBe(0.5); expect(stepFor("pack")).toBe(0.5);
     expect(stepFor("g")).toBe(10); expect(stepFor("ml")).toBe(10);
   });
-  it("never goes below one step", () => {
-    expect(stepAmount(0.5, "household", -1)).toBe(0.5);
+  it("never goes below ¼ of a portion or one 10 g step", () => {
+    expect(stepAmount(0.5, "household", -1)).toBe(0.25); // down to ¼, the API's floor (review M9)
+    expect(stepAmount(0.25, "household", -1)).toBe(0.25);
+    expect(stepAmount(0.25, "household", 1)).toBe(0.5);
+    expect(stepAmount(0.75, "serving", -1)).toBe(0.5);
     expect(stepAmount(10, "g", -1)).toBe(10);
   });
   it("snaps odd values to the step grid", () => {

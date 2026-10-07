@@ -7,7 +7,7 @@ import { LiveMacros, MealTiles, UnitChips } from "@/components/food/sheet-parts"
 import { MEAL_META } from "@/components/food/meal-meta";
 import { useLogEntry } from "@/components/food/use-log-entry";
 import { logEntryBody, MAX_QUANTITY, type LogTarget } from "@/lib/log/quantity";
-import { multiplierUnit, stepAmount, stepFor, unitChipLabel, unitWord } from "@/lib/log/stepper";
+import { minAmount, multiplierUnit, stepAmount, unitChipLabel, unitWord } from "@/lib/log/stepper";
 import { parseAmount } from "@/lib/parse-amount";
 import type { Meal, Nutrients, Portion, PortionUnit } from "@/lib/nutrition/types";
 
@@ -94,7 +94,7 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone, notes }: {
         amount={amount}
         sub={sub}
         onStep={step}
-        canDecrease={amount > stepFor(stepUnit)}
+        canDecrease={amount > minAmount(stepUnit)}
         canIncrease={amount < max}
         input={isGrams ? { value: gramsText, onChange: setGramsText, invalid: !gramsValid, label: `Amount in ${unit}` } : undefined}
       />

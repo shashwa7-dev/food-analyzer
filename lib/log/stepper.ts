@@ -3,11 +3,14 @@ import type { PortionUnit } from "@/lib/nutrition/types";
 /** The amount stepper's natural increment: half a katori/bowl/piece/serving/pack, or 10 g/ml. */
 export function stepFor(unit: PortionUnit): number { return unit === "g" || unit === "ml" ? 10 : 0.5; }
 
-/** One step up or down, snapped to the step grid (37 g → 40 g / 30 g), never below one step. */
+/** The smallest amount the stepper goes down to: ¼ of a portion (the API's floor), or one 10 g/ml step. */
+export function minAmount(unit: PortionUnit): number { return unit === "g" || unit === "ml" ? 10 : 0.25; }
+
+/** One step up or down, snapped to the step grid (37 g → 40 g / 30 g), never below minAmount (½ → ¼). */
 export function stepAmount(amount: number, unit: PortionUnit, dir: 1 | -1): number {
   const s = stepFor(unit);
   const snapped = dir === 1 ? Math.floor(amount / s + 1e-9) * s + s : Math.ceil(amount / s - 1e-9) * s - s;
-  return Math.max(s, Math.round(snapped * 100) / 100);
+  return Math.max(minAmount(unit), Math.round(snapped * 100) / 100);
 }
 
 const FRACTION: Record<number, string> = { 0.25: "¼", 0.5: "½", 0.75: "¾" };

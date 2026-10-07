@@ -17,7 +17,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { foodIconKey } from "@/lib/foods/icon";
 import { isFreeGramsPortion } from "@/lib/log/format";
 import { MAX_QUANTITY } from "@/lib/log/quantity";
-import { multiplierUnit, stepAmount, stepFor, unitWord } from "@/lib/log/stepper";
+import { minAmount, multiplierUnit, stepAmount, unitWord } from "@/lib/log/stepper";
 import { parseAmount } from "@/lib/parse-amount";
 import { invalidateLogQueries } from "@/lib/log/invalidate";
 import { undoBody, undoNeedsPortions, undoTarget } from "@/lib/log/undo";
@@ -135,7 +135,7 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
         amount={amount}
         sub={sub}
         onStep={step}
-        canDecrease={amount > stepFor(stepUnit)}
+        canDecrease={amount > minAmount(stepUnit)}
         canIncrease={amount < max}
         input={freeGrams ? { value: gramsText, onChange: setGramsText, invalid: !gramsValid, label: `Amount in ${unit}` } : undefined}
       />
