@@ -2,7 +2,8 @@
 // minerals" on a food page and a scan result) and the full table: each nutrient's name, unit and
 // order, with the rules for what is left out. A missing value is never shown as 0: its card is left out.
 import { percentDV } from "./daily-values";
-import type { AnyNutrientKey, MicroKey, NutrientKey, Nutrients } from "./types";
+import { isNotableNegative } from "./explain";
+import type { AnyNutrientKey, MicroKey, NutrientKey, Nutrients, ScoreComponent } from "./types";
 
 export type Level = "low" | "medium" | "high";
 
@@ -19,6 +20,27 @@ const BANDS: Record<"sugars" | "satFat" | "sodiumMg", { food: [number, number]; 
 };
 export type LimitKey = keyof typeof BANDS;
 export const LIMIT_KEYS = Object.keys(BANDS) as LimitKey[];
+
+/** The grade components (lib/nutrition/grade) that score each limit nutrient, packaged and dish. */
+const LIMIT_COMPONENTS: Record<LimitKey, string[]> = {
+  sugars: ["sugars", "sugarsDensity"],
+  satFat: ["satFat", "satFatDensity"],
+  sodiumMg: ["salt", "sodium", "sodiumDensity"],
+};
+
+/**
+ * A limit nutrient's band on a graded food, one threshold set with the grade's reasons: "high" exactly
+ * when a component scoring it is notable enough for a "High …" reason (lib/nutrition/explain.ts
+ * isNotableNegative); otherwise the FSA band, capped at "medium" (a food the grade doesn't call high in
+ * sugar never shows High sugar). With no component for it (ungraded, or not scored), the FSA band alone.
+ */
+export function gradedLimitLevel(key: LimitKey, per100: number, basis: "per_100g" | "per_100ml", components: ScoreComponent[]): Level {
+  const scored = components.filter((c) => LIMIT_COMPONENTS[key].includes(c.key));
+  const fsa = limitLevel(key, per100, basis);
+  if (scored.length === 0) return fsa;
+  if (scored.some(isNotableNegative)) return "high";
+  return fsa === "high" ? "medium" : fsa;
+}
 
 /** A limit nutrient's band from its per-100 value (never a portion's: bands are per 100 g/ml). */
 export function limitLevel(key: LimitKey, per100: number, basis: "per_100g" | "per_100ml" = "per_100g"): Level {
@@ -91,15 +113,16 @@ export interface NutrientRow extends NutrientMeta {
 
 /**
  * The "More nutrients" cards for `n` (the values shown: per 100, or a meal's whole plate), in list
- * order, the ones `n` holds only. `per100` bands sugars, saturated fat and sodium; pass null when
- * there is no per-100 figure (a per-serving label), and they get no band.
+ * order, the ones `n` holds only. `per100` bands sugars, saturated fat and sodium (with the grade's
+ * `components`, so the band agrees with its reasons: gradedLimitLevel); pass null when there is no
+ * per-100 figure (a per-serving label), and they get no band.
  */
-export function moreNutrientRows(n: Nutrients, per100: Nutrients | null, basis: "per_100g" | "per_100ml"): NutrientRow[] {
+export function moreNutrientRows(n: Nutrients, per100: Nutrients | null, basis: "per_100g" | "per_100ml", components: ScoreComponent[] = []): NutrientRow[] {
   return MORE_NUTRIENTS.flatMap((m) => {
     const value = n[m.key];
     if (value === undefined) return [];
     const p = per100?.[m.key];
-    const level = (LIMIT_KEYS as string[]).includes(m.key) && p !== undefined ? limitLevel(m.key as LimitKey, p, basis) : undefined;
+    const level = (LIMIT_KEYS as string[]).includes(m.key) && p !== undefined ? gradedLimitLevel(m.key as LimitKey, p, basis, components) : undefined;
     return [{ ...m, value, dv: percentDV(m.key, value), ...(level && { level }) }];
   });
 }

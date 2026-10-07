@@ -3,11 +3,11 @@ import { useState, type ReactNode } from "react";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AmountStepper } from "@/components/food/amount-stepper";
-import { LiveMacros, MealTiles, UnitChips } from "@/components/food/sheet-parts";
+import { LiveMacros, MealTiles, UnitChips, UnitSelect } from "@/components/food/sheet-parts";
 import { MEAL_META } from "@/components/food/meal-meta";
 import { useLogEntry } from "@/components/food/use-log-entry";
 import { logEntryBody, MAX_QUANTITY, type LogTarget } from "@/lib/log/quantity";
-import { minAmount, multiplierUnit, stepAmount, unitChipLabel, unitWord } from "@/lib/log/stepper";
+import { minAmount, multiplierUnit, shortUnitLabel, stepAmount, unitChipLabel, unitWord } from "@/lib/log/stepper";
 import { parseAmount } from "@/lib/parse-amount";
 import { cn } from "@/lib/utils";
 import type { Meal, Nutrients, Portion, PortionUnit } from "@/lib/nutrition/types";
@@ -16,6 +16,8 @@ import type { Meal, Nutrients, Portion, PortionUnit } from "@/lib/nutrition/type
 export type LoggableFood = { name: string; per100: Nutrients | null; perServing?: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml" };
 
 const GRAMS = "grams";
+/** Past this many unit options the add panel shows a select rather than chips. */
+const PANEL_CHIPS = 5;
 const MAX_GRAMS = 5000;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -92,6 +94,14 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone, notes, layo
   }
 
   const panel = layout === "panel";
+  // The 320 px panel: up to PANEL_CHIPS options as wrapping chips with short labels, more as a select.
+  const short = options.map((o) => {
+    const label = shortUnitLabel(o.label);
+    return label === o.label ? o : { ...o, label, title: o.label };
+  });
+  const unitPanel = options.length > PANEL_CHIPS
+    ? <UnitSelect options={short} active={String(mode)} onPick={pick} />
+    : <UnitChips options={short} active={String(mode)} onPick={pick} wrap />;
   const stepper = (
     <AmountStepper
       amount={amount}
@@ -107,7 +117,7 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone, notes, layo
     <div className={cn("flex min-w-0 flex-col", panel ? "gap-3" : "gap-3.5")}>
       {panel && <MealTiles meal={meal} onPick={setMeal} />}
       {stepper}
-      {options.length > 1 && <UnitChips options={options} active={String(mode)} onPick={pick} />}
+      {options.length > 1 && (panel ? unitPanel : <UnitChips options={options} active={String(mode)} onPick={pick} />)}
       {!panel && <MealTiles meal={meal} onPick={setMeal} />}
       <LiveMacros kcal={n.energyKcal} protein={n.protein} carbs={n.carbs} fat={n.fat} />
       {notes}

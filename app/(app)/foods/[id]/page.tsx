@@ -11,7 +11,7 @@ import { nutrientsFor } from "@/lib/nutrition/portions";
 import { oneLineReason, packSize, typicalPortion, warningFlags } from "@/lib/scans/result-display";
 import type { Grade } from "@/lib/nutrition/types";
 import {
-  BetterPick, BigCalories, CATEGORY, DietChip, DV_NOTE, fmt, FoodTitle, MacroCards, NutrientGrid, VerdictLine,
+  BetterPick, BigCalories, CATEGORY, DietChip, fmt, FoodTitle, MacroCards, NutrientGrid, VerdictLine, vitaminsNote,
 } from "@/components/food/result-parts";
 import { DetailTabs } from "@/components/food/detail-tabs";
 import { FoodAddBar, FoodAddPanel, FoodTopBar } from "@/components/food/food-detail-actions";
@@ -101,8 +101,8 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
           <BigCalories kcal={food.per100.energyKcal} basis={per} portion={portionText} />
           <MacroCards n={food.per100} />
           {alternatives[0] && <div className="md:hidden">{better}</div>}
-          <NutrientGrid title="More nutrients" basis={per} rows={moreNutrientRows(food.per100, food.per100, food.basis)} />
-          <NutrientGrid title="Vitamins & minerals" basis={per} rows={vitaminMineralRows(food.per100)} note={DV_NOTE} />
+          <NutrientGrid title="More nutrients" basis={per} rows={moreNutrientRows(food.per100, food.per100, food.basis, food.gradeComponents)} />
+          <NutrientGrid title="Vitamins & minerals" basis={per} rows={vitaminMineralRows(food.per100)} note={vitaminsNote(food.source === "indb", food.per100)} foldAfter={6} />
           <DetailTabs
             label="Details"
             tabs={[{ id: "why", label: whyLabel, panel: why }, { id: "ingredients", label: "Ingredients", panel: ingredients }]}

@@ -53,3 +53,16 @@ export function unitChipLabel(label: string): string {
   const rest = /^1 (.+)$/.exec(label.trim())?.[1] ?? label;
   return rest.charAt(0).toUpperCase() + rest.slice(1);
 }
+
+/**
+ * A unit chip's label short enough for the food page's 320 px add panel: the parenthetical aside goes
+ * ("Fl oz (no ice)" → "Fl oz"), then anything past `max` characters is cut at a word with "…". The full
+ * label stays available to the chip as its accessible name.
+ */
+export function shortUnitLabel(label: string, max = 16): string {
+  const plain = label.replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim() || label;
+  if (plain.length <= max) return plain;
+  const cut = plain.slice(0, max - 1);
+  const word = cut.lastIndexOf(" ");
+  return `${(word > max / 2 ? cut.slice(0, word) : cut).trimEnd()}…`;
+}

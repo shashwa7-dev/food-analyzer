@@ -18,7 +18,7 @@ const OUT = resolve("docs/design/qa");
 const WIDTHS = [390, 1280] as const;
 const CONCURRENCY = 3;
 
-type Ids = { aptamil: string; dal: string; paneer: string; spinach: string; scanLabel: string; scanBarcode: string; scanMeal: string; scanFailed: string };
+type Ids = { aptamil: string; dal: string; paneer: string; spinach: string; milk: string; scanLabel: string; scanBarcode: string; scanMeal: string; scanFailed: string };
 type Scenario = {
   name: string;
   path: (ids: Ids) => string;
@@ -111,6 +111,13 @@ const SCENARIOS: Scenario[] = [
     await sleep(200);
   } },
   { name: "food-spinach", path: (i) => `/foods/${i.spinach}` },
+  // Phones fold the vitamins after six; opened here.
+  { name: "food-spinach-all", path: (i) => `/foods/${i.spinach}`, setup: async (p) => {
+    await p.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")].find((b) => b.textContent?.startsWith("Show all"))?.click());
+    await sleep(200);
+  } },
+  // More than five unit options: the add panel's unit select.
+  { name: "food-milk", path: (i) => `/foods/${i.milk}` },
   {
     name: "scan", path: () => "/scan", viewportShot: true,
     setup: async (p) => { await p.waitForFunction(() => { const v = document.querySelector("video"); return !!v && v.videoWidth > 0; }, { timeout: 20_000 }); await sleep(600); },
@@ -161,10 +168,11 @@ async function resolveIds(): Promise<Ids> {
   const paneers = (await foods("paneer")) as BrandHit[];
   const paneer = paneers.find((f) => f.name === "Paneer" && f.brand === "Vallhabha") ?? paneers.find((f) => f.source === "off");
   const spinach = (await foods("spinach raw")).find((f) => f.name === "Spinach, raw");
+  const milk = (await foods("milk whole")).find((f) => f.name === "Milk, whole");
   const { scans } = await api<{ scans: { id: string; status: string; inputKind: string }[] }>("/api/v1/scans");
   const done = (kind: string) => scans.find((s) => s.status === "done" && s.inputKind === kind)?.id;
   const failed = scans.find((s) => s.status === "failed")?.id;
-  const ids = { aptamil: aptamil?.id, dal: dal?.id, paneer: paneer?.id, spinach: spinach?.id, scanLabel: done("label"), scanBarcode: done("barcode"), scanMeal: done("meal"), scanFailed: failed };
+  const ids = { aptamil: aptamil?.id, dal: dal?.id, paneer: paneer?.id, spinach: spinach?.id, milk: milk?.id, scanLabel: done("label"), scanBarcode: done("barcode"), scanMeal: done("meal"), scanFailed: failed };
   const missing = Object.entries(ids).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Demo data missing ${missing.join(", ")}: run pnpm seed:demo`);
   return ids as Ids;

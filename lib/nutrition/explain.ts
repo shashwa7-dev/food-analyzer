@@ -1,4 +1,13 @@
-import type { DailyTargets, GradeResult, Nutrients, Reason } from "./types";
+import type { DailyTargets, GradeResult, Nutrients, Reason, ScoreComponent } from "./types";
+
+/**
+ * A negative grade component worth a reason ("High sugar …"): it took at least this share of its
+ * maximum points. The nutrient cards band their limits by the same rule (lib/nutrition/nutrient-display.ts),
+ * so a reason saying "High sugar" and the Sugars card saying "High" can't disagree.
+ */
+export const REASON_SHARE = 0.3;
+export const isNotableNegative = (c: ScoreComponent): boolean =>
+  c.direction === "negative" && c.points > 0 && c.points / c.maxPoints >= REASON_SHARE;
 
 const fmt = (n: number) => (n >= 100 ? Math.round(n).toLocaleString("en-IN") : (Math.round(n * 10) / 10).toString());
 
@@ -35,7 +44,7 @@ export function explain(input: {
     fibre: () => ({ tone: "good", text: `Good fibre: ${fmt(n.fibre ?? 0)} g per ${unit}` }),
   };
   const negatives = input.grade.components
-    .filter((c) => c.direction === "negative" && c.points > 0 && c.points / c.maxPoints >= 0.3)
+    .filter(isNotableNegative)
     .sort((a, b) => b.points - a.points);
   const positives = input.grade.components.filter((c) => c.direction === "positive" && c.points >= Math.ceil(c.maxPoints / 2));
   const out: Reason[] = [];

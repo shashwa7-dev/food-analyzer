@@ -13,6 +13,7 @@ import { GRADE_FILL, GradeBadge } from "@/components/grade-badge";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { ReasonList } from "@/components/food/food-verdict";
 import { FlagNotes } from "@/components/food/sheet-parts";
+import { NutrientFold } from "@/components/food/nutrient-fold";
 import { cn } from "@/lib/utils";
 
 /** A white result card (mock-c1 `.card`). */
@@ -228,12 +229,12 @@ export function MacroCards({ n }: { n: Nutrients }) {
 const LEVEL_TONE: Record<Level, string | null> = { low: null, medium: "text-warn-ink", high: "text-bad" };
 const LEVEL_WORD: Record<Level, string | null> = { low: null, medium: "Medium", high: "High" };
 
-function NutrientCard({ row }: { row: NutrientRow }) {
+function NutrientCard({ row, foldable = false }: { row: NutrientRow; foldable?: boolean }) {
   const tone = row.level ? LEVEL_TONE[row.level] : null;
   const word = row.level ? LEVEL_WORD[row.level] : null;
   const dv = row.dv === null ? null : `${row.dv < 1 ? "<1" : row.dv}% DV`;
   return (
-    <li className="grid min-w-0 content-start gap-0.5 rounded-[16px] bg-surface px-3.5 py-3 shadow-card">
+    <li className={cn("grid min-w-0 content-start gap-0.5 rounded-[16px] bg-surface px-3.5 py-3 shadow-card", foldable && "max-md:group-data-[folded=true]/fold:hidden")}>
       <span className="truncate text-[12.5px] font-medium whitespace-nowrap text-subtle">{row.label}</span>
       <b className={cn("num text-[17px] font-semibold tracking-[-0.02em] whitespace-nowrap", tone ?? "text-ink")}>
         {formatAmount(row.value)} <small className="text-[12.5px] font-medium">{row.unit}</small>
@@ -252,19 +253,24 @@ function NutrientCard({ row }: { row: NutrientRow }) {
 /**
  * A titled grid of small nutrient cards: "More nutrients" (limits banded per 100 g: medium in the
  * warn tone, high in the bad tone, each with its word so colour is never the only cue) and "Vitamins &
- * minerals" (with % of the Daily Value). Nothing at all when the food holds none of them.
+ * minerals" (with % of the Daily Value). Nothing at all when the food holds none of them. `foldAfter`:
+ * on phones only the first that many show until "Show all {n}" (NutrientFold).
  */
-export function NutrientGrid({ title, basis, rows, note }: { title: string; basis: string; rows: NutrientRow[]; note?: ReactNode }) {
+export function NutrientGrid({ title, basis, rows, note, foldAfter }: { title: string; basis: string; rows: NutrientRow[]; note?: ReactNode; foldAfter?: number }) {
   if (rows.length === 0) return null;
+  const fold = foldAfter !== undefined && rows.length > foldAfter;
+  const list = (
+    <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2 p-0">
+      {rows.map((r, i) => <NutrientCard key={r.key} row={r} foldable={fold && i >= foldAfter!} />)}
+    </ul>
+  );
   return (
     <section className="grid gap-2" aria-label={title}>
       <div className="flex items-baseline justify-between gap-3 px-1">
         <h2 className="section-title m-0">{title}</h2>
         <span className="text-[12.5px] whitespace-nowrap text-subtle">{basis}</span>
       </div>
-      <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2 p-0">
-        {rows.map((r) => <NutrientCard key={r.key} row={r} />)}
-      </ul>
+      {fold ? <NutrientFold total={rows.length}>{list}</NutrientFold> : list}
       {note && <p className="m-0 px-1 text-[12.5px] text-subtle">{note}</p>}
     </section>
   );
@@ -272,6 +278,13 @@ export function NutrientGrid({ title, basis, rows, note }: { title: string; basi
 
 /** Daily Values' source, under the vitamins grid. */
 export const DV_NOTE = "% DV: share of a Daily Value for adults on 2,000 kcal (US FDA).";
+/** Under the vitamins grid of an INDB food showing vitamin E (lib/foods/micros-map.ts microsFromINDB). */
+export const INDB_VITAMIN_E_NOTE = "Vitamin E from INDB may include all tocopherols, so it can read high.";
+
+/** The vitamins grid's note: the Daily Values' source, plus the INDB vitamin E caveat when it applies. */
+export function vitaminsNote(fromIndb: boolean, n: Nutrients): string {
+  return fromIndb && n.vitaminEMg !== undefined ? `${DV_NOTE} ${INDB_VITAMIN_E_NOTE}` : DV_NOTE;
+}
 
 /* ---------- flags ---------- */
 

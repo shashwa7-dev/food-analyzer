@@ -23,25 +23,56 @@ export function FoodSheetHeader({ iconKey, name, subtitle, grade }: { iconKey: F
   );
 }
 
-/** Portion chips plus Grams (mock-c1 `.units`): one row that never wraps; it scrolls sideways when the food has many portions. */
-export function UnitChips({ options, active, onPick }: {
-  options: { key: string; label: string }[];
+/**
+ * Portion chips plus Grams (mock-c1 `.units`): one row that never wraps; it scrolls sideways when the
+ * food has many portions. `wrap` (the food page's narrow add panel) lets them wrap onto more rows
+ * instead, so no chip is ever clipped. An option's `title` (its full label, when `label` is shortened)
+ * is its accessible name and tooltip.
+ */
+export function UnitChips({ options, active, onPick, wrap = false }: {
+  options: { key: string; label: string; title?: string }[];
   active: string;
   onPick: (key: string) => void;
+  wrap?: boolean;
 }) {
   return (
-    <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Unit">
+    <div className={cn("flex gap-1.5", wrap ? "flex-wrap" : "overflow-x-auto [scrollbar-width:none]")} role="group" aria-label="Unit">
       {options.map((o) => (
         <button
           key={o.key}
           type="button"
           aria-pressed={o.key === active}
+          aria-label={o.title}
+          title={o.title}
           onClick={() => onPick(o.key)}
           className="min-h-11 max-w-[220px] flex-1 shrink-0 basis-auto truncate rounded-[13px] border border-line bg-surface px-3.5 text-[13px] font-semibold whitespace-nowrap text-subtle transition-colors aria-pressed:border-transparent aria-pressed:bg-action aria-pressed:text-action-ink"
         >
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** The unit as a native select (the add panel, when a food has more portions than fit as chips): the field row of MealSelect. */
+export function UnitSelect({ options, active, onPick }: { options: { key: string; label: string; title?: string }[]; active: string; onPick: (key: string) => void }) {
+  const id = useId();
+  const current = options.find((o) => o.key === active);
+  return (
+    <div className="relative flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3.5 focus-within:ring-2 focus-within:ring-brand-deep">
+      <label htmlFor={id} className="text-sm text-subtle">Unit</label>
+      <span className="inline-flex min-w-0 items-center gap-2 font-semibold whitespace-nowrap text-ink" aria-hidden>
+        <span className="truncate">{current?.label}</span>
+        <ChevronDown className="size-[18px] shrink-0 text-subtle" />
+      </span>
+      <select
+        id={id}
+        value={active}
+        onChange={(e) => onPick(e.target.value)}
+        className="absolute inset-0 size-full cursor-pointer appearance-none rounded-2xl opacity-0"
+      >
+        {options.map((o) => <option key={o.key} value={o.key}>{o.title ?? o.label}</option>)}
+      </select>
     </div>
   );
 }

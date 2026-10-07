@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { FOOD_ICON, FoodIcon } from "@/components/food/food-icon";
 import {
-  BetterPick, CalorieRow, CARD, CATEGORY, DV_NOTE, FlagChips, fmt, GradeHero, MacroCards, NutrientGrid, ResultTitle, Tag, Tags, WhyGrade,
+  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroCards, NutrientGrid, ResultTitle, Tag, Tags, vitaminsNote, WhyGrade,
 } from "@/components/food/result-parts";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
@@ -124,8 +124,8 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
           <MacroCards n={shown} />
           <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} basis={r.basis} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
           <BetterPick alt={r.alternatives[0]} tip={r.tip} />
-          <NutrientGrid title="More nutrients" basis={basis} rows={moreNutrientRows(shown, r.per100, r.basis)} />
-          <NutrientGrid title="Vitamins & minerals" basis={basis} rows={vitaminMineralRows(shown)} note={DV_NOTE} />
+          <NutrientGrid title="More nutrients" basis={basis} rows={moreNutrientRows(shown, r.per100, r.basis, r.components)} />
+          <NutrientGrid title="Vitamins & minerals" basis={basis} rows={vitaminMineralRows(shown)} note={vitaminsNote(fromIndb, shown)} foldAfter={6} />
         </div>
         <div className="flex min-w-0 flex-col gap-3">
           <WhyGrade reasons={r.reasons} hints={r.hints} goalFlags={goalFlags} />

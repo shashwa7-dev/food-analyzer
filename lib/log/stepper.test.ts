@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAmount, multiplierUnit, stepAmount, stepFor, unitChipLabel, unitWord } from "./stepper";
+import { formatAmount, multiplierUnit, shortUnitLabel, stepAmount, stepFor, unitChipLabel, unitWord } from "./stepper";
 describe("stepper", () => {
   it("steps household/serving/pack by a half and grams/ml by 10", () => {
     expect(stepFor("household")).toBe(0.5); expect(stepFor("serving")).toBe(0.5); expect(stepFor("pack")).toBe(0.5);
@@ -58,5 +58,16 @@ describe("unit words", () => {
     expect(unitChipLabel("1 katori")).toBe("Katori");
     expect(unitChipLabel("1 fl oz (no ice)")).toBe("Fl oz (no ice)");
     expect(unitChipLabel("4 cubes")).toBe("4 cubes");
+  });
+});
+
+describe("shortUnitLabel", () => {
+  it("drops the aside, then cuts at a word", () => {
+    expect(shortUnitLabel("Katori")).toBe("Katori");
+    expect(shortUnitLabel("Fl oz (no ice)")).toBe("Fl oz");
+    expect(shortUnitLabel("Guideline amount in salad")).toBe("Guideline…");
+    expect(shortUnitLabel("Guideline amount in salad", 20)).toBe("Guideline amount…");
+    expect(shortUnitLabel("Supercalifragilisticexpialidocious")).toBe("Supercalifragil…");
+    expect(shortUnitLabel("(x)")).toBe("(x)");
   });
 });
