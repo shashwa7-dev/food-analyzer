@@ -91,6 +91,7 @@ export function toFoodDraft(rec: SourceRecord, rules: HouseholdRule[]): FoodDraf
     source: rec.source, sourceRef: rec.sourceRef, ownerId: null, kind, gradeCategory, name: rec.name, brand: rec.brand ?? null,
     aliases, barcode: rec.barcode ?? null, basis: rec.basis, per100: rec.per100 as Nutrients, provenance, portions,
     defaultPortion, gradePortionGrams, ingredients: rec.ingredients ?? [], allergens: rec.allergens ?? [], additives: rec.additives ?? [],
+    mayContain: rec.mayContain ?? [],
     categories, countries: rec.countries, nutriscoreSource: rec.nutriscore ?? null, nova: rec.nova ?? null,
     grade: g.grade, gradeValue: g.value, gradeComponents: g.components, gradeVersion: GRADE_VERSION, imageUrl: rec.imageUrl ?? null,
     ...buildSearchFields({ name: rec.name, brand: rec.brand, aliases: searchAliases }),

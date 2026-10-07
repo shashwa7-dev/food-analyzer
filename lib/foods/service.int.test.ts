@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { createUser, resetDb } from "@/tests/helpers/db";
 import { db } from "@/lib/db/client";
-import { profile } from "@/lib/db/schema";
-import { upsertFoods } from "./insert";
+import { food, profile } from "@/lib/db/schema";
+import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
-import { createCustomFood, deleteCustomFood, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoods, updateCustomFood } from "./service";
+import { createCustomFood, deleteCustomFood, findFoodByBarcode, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoods, updateCustomFood } from "./service";
 
 const rules = parseHouseholdCsv("keyword,label,grams\nrice,1 katori,150\n");
 const rec = (sourceRef: string, name: string, per100 = { energyKcal: 130, protein: 2.7, carbs: 28, fat: 0.3 }, source: "indb" | "fndds" = "indb") =>
@@ -104,5 +104,44 @@ describe("foods service", () => {
     await createCustomFood(a, { name: "Protein bar", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 380, protein: 30, carbs: 40, fat: 12 } });
     expect((await myFoods(a)).map((h) => h.name)).toEqual(["Protein bar"]);
     expect(await myFoods(b)).toEqual([]);
+  });
+});
+
+describe("upsertFood (single-row OFF-cache upsert)", () => {
+  beforeEach(resetDb);
+
+  it("inserts, then updates the same row on a repeat barcode (same source/sourceRef), keeping its id", async () => {
+    const draft = toFoodDraft({ source: "off", sourceRef: "999", barcode: "999", name: "Bhujia", basis: "per_100g",
+      per100: { energyKcal: 560, protein: 11, carbs: 42, fat: 38 }, portions: [], countries: ["IN"] }, []);
+    const inserted = await upsertFood(draft);
+    expect(inserted.barcode).toBe("999");
+    expect(inserted.mayContain).toEqual([]);
+
+    const updatedDraft = toFoodDraft({ source: "off", sourceRef: "999", barcode: "999", name: "Bhujia", basis: "per_100g",
+      per100: { energyKcal: 560, protein: 11, carbs: 42, fat: 38 }, portions: [], countries: ["IN"], mayContain: ["en:peanuts"] }, []);
+    const updated = await upsertFood(updatedDraft);
+    expect(updated.id).toBe(inserted.id);
+    expect(updated.mayContain).toEqual(["en:peanuts"]);
+  });
+});
+
+describe("findFoodByBarcode", () => {
+  beforeEach(resetDb);
+
+  it("finds a non-custom food by barcode, excludes custom foods and soft-deleted rows", async () => {
+    const draft = toFoodDraft({ source: "off", sourceRef: "111", barcode: "111", name: "Bhujia", basis: "per_100g",
+      per100: { energyKcal: 560, protein: 11, carbs: 42, fat: 38 }, portions: [], countries: ["IN"] }, []);
+    const off = await upsertFood(draft);
+    expect((await findFoodByBarcode("111"))?.id).toBe(off.id);
+    expect(await findFoodByBarcode("no-such-barcode")).toBeNull();
+
+    // a user's custom food sharing the same literal barcode string is never returned here
+    const a = await createUser();
+    await createCustomFood(a, { name: "My own Bhujia", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 1, protein: 1, carbs: 1, fat: 1 } });
+    await db.update(food).set({ barcode: "222" }).where(eq(food.ownerId, a));
+    expect(await findFoodByBarcode("222")).toBeNull();
+
+    await db.update(food).set({ deletedAt: new Date() }).where(eq(food.id, off.id));
+    expect(await findFoodByBarcode("111")).toBeNull();
   });
 });

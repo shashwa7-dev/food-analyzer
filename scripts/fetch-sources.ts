@@ -3,6 +3,12 @@ import { gzipSync, unzipSync, strFromU8 } from "fflate";
 import ExcelJS from "exceljs";
 import type { Nutrients, Portion } from "@/lib/nutrition/types";
 import type { SourceRecord } from "@/lib/foods/seed-map";
+// toSourceRecordOFF/OffRow now live in lib/foods/off-map.ts (shared with the runtime barcode lookup in
+// lib/engine/off.ts); re-exported here so nothing that imports them from this script breaks.
+import { toSourceRecordOFF, type OffRow } from "@/lib/foods/off-map";
+
+export { toSourceRecordOFF };
+export type { OffRow };
 
 const OUT = "data/sources";
 const num = (v: unknown): number | undefined => {
@@ -50,34 +56,6 @@ export function toSourceRecordFNDDS(f: FnddsFood): SourceRecord | null {
     .slice(0, 6)
     .map((p) => ({ label: p.portionDescription, amount: 1, unit: "household", grams: Math.round(p.gramWeight) }));
   return { source: "fndds", sourceRef: String(f.fdcId), name: f.description, basis: "per_100g", per100: clean(n), portions, wweia: f.wweiaFoodCategory?.wweiaFoodCategoryDescription, countries: ["US"] };
-}
-
-interface OffRow {
-  code: string; product_name?: string; brands?: string; categories_tags?: string[]; nutriments?: Record<string, unknown>;
-  serving_quantity?: unknown; product_quantity?: unknown; nova_group?: unknown; additives_tags?: string[]; allergens_tags?: string[];
-  traces_tags?: string[]; ingredients_text?: string; nutrition_grades?: string; image_front_url?: string;
-}
-
-export function toSourceRecordOFF(p: OffRow): SourceRecord | null {
-  const nm = p.nutriments ?? {};
-  const kcal = num(nm["energy-kcal_100g"]) ?? (num(nm["energy_100g"]) !== undefined ? num(nm["energy_100g"])! / 4.184 : undefined);
-  const protein = num(nm.proteins_100g), carbs = num(nm.carbohydrates_100g), fat = num(nm.fat_100g);
-  const name = (p.product_name ?? "").trim();
-  if (!name || kcal === undefined || protein === undefined || carbs === undefined || fat === undefined || kcal > 900) return null;
-  const sodiumG = num(nm.sodium_100g) ?? (num(nm.salt_100g) !== undefined ? num(nm.salt_100g)! / 2.5 : undefined);
-  const per100 = clean({ energyKcal: kcal, protein, carbs, fat, sugars: num(nm.sugars_100g), satFat: num(nm["saturated-fat_100g"]), fibre: num(nm.fiber_100g), sodiumMg: sodiumG !== undefined ? sodiumG * 1000 : undefined });
-  const portions: Portion[] = [];
-  const serving = num(p.serving_quantity), pack = num(p.product_quantity);
-  if (serving && serving > 0 && serving < 5000) portions.push({ label: "1 serving", amount: 1, unit: "serving", grams: Math.round(serving) });
-  if (pack && pack > 0 && pack < 10000) portions.push({ label: "1 pack", amount: 1, unit: "pack", grams: Math.round(pack) });
-  const cats = p.categories_tags ?? [];
-  return {
-    source: "off", sourceRef: p.code, barcode: p.code, name, brand: p.brands?.split(",")[0]?.trim() || undefined,
-    basis: cats.includes("en:beverages") ? "per_100ml" : "per_100g", per100, portions, categories: cats,
-    ingredients: p.ingredients_text ? p.ingredients_text.split(/,\s*/).map((s) => s.trim()).filter(Boolean).slice(0, 80) : [],
-    allergens: [...(p.allergens_tags ?? [])], additives: p.additives_tags ?? [], mayContain: p.traces_tags ?? [],
-    nova: num(p.nova_group) ?? null, nutriscore: p.nutrition_grades ?? null, imageUrl: p.image_front_url, countries: ["IN"],
-  };
 }
 
 async function fetchINDB() {
@@ -161,6 +139,10 @@ export function offRowFromParquet(raw: Record<string, unknown>): OffRow {
     product_quantity: raw.product_quantity, nova_group: raw.nova_group, additives_tags: raw.additives_tags as string[] | undefined,
     allergens_tags: raw.allergens_tags as string[] | undefined, traces_tags: raw.traces_tags as string[] | undefined,
     ingredients_text: pickText(raw.ingredients_text), nutrition_grades: raw.nutriscore_grade as string | undefined,
+    // The Parquet query (fetchOFFIndia below) already filters `WHERE list_contains(countries_tags, 'en:india')`
+    // without selecting that column, so every row here is India-tagged — synthesize the tag rather than the
+    // ISO code, so toSourceRecordOFF's generic countries_tags mapping (not a hardcoded ["IN"]) still applies.
+    countries_tags: ["en:india"],
   };
 }
 

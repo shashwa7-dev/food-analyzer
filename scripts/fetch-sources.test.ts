@@ -46,6 +46,20 @@ describe("OFF mapping", () => {
     expect(r.ingredients).toEqual(["gram flour", "palmolein", "salt"]);
     expect(toSourceRecordOFF({ code: "1", product_name: "x", nutriments: {} })).toBeNull();
   });
+
+  it("maps countries from countries_tags, ignoring unrecognised tags, and defaults to [] with none matched", () => {
+    const base = { code: "1", product_name: "x", nutriments: { "energy-kcal_100g": 100, proteins_100g: 1, carbohydrates_100g: 1, fat_100g: 1 } };
+    expect(toSourceRecordOFF({ ...base, countries_tags: ["en:india", "en:world"] })!.countries).toEqual(["IN"]);
+    expect(toSourceRecordOFF({ ...base, countries_tags: ["en:united-states", "en:canada"] })!.countries).toEqual(["US", "CA"]);
+    expect(toSourceRecordOFF({ ...base, countries_tags: ["en:germany"] })!.countries).toEqual([]);
+    expect(toSourceRecordOFF(base)!.countries).toEqual([]);
+  });
+
+  it("carries traces_tags into mayContain, defaulting to []", () => {
+    const base = { code: "1", product_name: "x", nutriments: { "energy-kcal_100g": 100, proteins_100g: 1, carbohydrates_100g: 1, fat_100g: 1 } };
+    expect(toSourceRecordOFF({ ...base, traces_tags: ["en:peanuts", "en:milk"] })!.mayContain).toEqual(["en:peanuts", "en:milk"]);
+    expect(toSourceRecordOFF(base)!.mayContain).toEqual([]);
+  });
 });
 
 describe("offRowFromParquet", () => {

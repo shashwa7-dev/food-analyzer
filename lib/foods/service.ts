@@ -1,4 +1,4 @@
-import { and, arrayOverlaps, desc, eq, sql } from "drizzle-orm";
+import { and, arrayOverlaps, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { food, userFoodStats } from "@/lib/db/schema";
@@ -80,6 +80,14 @@ export async function myFoods(userId: string): Promise<FoodHit[]> {
 export async function getFoodForUser(userId: string, id: string): Promise<FoodRow | null> {
   if (!z.uuid().safeParse(id).success) return null;
   const [row] = await db.select().from(food).where(and(eq(food.id, id), visibleFoodWhere(userId)));
+  return row ?? null;
+}
+
+// Looks up a cached OFF-sourced (or any non-custom) food by barcode, for the barcode-scan path — not
+// scoped by userId: custom foods are always excluded (they're owner-private and not barcode-verified),
+// so every visible non-custom food here is already visible to everyone.
+export async function findFoodByBarcode(barcode: string): Promise<FoodRow | null> {
+  const [row] = await db.select().from(food).where(and(eq(food.barcode, barcode), isNull(food.deletedAt), sql`${food.source} <> 'custom'`));
   return row ?? null;
 }
 

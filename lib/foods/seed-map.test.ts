@@ -21,6 +21,16 @@ describe("toFoodDraft", () => {
       portions: [], categories: ["en:snacks"], countries: ["IN"] }, rules);
     expect(d).toMatchObject({ kind: "packaged", barcode: "890", grade: "E" });
     expect(d.provenance.sodiumMg).toBe("community");
+    expect(d.mayContain).toEqual([]);
+  });
+  it("carries OFF traces_tags into mayContain, defaulting to [] for sources without it", () => {
+    const withTraces = toFoodDraft({ source: "off", sourceRef: "891", barcode: "891", name: "Peanut Chikki", basis: "per_100g",
+      per100: { energyKcal: 500, protein: 10, carbs: 50, fat: 25 }, portions: [], categories: ["en:snacks"], countries: ["IN"],
+      mayContain: ["en:peanuts", "en:milk"] }, rules);
+    expect(withTraces.mayContain).toEqual(["en:peanuts", "en:milk"]);
+    const indb = toFoodDraft({ source: "indb", sourceRef: "ASC200", name: "Rice", basis: "per_100g",
+      per100: { energyKcal: 130, protein: 2.7, carbs: 28, fat: 0.3 }, portions: [], countries: ["IN"] }, rules);
+    expect(indb.mayContain).toEqual([]);
   });
   it("ingredients are not graded", () => {
     const d = toFoodDraft({ source: "indb", sourceRef: "X1", name: "Ghee", basis: "per_100g", per100: { energyKcal: 900, protein: 0, carbs: 0, fat: 100 }, portions: [], countries: ["IN"] }, rules);
