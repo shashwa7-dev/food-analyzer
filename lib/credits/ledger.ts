@@ -3,6 +3,7 @@ import { db, type Tx } from "@/lib/db/client";
 import { creditTxn, profile, scan } from "@/lib/db/schema";
 import type { PlanKey } from "./plans";
 import { allowanceFor, currentPeriod, nextPeriodStart } from "./logic";
+import { carriedUsage } from "./tombstone";
 
 export class NoCreditsError extends Error {
   constructor() {
@@ -51,12 +52,20 @@ export async function ensureCurrentPeriodTx(tx: Tx, userId: string, now: Date = 
       userId, amount: -row.credits, type: "expire", idempotencyKey: `expire:${userId}:${row.allowancePeriod}`, balanceAfter: 0,
     }).onConflictDoNothing();
   }
+  // A brand-new user id (first grant ever) may be a deleted account signing up again: carry over what
+  // that account already used this period and today (credit_tombstone), so deleting doesn't reset them.
+  const carried = row.allowancePeriod === null ? await carriedUsage(tx, userId, now) : null;
+  const granted = Math.max(0, allowance - (carried?.used ?? 0));
   await tx.insert(creditTxn).values({
-    userId, amount: allowance, type: "grant", idempotencyKey: `grant:${userId}:${period}`, balanceAfter: allowance,
+    userId, amount: granted, type: "grant", idempotencyKey: `grant:${userId}:${period}`, balanceAfter: granted,
+    ...(carried?.used ? { meta: { carriedOver: carried.used } } : {}),
   }).onConflictDoNothing();
-  await tx.update(profile).set({ credits: allowance, allowancePeriod: period, updatedAt: new Date() }).where(eq(profile.userId, userId));
+  await tx.update(profile).set({
+    credits: granted, allowancePeriod: period, updatedAt: new Date(),
+    ...(carried?.dayScans ? { carriedDay: carried.day, carriedDayScans: carried.dayScans } : {}),
+  }).where(eq(profile.userId, userId));
 
-  return { credits: allowance, period, plan: row.plan, allowance };
+  return { credits: granted, period, plan: row.plan, allowance };
 }
 
 /** Convenience wrapper for callers that don't already have an open transaction. */

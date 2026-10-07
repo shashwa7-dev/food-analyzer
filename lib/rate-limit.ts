@@ -3,7 +3,7 @@
 // inside a transaction that has already locked the user's `profile` row (lib/scans/service.ts).
 import { and, count, eq, gt, gte } from "drizzle-orm";
 import type { Db, Tx } from "@/lib/db/client";
-import { scan } from "@/lib/db/schema";
+import { profile, scan } from "@/lib/db/schema";
 
 export const SCAN_RATE_LIMIT = { max: 5, windowMs: 60_000 } as const;
 /** Model-calling (charged) scans per user per UTC day — refunded scans still count (stops refund-loop abuse). */
@@ -35,8 +35,16 @@ export async function isRateLimited(ex: Executor, userId: string, now: number): 
 }
 
 /** Daily caps for a model-calling scan: the user's own (429 DAILY_LIMIT) and the global one (503 SERVICE_BUSY). */
+/** Today's charged scans carried over from a deleted account with the same email (lib/credits/tombstone.ts). */
+async function carriedScansToday(ex: Executor, userId: string, now: number): Promise<number> {
+  const day = utcDayStart(now).toISOString().slice(0, 10);
+  const [row] = await ex.select({ n: profile.carriedDayScans }).from(profile).where(and(eq(profile.userId, userId), eq(profile.carriedDay, day)));
+  return row?.n ?? 0;
+}
+
 export async function dailyCapHit(ex: Executor, userId: string, now: number, globalCap: number): Promise<"DAILY_LIMIT" | "SERVICE_BUSY" | null> {
-  if ((await chargedScansToday(ex, userId, now)) >= DAILY_AI_SCANS_PER_USER) return "DAILY_LIMIT";
+  const mine = (await chargedScansToday(ex, userId, now)) + (await carriedScansToday(ex, userId, now));
+  if (mine >= DAILY_AI_SCANS_PER_USER) return "DAILY_LIMIT";
   if ((await chargedScansToday(ex, null, now)) >= globalCap) return "SERVICE_BUSY";
   return null;
 }

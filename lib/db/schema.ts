@@ -32,6 +32,9 @@ export const profile = pgTable("profile", {
   plan: planEnum("plan").notNull().default("basic"),
   credits: integer("credits").notNull().default(0),
   allowancePeriod: text("allowance_period"),
+  /** Charged scans carried over from a deleted account with this email (credit_tombstone), counting toward this UTC day's cap. */
+  carriedDay: date("carried_day"),
+  carriedDayScans: integer("carried_day_scans").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [check("credits_non_negative", sql`${t.credits} >= 0`)]);
@@ -132,6 +135,22 @@ export const creditTxn = pgTable("credit_txn", {
   meta: jsonb("meta").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("credit_txn_user_created_idx").on(t.userId, t.createdAt)]);
+
+/**
+ * Survives account deletion (no FK to user): deleting the account and signing up again with the same
+ * email must not reset this month's AI scans or today's daily cap. No plain PII — the key is an HMAC of
+ * the normalised email (lib/credits/tombstone.ts).
+ */
+export const creditTombstone = pgTable("credit_tombstone", {
+  emailHash: text("email_hash").primaryKey(),
+  /** "YYYY-MM": the allowance period `used` belongs to. */
+  period: text("period").notNull(),
+  used: integer("used").notNull(),
+  /** UTC day `dayScans` (charged scans, refunded ones included) belongs to. */
+  day: date("day").notNull(),
+  dayScans: integer("day_scans").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const waitlist = pgTable("waitlist", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),

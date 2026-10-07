@@ -43,7 +43,9 @@ export default function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="section-title">Deleting your account</h2>
         <p className="text-sm text-subtle">
-          You can delete your account at any time from Me → Delete account. This removes your profile and diary.
+          You can delete your account at any time from Me → Delete account. This removes your profile and diary. We keep only a
+          one-way, keyed hash of your email with how many AI scans you used this month and today, so deleting and signing up again
+          doesn&apos;t reset your allowance. It contains no readable email or other details.
         </p>
       </section>
       <section className="flex flex-col gap-2">

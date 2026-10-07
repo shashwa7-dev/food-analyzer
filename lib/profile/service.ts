@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { profile } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
+import { recordTombstone } from "@/lib/credits/tombstone";
 import { TargetsSchema } from "@/lib/nutrition/targets";
 import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
 
@@ -58,7 +59,10 @@ export async function updateProfile(userId: string, raw: z.infer<typeof ProfileU
   await db.update(profile).set({ ...rest, ...(onboarded ? { onboardedAt: new Date() } : {}), updatedAt: new Date() }).where(eq(profile.userId, userId));
 }
 
-export async function deleteAccount(userId: string) {
-  // M2 adds: delete R2 objects under u/{userId}/ before this.
-  await db.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, food_log, user_food_stats, custom foods
+export async function deleteAccount(userId: string, now: Date = new Date()) {
+  await db.transaction(async (tx) => {
+    // Keep this period's AI-scan usage and today's count (keyed by an email HMAC) so signing up again can't reset them.
+    await recordTombstone(tx, userId, now);
+    await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods
+  });
 }

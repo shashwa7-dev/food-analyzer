@@ -7,6 +7,9 @@ export default defineConfig({
     include: ["**/*.int.test.ts"],
     globalSetup: ["./tests/global-setup.ts"],
     fileParallelism: false,
-    env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgres://eatri8:eatri8@localhost:5432/eatri8_test" },
+    env: {
+      DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgres://eatri8:eatri8@localhost:5432/eatri8_test",
+      CREDIT_TOMBSTONE_PEPPER: "test-pepper-not-a-secret",
+    },
   },
 });

@@ -12,6 +12,8 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: nonEmpty,
   GOOGLE_CLIENT_SECRET: nonEmpty,
   OFF_CONTACT_EMAIL: optional,
+  /** Read directly by lib/credits/tombstone.ts (falls back to BETTER_AUTH_SECRET); listed here for validation. */
+  CREDIT_TOMBSTONE_PEPPER: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(16).optional()),
   GOOGLE_GENERATIVE_AI_API_KEY: optional,
   MODEL_FAST: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default(DEFAULT_MODEL_FAST)),
   MODEL_STRONG: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default(DEFAULT_MODEL_STRONG)),

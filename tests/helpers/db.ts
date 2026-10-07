@@ -6,7 +6,7 @@ import { profile } from "@/lib/db/schema";
 export const testDb = () => db;
 
 export async function resetDb() {
-  await db.execute(sql`TRUNCATE food_log, user_food_stats, credit_txn, scan, waitlist, food, profile, "session", "account", "verification", "user" RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE food_log, user_food_stats, credit_txn, credit_tombstone, scan, waitlist, food, profile, "session", "account", "verification", "user" RESTART IDENTITY CASCADE`);
 }
 
 export async function createUser(id = `u_${Math.random().toString(36).slice(2, 10)}`) {
