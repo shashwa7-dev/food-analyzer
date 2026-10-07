@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Database, Scale } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { foodDetail } from "@/lib/foods/service";
-import { SOURCE_LABEL, sourceLine } from "@/lib/foods/display";
+import { SOURCE_NAME, SOURCE_SHORT, sourceLine } from "@/lib/foods/display";
 import { foodIconKey } from "@/lib/foods/icon";
 import { defaultMealIn, todayIn } from "@/lib/dates";
 import { nutrientsFor } from "@/lib/nutrition/portions";
@@ -45,7 +46,7 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
       <Tags>
         <Tag icon={FOOD_ICON[iconKey]}>{CATEGORY[iconKey]}</Tag>
         {pack && <Tag icon={Scale}><span className="num">{pack}</span></Tag>}
-        <Tag icon={Database}>{food.source === "custom" ? "My food" : (SOURCE_LABEL[food.source] ?? "Food")}</Tag>
+        {SOURCE_SHORT[food.source] && <Tag icon={Database}>{SOURCE_SHORT[food.source]}</Tag>}
       </Tags>
       <ResultTitle name={food.name} brand={food.brand} />
 
@@ -64,6 +65,15 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
             <NutritionTable nutrients={forPortion} provenance={food.provenance} portionLabel={p.label} grams={p.grams} unit={unit} />
             {food.ingredients.length > 0 && <p className="mt-2.5 mb-0 text-sm text-subtle">Ingredients: {food.ingredients.join(", ")}</p>}
             <div className="mt-2.5"><IndbSodiumNote source={food.source} /></div>
+            {SOURCE_NAME[food.source] && (
+              food.source === "custom" ? (
+                <p className="mt-2.5 mb-0 text-sm text-subtle">Source: {SOURCE_NAME.custom}</p>
+              ) : (
+                <Link href="/about/data" className="-mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-subtle underline underline-offset-2">
+                  Source: {SOURCE_NAME[food.source]}
+                </Link>
+              )
+            )}
           </section>
           <p className="m-0 px-1 text-[13px] text-subtle">Information only, not medical advice. Check the pack for allergens.</p>
         </div>

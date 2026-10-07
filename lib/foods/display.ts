@@ -8,6 +8,12 @@ export function portionLine(p: { label: string; grams: number | null }, unit: "g
 }
 
 export const SOURCE_LABEL: Record<string, string> = { indb: "INDB", fndds: "USDA", off: "Open Food Facts", crowd: "Community" };
+/** A food page's source tag chip: short enough that the tag row stays one line at 360 px. */
+export const SOURCE_SHORT: Record<string, string> = { indb: "INDB", fndds: "USDA", off: "OFF", crowd: "Community", custom: "My food" };
+/** The source in full, for the nutrition card's source line. */
+export const SOURCE_NAME: Record<string, string> = {
+  indb: "Indian Nutrient Databank (INDB)", fndds: "USDA FoodData Central", off: "Open Food Facts", crowd: "Community label scans", custom: "Your own entry",
+};
 const KIND: Record<string, string> = { generic: "Generic", packaged: "Packaged", ingredient: "Ingredient" };
 
 /** The add sheet's source line: "Home-style · INDB", "Haldiram's · Open Food Facts", "My food". */

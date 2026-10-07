@@ -20,6 +20,7 @@ import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
 import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
 import { parseTarget } from "@/lib/profile/parse-target";
 import { saveProfile } from "@/app/(app)/me/actions";
+import { authClient } from "@/lib/auth-client";
 
 const STEPS = [
   { title: "What's your goal?", hint: "It sets your daily targets. You can change it later in Me." },
@@ -126,6 +127,7 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
   const [invalid, setInvalid] = useState<Set<FieldKey>>(() => new Set());
   const [showAll, setShowAll] = useState(false);
   const [pending, setPending] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   /** Entering the targets step: fields the user hasn't typed in follow the goal picked now. */
   function prepareFields() {
@@ -208,7 +210,14 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
     else void finish();
   }
 
+  async function signOut() {
+    setSigningOut(true);
+    await authClient.signOut().catch(() => undefined);
+    router.replace("/sign-in");
+  }
+
   const last = step === STEPS.length - 1;
+  const quietBtn = "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full px-3 text-[14px] font-semibold whitespace-nowrap text-subtle hover:bg-sunken hover:text-ink disabled:opacity-50";
   const roundBtn = "grid size-11 shrink-0 place-items-center rounded-full border border-line bg-surface text-ink transition-colors hover:bg-sunken";
 
   return (
@@ -221,15 +230,13 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
         ) : redo ? (
           <BackButton fallback="/me" />
         ) : (
-          <span className="size-11 shrink-0" aria-hidden />
+          // First run: a way out for someone who signed in with the wrong Google account.
+          <button type="button" onClick={() => void signOut()} disabled={pending || signingOut} className={quietBtn}>
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
         )}
         <Dots step={step} />
-        <button
-          type="button"
-          onClick={() => void finish()}
-          disabled={pending}
-          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full px-3 text-[14px] font-semibold whitespace-nowrap text-subtle hover:bg-sunken hover:text-ink disabled:opacity-50"
-        >
+        <button type="button" onClick={() => void finish()} disabled={pending || signingOut} className={quietBtn}>
           Skip
         </button>
       </div>
@@ -308,7 +315,7 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
         )}
       </StepCard>
 
-      <div className="sticky bottom-0 z-10 -mx-4 bg-[linear-gradient(180deg,transparent,var(--bg)_30%)] px-4 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] md:static md:mx-0 md:bg-none md:p-0">
+      <div data-sticky-actions className="sticky bottom-0 z-10 -mx-4 bg-[linear-gradient(180deg,transparent,var(--bg)_30%)] px-4 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] md:static md:mx-0 md:bg-none md:p-0">
         <Button type="button" shape="pill" size="xl" className="h-[54px] w-full" disabled={pending} onClick={continueStep}>
           {pending ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : last && <Check aria-hidden />}
           {pending ? "Saving…" : last ? "Start tracking" : "Continue"}

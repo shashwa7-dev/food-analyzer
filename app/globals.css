@@ -110,6 +110,9 @@ body {
   /* no floating nav to clear on these pages */
   main:has([data-no-phone-nav]) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 }
+/* Pages with a sticky bottom action bar (a food, a scan result, the food form, onboarding): toasts sit
+   above the bar at every width. After the no-phone-nav rule, so it wins where both apply. */
+:root:has([data-sticky-actions]) { --toast-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .cn-toast { box-shadow: 0 2px 8px rgb(0 0 0 / .18), 0 8px 24px rgb(0 0 0 / .14) !important; }
 .bg-wash { background: linear-gradient(180deg, var(--wash-a) 0, var(--bg) 45%); }
 .scan-scrim { background: linear-gradient(180deg, color-mix(in srgb, var(--viewfinder) 50%, transparent) 0%, transparent 22%, transparent 60%, color-mix(in srgb, var(--viewfinder) 65%, transparent) 100%); }

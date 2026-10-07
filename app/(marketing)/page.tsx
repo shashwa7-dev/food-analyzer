@@ -3,11 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronRight, ScanLine, Soup } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { GradeBadge } from "@/components/grade-badge";
 import { Logo } from "@/components/brand/logo";
-import { GoogleGlyph } from "@/components/brand/google-glyph";
+import { GoogleSignInButton } from "@/components/brand/google-sign-in-button";
 
 const FEATURES = [
   { icon: <IconTile tone="brand" size="md"><Soup /></IconTile>, text: "Search Indian dishes like a katori of dal" },
@@ -36,10 +35,7 @@ export default async function Marketing() {
           </ul>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <Button render={<Link href="/sign-in" />} nativeButton={false} shape="pill" size="xl" className="h-14 w-full">
-            <GoogleGlyph />
-            Continue with Google
-          </Button>
+          <GoogleSignInButton />
           <Link href="/about/data" className="inline-flex min-h-11 items-center gap-1 px-2 text-[13px] font-medium text-subtle underline underline-offset-2">
             Where our data comes from
             <ChevronRight className="size-4" aria-hidden />

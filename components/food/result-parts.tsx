@@ -239,7 +239,7 @@ export function WhyGrade({ reasons, hints = [], goalFlags }: { reasons: Reason[]
  */
 export function StickyActionBar({ children, fullWidth = false }: { children: ReactNode; fullWidth?: boolean }) {
   return (
-    <div className={cn(
+    <div data-sticky-actions className={cn(
       "sticky bottom-0 z-10 -mx-4 mt-1 bg-[linear-gradient(180deg,transparent,var(--bg)_30%)] px-[18px] pt-3 pb-[calc(22px+env(safe-area-inset-bottom))] md:mx-0 md:px-0 md:pb-5",
       !fullWidth && "lg:w-[calc((100%-16px)*0.525)]",
     )}>
