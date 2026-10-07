@@ -1,24 +1,10 @@
 // What each plan includes, and the one check for Pro-only features. Server-side: `allows` reads the
-// PRO_GATES_ENFORCED launch switch (lib/env.ts) unless a caller passes it in.
+// PRO_GATES_ENFORCED launch switch (lib/env.ts) unless a caller passes it in. The plan table itself is
+// in lib/credits/plan-features.ts so client components can use it without lib/env.
 import { proGatesEnforced } from "@/lib/env";
+import { GATED_FEATURES, planAllows, type GatedFeature, type PlanKey } from "@/lib/credits/plan-features";
 
-export interface PlanFeatures {
-  aiScansPerMonth: number;
-  /** Progress's Month range. */
-  progressMonth: boolean;
-  /** Exporting your data as CSV (not built yet; see components/me/account-footer.tsx). */
-  dataExport: boolean;
-  /** Daily targets other than the goal's preset. */
-  customTargets: boolean;
-}
-
-export const PLANS = {
-  basic: { aiScansPerMonth: 20, progressMonth: false, dataExport: false, customTargets: false },
-  pro: { aiScansPerMonth: 200, progressMonth: true, dataExport: true, customTargets: true },
-} as const satisfies Record<string, PlanFeatures>;
-export type PlanKey = keyof typeof PLANS;
-
-export type GatedFeature = { [K in keyof PlanFeatures]: PlanFeatures[K] extends boolean ? K : never }[keyof PlanFeatures];
+export { GATED_FEATURES, PLANS, type GatedFeature, type PlanFeatures, type PlanKey } from "@/lib/credits/plan-features";
 
 /**
  * Whether `plan` may use `feature`. Until Pro launches (PRO_GATES_ENFORCED off) every feature is open
@@ -26,5 +12,10 @@ export type GatedFeature = { [K in keyof PlanFeatures]: PlanFeatures[K] extends 
  * `PLANS[plan].aiScansPerMonth`, applied by the credit ledger as before.
  */
 export function allows(plan: PlanKey, feature: GatedFeature, enforced: boolean = proGatesEnforced()): boolean {
-  return !enforced || PLANS[plan][feature];
+  return planAllows(plan, feature, enforced);
+}
+
+/** Which gated features `plan` is locked out of right now: what the client's Pro locks show. */
+export function lockedFeatures(plan: PlanKey, enforced: boolean = proGatesEnforced()): Record<GatedFeature, boolean> {
+  return Object.fromEntries(GATED_FEATURES.map((f) => [f, !planAllows(plan, f, enforced)])) as Record<GatedFeature, boolean>;
 }

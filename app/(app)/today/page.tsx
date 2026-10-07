@@ -14,6 +14,8 @@ import { DateSwitcher } from "@/components/today/date-switcher";
 import { DailyLimitsCard } from "@/components/today/daily-limits-card";
 import { WeekCard } from "@/components/today/week-card";
 import { RecentScansCard } from "@/components/today/recent-scans-card";
+import { TargetsNotice } from "@/components/today/targets-notice";
+import { showTargetsNotice } from "@/lib/profile/effective-targets";
 
 // Meal cards follow the day: snacks sit between lunch and dinner (mock-c1).
 const DAY_ORDER = ["breakfast", "lunch", "snack", "dinner"] as const satisfies Meal[];
@@ -53,6 +55,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             {headline.lead && <>{headline.lead} </>}
             <em className={cn("num whitespace-nowrap not-italic", toneFor(kcal.total, kcal.target) === "over" ? "text-bad" : "text-brand-deep")}>{headline.value}</em> {headline.tail}
           </h1>
+          {showTargetsNotice(profile) && <TargetsNotice />}
           <DaySummary progress={day.progress} />
           <div className="flex flex-col gap-3 md:grid md:grid-cols-2 md:gap-4">
             {DAY_ORDER.map((m, i) => (

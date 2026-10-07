@@ -1,7 +1,7 @@
 import { requireApiUser } from "@/lib/session";
 import { json, serverError } from "@/lib/http";
 import { getProfile } from "@/lib/profile/service";
-import { targetsFor } from "@/lib/nutrition/targets";
+import { effectiveTargets } from "@/lib/profile/effective-targets";
 import { getBalance } from "@/lib/credits/ledger";
 
 export async function GET(req: Request) {
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
         diet: prof.diet,
         allergies: prof.allergies,
         goal: prof.goal,
-        targets: targetsFor(prof.goal, prof.targets),
+        targets: effectiveTargets(prof),
         onboarded: !!prof.onboardedAt,
         plan: prof.plan,
         credits,

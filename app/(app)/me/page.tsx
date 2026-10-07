@@ -6,11 +6,15 @@ import { resetDayLabel } from "@/lib/credits/display";
 import { CreditStrip } from "@/components/credits/credit-strip";
 import { SettingsList } from "@/components/me/settings-list";
 import { AccountFooter } from "@/components/me/account-footer";
+import { ExportRow } from "@/components/me/export-row";
+import { ScansUpsell } from "@/components/pro/scans-upsell";
+import { TargetsNotice } from "@/components/today/targets-notice";
+import { effectiveOverrides, showTargetsNotice } from "@/lib/profile/effective-targets";
 
 const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
 
 /**
- * Me (spec §6.13, mock "Me (simplified)"): who you are, scans left, five settings, sign out. One
+ * Me (spec §6.13, mock "Me (simplified)"): who you are, scans left, five settings, Export data, sign out. One
  * column, centred at 560 px on desktop.
  */
 export default async function MePage() {
@@ -31,9 +35,13 @@ export default async function MePage() {
         </div>
       </div>
       <CreditStrip credits={balance.credits} allowance={balance.allowance} planLabel={PLAN_LABEL[profile.plan]} resetsLabel={resetsLabel} />
+      <ScansUpsell />
+      {showTargetsNotice(profile) && <TargetsNotice />}
+      {/* A locked plan's sheet shows the goal's presets (effective targets); stored overrides stay untouched. */}
       <SettingsList
-        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: profile.targets ?? null, country: profile.country, customTargets: allows(profile.plan, "customTargets") }}
+        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: effectiveOverrides(profile), country: profile.country, customTargets: allows(profile.plan, "customTargets") }}
       />
+      <ExportRow />
       <AccountFooter />
     </div>
   );

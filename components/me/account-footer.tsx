@@ -8,8 +8,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { authClient } from "@/lib/auth-client";
 import { deleteAccountAction } from "@/app/(app)/me/actions";
 
-// Data export (CSV) isn't built yet. When it is, its link goes in this list, shown only when
-// allows(plan, "dataExport") (lib/credits/plans.ts): Pro-only once PRO_GATES_ENFORCED is on.
 const LINKS = [
   { href: "/onboarding?redo=1", label: "Set up again" },
   { href: "/about/data", label: "Data sources" },

@@ -31,6 +31,11 @@ type Scenario = {
   looks?: Look[];
   /** Extra page-specific checks, run after the probe at the real viewport size. */
   check?: (page: Page) => Promise<Finding[]>;
+  /**
+   * Only with the Pro gates on ("locked": dev started with PRO_GATES_ENFORCED=true, the demo user on
+   * Basic) or only with them off ("open"). Detected from GET /api/v1/progress?range=month (403 = locked).
+   */
+  gates?: "locked" | "open";
 };
 type Look = { theme: Theme; scheme: "light" | "dark"; label: string };
 const DARK: Look = { theme: "dark", scheme: "light", label: "dark" }; // forced Dark while the OS says light
@@ -84,6 +89,20 @@ async function expandFirstMeal(page: Page) {
   await sleep(200);
 }
 
+/** Every selector must be on the page: the Pro locks (and the targets notice) while the gates are on. */
+const expectAll = (...selectors: string[]) => async (page: Page): Promise<Finding[]> => {
+  const out: Finding[] = [];
+  for (const sel of selectors) if (!(await page.$(sel))) out.push({ rule: "missing", selector: sel, text: "", detail: "expected on this page while the Pro gates are on" });
+  return out;
+};
+const MONTH_LOCK = "button[aria-label='Month, a Pro feature']";
+const EXPORT_LOCK = "button[aria-label='Export data, a Pro feature']";
+const NOTICE = "section[aria-label='Targets notice']";
+async function openRow(page: Page, label: string) {
+  await clickText(page, "button[aria-haspopup=dialog]", label);
+  await dialog(page);
+}
+
 const SCENARIOS: Scenario[] = [
   { name: "today", path: () => "/today", check: equalMealCards },
   { name: "today-system", path: () => "/today", looks: [SYSTEM_DARK, SYSTEM_LIGHT], check: equalMealCards },
@@ -131,7 +150,16 @@ const SCENARIOS: Scenario[] = [
   { name: "history", path: () => "/history" },
   { name: "me", path: () => "/me" },
   { name: "me-credits", path: () => "/me/credits", setup: () => sleep(800) },
+  { name: "me-export-sheet", path: () => "/me", gates: "open", viewportShot: true, setup: (p) => openRow(p, "Export data") },
   { name: "onboarding", path: () => "/onboarding?redo=1" },
+  // Pro gates on, Basic plan (spec §B): every lock shows, and opens the upgrade sheet.
+  { name: "today-locked", path: () => "/today", gates: "locked", check: expectAll(NOTICE) },
+  { name: "progress-locked", path: () => "/progress", gates: "locked", setup: () => sleep(1200), check: expectAll(MONTH_LOCK) },
+  { name: "progress-upgrade-sheet", path: () => "/progress", gates: "locked", viewportShot: true, setup: async (p) => { await p.click(MONTH_LOCK); await dialog(p); } },
+  { name: "me-locked", path: () => "/me", gates: "locked", check: expectAll(NOTICE, EXPORT_LOCK) },
+  { name: "me-goal-locked", path: () => "/me", gates: "locked", viewportShot: true, setup: (p) => openRow(p, "Goal"), check: expectAll("[role=dialog] button[aria-label='Custom targets: part of Pro. See plans']") },
+  { name: "me-export-upgrade", path: () => "/me", gates: "locked", viewportShot: true, setup: async (p) => { await p.click(EXPORT_LOCK); await dialog(p); } },
+  { name: "me-scans-upsell", path: () => "/me", gates: "locked", viewportShot: true, setup: (p) => openRow(p, "AI scans a month") },
   { name: "home", path: () => "/", signedIn: false },
   { name: "privacy", path: () => "/privacy", signedIn: false },
   { name: "terms", path: () => "/terms", signedIn: false },
@@ -176,6 +204,15 @@ async function resolveIds(): Promise<Ids> {
   const missing = Object.entries(ids).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Demo data missing ${missing.join(", ")}: run pnpm seed:demo`);
   return ids as Ids;
+}
+
+/** "locked" when the server enforces the Pro gates for the (Basic) demo user. */
+async function gatesMode(): Promise<"locked" | "open"> {
+  const [name, value] = demoCookie();
+  const res = await fetch(new URL("/api/v1/progress?range=month", baseUrl()), { headers: { cookie: `${name}=${value}` } });
+  if (res.status === 403) return "locked";
+  if (!res.ok) throw new Error(`GET /api/v1/progress?range=month → ${res.status}`);
+  return "open";
 }
 
 type Run = { scenario: Scenario; width: number; look: Look };
@@ -227,7 +264,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   mkdirSync(OUT, { recursive: true });
   const ids = await resolveIds();
-  const scenarios = SCENARIOS.filter((s) => !args.only.length || args.only.includes(s.name));
+  const gates = await gatesMode();
+  const scenarios = SCENARIOS.filter((s) => (!s.gates || s.gates === gates) && (!args.only.length || args.only.includes(s.name)));
   const runs: Run[] = [];
   for (const scenario of scenarios) {
     for (const width of args.widths) {
@@ -237,7 +275,7 @@ async function main() {
       }
     }
   }
-  console.log(`ui:audit — ${scenarios.length} screens, ${runs.length} runs against ${baseUrl().origin}`);
+  console.log(`ui:audit — ${scenarios.length} screens, ${runs.length} runs against ${baseUrl().origin} (Pro gates ${gates})`);
 
   const browser = await launch(FAKE_CAMERA_FLAGS);
   const outcomes: Outcome[] = [];

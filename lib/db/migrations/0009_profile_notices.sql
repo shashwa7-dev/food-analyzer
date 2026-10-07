@@ -1,0 +1,1 @@
+ALTER TABLE "profile" ADD COLUMN "notices" jsonb DEFAULT '{}'::jsonb NOT NULL;

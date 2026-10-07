@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { createUser, resetDb, testDb } from "@/tests/helpers/db";
 import { profile } from "@/lib/db/schema";
 import { ensureProfile } from "@/lib/profile/service";
+import { showTargetsNotice } from "@/lib/profile/effective-targets";
 
 const session = vi.hoisted(() => ({ userId: "" }));
 vi.mock("@/lib/session", () => ({
@@ -11,7 +12,7 @@ vi.mock("@/lib/session", () => ({
 vi.mock("@/lib/auth", () => ({ auth: { api: {} } }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
-const { saveProfile } = await import("./actions");
+const { dismissNoticeAction, saveProfile } = await import("./actions");
 const stored = async () => (await testDb().select().from(profile).where(eq(profile.userId, session.userId)))[0]!;
 
 describe("saveProfile and custom targets", () => {
@@ -61,5 +62,30 @@ describe("saveProfile and custom targets", () => {
     await testDb().update(profile).set({ plan: "pro" }).where(eq(profile.userId, session.userId));
     expect(await saveProfile({ targets: { protein: 130 } })).toEqual({ ok: true });
     expect((await stored()).targets).toEqual({ protein: 130 });
+  });
+});
+
+describe("the targets-reset notice", () => {
+  beforeEach(async () => {
+    await resetDb();
+    session.userId = await createUser(); // Basic plan
+    await testDb().update(profile).set({ targets: { protein: 90 } }).where(eq(profile.userId, session.userId));
+  });
+
+  it("shows once while enforced, then is gone after dismissal; the stored overrides stay", async () => {
+    expect((await stored()).notices).toEqual({});
+    expect(showTargetsNotice(await stored(), true)).toBe(true);
+    await dismissNoticeAction("targetsReset");
+    const p = await stored();
+    expect(p.notices).toEqual({ targetsReset: true });
+    expect(p.targets).toEqual({ protein: 90 });
+    expect(showTargetsNotice(p, true)).toBe(false);
+    await dismissNoticeAction("targetsReset"); // idempotent
+    expect((await stored()).notices).toEqual({ targetsReset: true });
+  });
+
+  it("ignores an unknown notice key", async () => {
+    await dismissNoticeAction("everything");
+    expect((await stored()).notices).toEqual({});
   });
 });

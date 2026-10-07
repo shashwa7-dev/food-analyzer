@@ -13,7 +13,7 @@ import { EngineError } from "@/lib/engine/errors";
 import type { ScanResult } from "@/lib/engine/result";
 import type { EngineImage } from "@/lib/engine/schema";
 import { InvalidError } from "@/lib/errors";
-import { targetsFor } from "@/lib/nutrition/targets";
+import { effectiveTargets } from "@/lib/profile/effective-targets";
 import { getProfile } from "@/lib/profile/service";
 import { dailyCapHit, isRateLimited } from "@/lib/rate-limit";
 import { crowdDraft, upsertCrowdFood } from "./crowd";
@@ -148,7 +148,7 @@ export async function sweepStuck(userId: string, now: number = Date.now()): Prom
 
 async function engineProfile(userId: string): Promise<EngineInput["profile"]> {
   const p = await getProfile(userId);
-  return { country: p.country, allergies: p.allergies, diet: p.diet, goal: p.goal, targets: targetsFor(p.goal, p.targets) };
+  return { country: p.country, allergies: p.allergies, diet: p.diet, goal: p.goal, targets: effectiveTargets(p) };
 }
 
 type TxOutcome = { kind: "row"; row: ScanRow; created: boolean } | { kind: "limit"; result: CreateScanResult };

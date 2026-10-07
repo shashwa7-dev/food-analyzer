@@ -20,6 +20,7 @@ import { addEntry, getDay, type AddEntryInput } from "@/lib/log/service";
 import { dishScore } from "@/lib/nutrition/grade/dish";
 import { ensureBasePortion, scaleNutrients } from "@/lib/nutrition/portions";
 import { targetsFor } from "@/lib/nutrition/targets";
+import { assertLocalDb } from "./lib/local-guard";
 import type { Meal, NutrientKey, Nutrients, Provenance } from "@/lib/nutrition/types";
 
 const EMAIL = "demo@eatri8.local";
@@ -27,23 +28,10 @@ const NAME = "Aarav Kapoor";
 const TZ = "Asia/Kolkata";
 const COOKIE_FILE = resolve(".superpowers/demo-cookie.txt");
 const SESSION_DAYS = 30;
+const DEMO_TARGETS = { protein: 75 };
 const PROFILE = { timezone: TZ, goal: "weight_loss", diet: "vegetarian", allergies: ["peanut"], country: "IN" } as const;
 
-function guard() {
-  if (process.env.NODE_ENV === "production") throw new Error("seed:demo refuses to run with NODE_ENV=production.");
-  const raw = process.env.DATABASE_URL;
-  let host = "";
-  let overridesHost = true;
-  try {
-    const u = new URL(raw ?? "");
-    host = u.hostname;
-    // pg copies query params onto the connection config, so ?host=… or ?hostaddr=… would redirect a "localhost" URL.
-    overridesHost = [...u.searchParams.keys()].some((k) => /^(host|hostaddr|service)$/i.test(k));
-  } catch { /* reported below */ }
-  if (overridesHost || (host !== "localhost" && host !== "127.0.0.1")) {
-    throw new Error("seed:demo only runs against a local database (DATABASE_URL host must be localhost or 127.0.0.1, with no host/hostaddr/service params).");
-  }
-}
+const guard = () => assertLocalDb("seed:demo");
 
 // --- user, profile, session -------------------------------------------------------------------------
 
@@ -53,7 +41,9 @@ async function upsertUser(): Promise<string> {
   const now = new Date();
   if (existing) await db.update(user).set({ name: NAME, emailVerified: true, updatedAt: now }).where(eq(user.id, id));
   else await db.insert(user).values({ id, name: NAME, email: EMAIL, emailVerified: true, createdAt: now, updatedAt: now });
-  const p = { ...PROFILE, allergies: [...PROFILE.allergies], targets: null, onboardedAt: now, plan: "basic" as const, updatedAt: now };
+  // One custom target, set "before Pro": with PRO_GATES_ENFORCED on it's ignored (the goal's preset applies)
+  // and the one-time targets-reset notice shows, so ui:audit can cover it. notices reset so it shows again.
+  const p = { ...PROFILE, allergies: [...PROFILE.allergies], targets: DEMO_TARGETS, notices: {}, onboardedAt: now, plan: "basic" as const, updatedAt: now };
   await db.insert(profile).values({ userId: id, ...p }).onConflictDoUpdate({ target: profile.userId, set: p });
   return id;
 }

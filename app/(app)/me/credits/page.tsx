@@ -3,13 +3,11 @@ import { countActivity, getBalance, listActivity, periodChanges } from "@/lib/cr
 import { currentPeriod } from "@/lib/credits/logic";
 import { balanceSeries } from "@/lib/credits/activity";
 import { sweepStuck } from "@/lib/scans/service";
-import { isOnWaitlist } from "@/lib/credits/waitlist";
 import { addDays, todayIn } from "@/lib/dates";
 import { BackButton } from "@/components/nav/back-button";
 import { BalanceChart } from "@/components/credits/balance-chart";
 import { ActivityList } from "@/components/credits/activity-list";
 import { PlanCards } from "@/components/credits/plan-cards";
-import { joinWaitlistAction } from "./actions";
 
 const MONTH_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -30,12 +28,11 @@ export default async function CreditsPage() {
   const { userId, profile } = await requireUser();
   await sweepStuck(userId); // a killed scan job's credit is refunded before the balance is shown
   const now = new Date();
-  const [balance, txns, counts, firstPage, onWaitlist] = await Promise.all([
+  const [balance, txns, counts, firstPage] = await Promise.all([
     getBalance(userId, now),
     periodChanges(userId, now),
     countActivity(userId, now),
     listActivity(userId, "all"),
-    isOnWaitlist(userId),
   ]);
 
   // The allowance period is a UTC month; the chart's days are the user's local days within it.
@@ -63,7 +60,7 @@ export default async function CreditsPage() {
         <span className="size-11 shrink-0" aria-hidden />
       </div>
 
-      <PlanCards plan={profile.plan} onWaitlist={onWaitlist} joinWaitlist={joinWaitlistAction} />
+      <PlanCards />
 
       <BalanceChart credits={balance.credits} allowance={balance.allowance} month={month} points={points} today={today} end={periodEnd} />
 

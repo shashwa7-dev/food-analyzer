@@ -19,6 +19,7 @@
     "scan:try": "tsx --env-file-if-exists=.env.local scripts/scan-try.ts",
     "eval": "tsx --env-file-if-exists=.env.local eval/run.ts",
     "seed:demo": "tsx --env-file-if-exists=.env.local scripts/seed-demo.ts",
+    "plan:set": "tsx --env-file-if-exists=.env.local scripts/plan-set.ts",
     "shot": "tsx --env-file-if-exists=.env.local scripts/shot.ts",
     "ui:audit": "tsx --env-file-if-exists=.env.local scripts/ui-audit.ts",
     "r2:lifecycle": "tsx --env-file-if-exists=.env.local scripts/r2-lifecycle.ts",

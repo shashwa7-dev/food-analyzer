@@ -20,6 +20,9 @@ export const scanInputKindEnum = pgEnum("scan_input_kind", ["barcode", "label", 
 export const creditTxnTypeEnum = pgEnum("credit_txn_type", ["grant", "debit", "refund", "expire", "purchase"]);
 export const confidenceEnum = pgEnum("confidence", ["high", "medium", "low"]);
 
+/** Dismissed one-time notices, keyed by notice. */
+export type ProfileNotices = { targetsReset?: boolean };
+
 export const profile = pgTable("profile", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
   country: text("country").notNull().default("IN"),
@@ -35,6 +38,8 @@ export const profile = pgTable("profile", {
   /** Charged scans carried over from a deleted account with this email (credit_tombstone), counting toward this UTC day's cap. */
   carriedDay: date("carried_day"),
   carriedDayScans: integer("carried_day_scans").notNull().default(0),
+  /** One-time notices the user has dismissed (spec §B): `targetsReset` for "Custom targets are now part of Pro". */
+  notices: jsonb("notices").$type<ProfileNotices>().notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [check("credits_non_negative", sql`${t.credits} >= 0`)]);

@@ -64,6 +64,13 @@
       "when": 1791408897076,
       "tag": "0008_scan_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791410300875,
+      "tag": "0009_profile_notices",
+      "breakpoints": true
     }
   ]
 }

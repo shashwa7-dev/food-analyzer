@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { profile } from "@/lib/db/schema";
+import { profile, type ProfileNotices } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
 import { pruneTombstones, recordTombstone } from "@/lib/credits/tombstone";
 import { deleteUserPhotos } from "@/lib/scans/photo-storage";
@@ -65,6 +65,16 @@ export async function updateProfile(userId: string, raw: z.infer<typeof ProfileU
     rest.allergies = effectiveAllergies.filter((a) => allowed.has(a));
   }
   await db.update(profile).set({ ...rest, ...(onboarded ? { onboardedAt: new Date() } : {}), updatedAt: new Date() }).where(eq(profile.userId, userId));
+}
+
+export const NOTICE_KEYS = ["targetsReset"] as const satisfies readonly (keyof ProfileNotices)[];
+export type NoticeKey = (typeof NOTICE_KEYS)[number];
+
+/** Records a one-time notice as dismissed (spec §B): merges `{ [key]: true }` into profile.notices. */
+export async function dismissNotice(userId: string, key: NoticeKey) {
+  await db.update(profile)
+    .set({ notices: sql`${profile.notices} || ${JSON.stringify({ [key]: true })}::jsonb`, updatedAt: new Date() })
+    .where(eq(profile.userId, userId));
 }
 
 export async function deleteAccount(userId: string, now: Date = new Date()) {

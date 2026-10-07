@@ -10,7 +10,7 @@ import { explain } from "@/lib/nutrition/explain";
 import { gradeFood, GRADE_VERSION } from "@/lib/nutrition/grade";
 import { personalise } from "@/lib/nutrition/personalise";
 import { ensureBasePortion, nutrientsFor, scaleNutrients } from "@/lib/nutrition/portions";
-import { targetsFor } from "@/lib/nutrition/targets";
+import { effectiveTargets } from "@/lib/profile/effective-targets";
 import { MICRO_KEYS, NUTRIENT_KEYS, type Flag, type MicroKey, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
@@ -179,7 +179,7 @@ export async function foodDetail(userId: string, id: string): Promise<{
   const f = await getFoodForUser(userId, id);
   if (!f) return null;
   const prof = await getProfile(userId);
-  const targets = targetsFor(prof.goal, prof.targets);
+  const targets = effectiveTargets(prof);
   const portion = f.portions[f.defaultPortion] ?? f.portions[0]!;
   const perPortion = portion.grams ? nutrientsFor(f.per100, portion.grams) : f.per100;
   const g: GradeResult = { grade: f.grade as Grade | null, value: f.gradeValue, components: f.gradeComponents };
