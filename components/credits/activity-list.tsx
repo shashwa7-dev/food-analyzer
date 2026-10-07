@@ -37,16 +37,21 @@ function tileFor(it: ActivityItem): { icon: LucideIcon; tone: IconTileTone } {
   return { icon: SCAN_ICON[it.inputKind ?? ""] ?? Sparkles, tone: "neutral" };
 }
 
-/** −1 on --sunken, Free on brand-soft, +n in the A-grade green (mock `.amt`). */
+/**
+ * −1 on --sunken, Free on brand-soft, +n in the A-grade green (mock `.amt`). A refund reads "Refunded",
+ * not "+1": its scan's debit row is left out of the list, so a "+1" would make the rows add up to more
+ * than the balance (review M7).
+ */
 function AmountPill({ it }: { it: ActivityItem }) {
   const free = it.kind === "free";
-  const label = free ? "Free" : it.amount > 0 ? `+${it.amount}` : `−${Math.abs(it.amount)}`;
-  const spoken = free ? "free" : it.amount > 0 ? `${it.amount} back` : `${Math.abs(it.amount)} used`;
+  const refund = it.kind === "refund";
+  const label = free ? "Free" : refund ? "Refunded" : it.amount > 0 ? `+${it.amount}` : `−${Math.abs(it.amount)}`;
+  const spoken = free ? "free" : refund ? "refunded, no credit used" : it.amount > 0 ? `${it.amount} back` : `${Math.abs(it.amount)} used`;
   return (
     <span
       className={cn(
         "num shrink-0 rounded-full px-2.5 py-[5px] text-[13.5px] font-[650] whitespace-nowrap",
-        free ? "bg-brand-soft text-on-brand-soft" : it.amount > 0 ? "bg-grade-a/15 text-good-ink" : "bg-sunken text-ink",
+        free ? "bg-brand-soft text-on-brand-soft" : refund || it.amount > 0 ? "bg-grade-a/15 text-good-ink" : "bg-sunken text-ink",
       )}
     >
       <span aria-hidden>{label}</span>
