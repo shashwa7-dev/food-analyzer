@@ -35,3 +35,12 @@ export function limitChips(progress: TargetProgress[]): LimitChip[] {
   }
   return chips.sort((a, b) => b.ratio - a.ratio);
 }
+
+/**
+ * The line above the limit chips: "Over your daily limit" (bad) when any chip is over, else "Close to
+ * your daily limit" (warn). Null with no chips.
+ */
+export function limitsHeading(chips: LimitChip[]): { tone: "over" | "near"; text: string } | null {
+  if (chips.length === 0) return null;
+  return chips.some((c) => c.tone === "over") ? { tone: "over", text: "Over your daily limit" } : { tone: "near", text: "Close to your daily limit" };
+}

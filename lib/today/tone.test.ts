@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TargetProgress } from "@/lib/nutrition/totals";
-import { limitChips, toneFor } from "./tone";
+import { limitChips, limitsHeading, toneFor } from "./tone";
 
 const p = (key: TargetProgress["key"], total: number, target: number): TargetProgress =>
   ({ key, label: key, total, target, kind: "limit", remaining: Math.max(0, target - total), overBy: Math.max(0, total - target) });
@@ -28,5 +28,24 @@ describe("limitChips", () => {
   it("orders worst first", () => {
     const chips = limitChips([p("sugarsMax", 46, 50), p("sodiumMgMax", 3053, 2000), p("satFatMax", 25, 20)]);
     expect(chips.map((c) => c.key)).toEqual(["sodiumMgMax", "satFatMax", "sugarsMax"]);
+  });
+});
+
+describe("limitsHeading", () => {
+  const chip = (tone: "near" | "over") => ({ key: "sodiumMgMax" as const, label: "Sodium", total: 1, target: 1, unit: "mg" as const, ratio: 1, tone });
+  it("says over when any chip is over, else close; nothing with no chips", () => {
+    expect(limitsHeading([chip("near"), chip("over")])).toEqual({ tone: "over", text: "Over your daily limit" });
+    expect(limitsHeading([chip("over")])).toEqual({ tone: "over", text: "Over your daily limit" });
+    expect(limitsHeading([chip("near"), chip("near")])).toEqual({ tone: "near", text: "Close to your daily limit" });
+    expect(limitsHeading([])).toBeNull();
+  });
+  it("follows limitChips: 95% sodium is close, 120% sugar is over", () => {
+    const progress = [
+      { key: "sodiumMgMax", label: "Sodium", total: 1900, target: 2000, kind: "limit" },
+      { key: "sugarsMax", label: "Sugar", total: 30, target: 50, kind: "limit" },
+    ] as unknown as Parameters<typeof limitChips>[0];
+    expect(limitsHeading(limitChips(progress))?.text).toBe("Close to your daily limit");
+    const over = [...progress, { key: "satFatMax", label: "Sat fat", total: 24, target: 20, kind: "limit" }] as unknown as Parameters<typeof limitChips>[0];
+    expect(limitsHeading(limitChips(over))?.text).toBe("Over your daily limit");
   });
 });

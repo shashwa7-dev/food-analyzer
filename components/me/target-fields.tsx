@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DailyTargets } from "@/lib/nutrition/types";
+import { amountError } from "@/lib/parse-amount";
 
 export const PRIMARY_FIELDS = [
   { key: "energyKcal", label: "Calories", unit: "kcal" },
@@ -68,7 +69,7 @@ export function TargetField({ label, unit, value, error, readOnly, onChange }: {
         />
         <span className="shrink-0 text-[13px] text-subtle">{unit}</span>
       </span>
-      {error && <span id={errorId} className="px-1 text-[12.5px] font-medium text-bad">Enter a number</span>}
+      {error && <span id={errorId} className="px-1 text-[12.5px] font-medium text-bad">{amountError(value) ?? "Enter a number"}</span>}
     </label>
   );
 }
