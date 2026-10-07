@@ -7,7 +7,7 @@ export function ChartCard({ icon: Icon, title, aside, className, children }: {
   icon: LucideIcon; title: string; aside?: ReactNode; className?: string; children: ReactNode;
 }) {
   return (
-    <section aria-label={title} className={cn("grid min-w-0 content-start gap-2.5 rounded-[24px] bg-surface p-3.5 shadow-card", className)}>
+    <section aria-label={title} className={cn("grid min-w-0 content-start gap-2.5 rounded-[24px] bg-surface p-3.5 shadow-card md:gap-3.5 md:p-5", className)}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="m-0 inline-flex items-center gap-[7px] whitespace-nowrap text-[15px] font-bold text-ink">
           <Icon className="size-[18px] shrink-0 text-brand-deep" aria-hidden />

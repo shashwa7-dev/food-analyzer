@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 /** The shell of a Today insights card (mock-c1 `.t2-card`): a white card with a 10 px rhythm. */
 export function RailCard({ labelledBy, className, children }: { labelledBy: string; className?: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={labelledBy} className={cn("grid min-w-0 gap-2.5 rounded-[24px] bg-surface px-4 py-3.5 shadow-card", className)}>
+    <section aria-labelledby={labelledBy} className={cn("grid min-w-0 gap-2.5 rounded-[24px] bg-surface px-4 py-3.5 shadow-card md:gap-3.5 md:px-5 md:py-[18px]", className)}>
       {children}
     </section>
   );

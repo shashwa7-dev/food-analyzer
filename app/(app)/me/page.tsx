@@ -19,7 +19,7 @@ export default async function MePage() {
   const resetsLabel = resetDayLabel(balance.periodResetsAt, profile.timezone);
 
   return (
-    <div className="mx-auto grid w-full max-w-[560px] gap-[18px] md:pt-1.5">
+    <div className="mx-auto grid w-full max-w-[560px] gap-[18px] md:gap-6 md:pt-1.5">
       <h1 className="m-0 text-[30px] font-[650] leading-[1.05] tracking-[-0.04em] text-ink">Me</h1>
       <div className="flex items-center gap-3">
         <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-soft font-bold text-on-brand-soft" aria-hidden>

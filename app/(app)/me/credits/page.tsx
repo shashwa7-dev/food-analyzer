@@ -56,7 +56,7 @@ export default async function CreditsPage() {
   const month = MONTH_LONG[Number(period.slice(5)) - 1]!;
 
   return (
-    <div className="mx-auto grid w-full max-w-[640px] gap-3">
+    <div className="mx-auto grid w-full max-w-[640px] gap-3 md:gap-5">
       <div className="flex items-center justify-between gap-2.5">
         <BackButton fallback="/me" />
         <h1 className="m-0 min-w-0 truncate text-center text-[17px] font-semibold whitespace-nowrap text-ink">Scan credits</h1>
@@ -67,7 +67,7 @@ export default async function CreditsPage() {
 
       <BalanceChart credits={balance.credits} allowance={balance.allowance} month={month} points={points} today={today} end={periodEnd} />
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
         <Stat value={counts.used} label="used" />
         <Stat value={counts.free} label="free barcodes" />
         <Stat value={counts.refunded} label="refunded" />

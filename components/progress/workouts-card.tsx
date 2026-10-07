@@ -6,7 +6,7 @@ export function WorkoutsCard({ className }: { className?: string }) {
   return (
     <section
       aria-label="Workouts"
-      className={cn("grid content-start gap-2.5 rounded-[24px] bg-[color-mix(in_srgb,var(--brand-soft)_50%,var(--surface))] p-3.5 shadow-card", className)}
+      className={cn("grid content-start gap-2.5 rounded-[24px] bg-[color-mix(in_srgb,var(--brand-soft)_50%,var(--surface))] p-3.5 shadow-card md:p-5", className)}
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className="m-0 inline-flex items-center gap-[7px] whitespace-nowrap text-[15px] font-bold text-ink">

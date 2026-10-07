@@ -30,7 +30,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const period = range === "week" ? "This week" : "This month";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 md:gap-[18px]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 md:gap-6">
       <header className="flex items-center justify-between gap-2.5 md:col-span-2">
         <h1 className="m-0 text-[30px] font-[650] leading-[1.05] tracking-[-0.04em] text-ink md:text-[40px]">
           <span className="md:hidden">Progress</span>

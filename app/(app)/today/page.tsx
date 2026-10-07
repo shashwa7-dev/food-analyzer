@@ -37,8 +37,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     // rail's cards show, under the day while the content area is narrow (a 300 px rail beside it would
     // leave the day ~270 px at 900 px), and as a 300 px column beside it once the area is 840 px wide.
     <div className="@container">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 md:gap-[18px] @min-[840px]:grid-cols-[minmax(0,1fr)_300px] @min-[840px]:items-start">
-        <div className="flex min-w-0 flex-col gap-3.5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 md:gap-6 @min-[840px]:grid-cols-[minmax(0,1fr)_300px] @min-[840px]:items-start">
+        <div className="flex min-w-0 flex-col gap-3.5 md:gap-5">
           <header className="flex items-center gap-3">
             <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-soft font-bold text-on-brand-soft">
               {initialsOf(fullName)}
@@ -49,18 +49,18 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             </div>
             <DateSwitcher date={date} today={today} />
           </header>
-          <h1 className="mt-0.5 text-[34px] font-[650] leading-[1.05] tracking-[-0.04em] text-balance text-ink md:text-[40px]">
+          <h1 className="mt-0.5 text-[28px] font-[650] leading-[1.08] tracking-[-0.04em] text-balance text-ink md:text-[40px]">
             {headline.lead && <>{headline.lead} </>}
             <em className={cn("num whitespace-nowrap not-italic", toneFor(kcal.total, kcal.target) === "over" ? "text-bad" : "text-brand-deep")}>{headline.value}</em> {headline.tail}
           </h1>
           <DaySummary progress={day.progress} />
-          <div className="flex flex-col gap-3 md:grid md:grid-cols-2">
+          <div className="flex flex-col gap-3 md:grid md:grid-cols-2 md:gap-4">
             {DAY_ORDER.map((m, i) => (
               <MealSection key={m} meal={m} index={i as 0 | 1 | 2 | 3} date={date} entries={day.entries.filter((e) => e.meal === m)} kcal={day.byMeal[m].energyKcal} />
             ))}
           </div>
         </div>
-        <aside aria-label="Insights" className="hidden min-w-0 gap-3.5 md:grid md:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] md:items-start @min-[840px]:grid-cols-1">
+        <aside aria-label="Insights" className="hidden min-w-0 gap-3.5 md:grid md:gap-5 md:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] md:items-start @min-[840px]:grid-cols-1">
           <DailyLimitsCard progress={day.progress} />
           <WeekCard week={week} goal={profile.goal} />
           <RecentScansCard scans={recent.scans} />

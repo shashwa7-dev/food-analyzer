@@ -14,7 +14,7 @@ const MACROS: { key: "protein" | "carbs" | "fat"; label: string; icon: LucideIco
 export function MacroTiles({ protein, carbs, fat }: Record<"protein" | "carbs" | "fat", MacroAmount>) {
   const values = { protein, carbs, fat };
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-2 md:gap-4">
       {MACROS.map(({ key, label, icon: Icon, text, bar, track }) => {
         const { eaten, target } = values[key];
         const pct = target > 0 ? Math.min(eaten / target, 1) * 100 : 0;
@@ -22,7 +22,7 @@ export function MacroTiles({ protein, carbs, fat }: Record<"protein" | "carbs" |
           <section
             key={key}
             aria-label={`${label}: ${Math.round(eaten)} of ${Math.round(target)} grams`}
-            className="grid min-w-0 gap-2 rounded-[24px] bg-surface p-3 shadow-card"
+            className="grid min-w-0 gap-2 rounded-[24px] bg-surface p-3 shadow-card md:p-4"
           >
             <span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[13px] font-[550] text-ink">
               <Icon className={cn("size-4 shrink-0", text)} aria-hidden />

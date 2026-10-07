@@ -14,7 +14,7 @@ export function Kpis({ kpis }: { kpis: ProgressSummary["kpis"] }) {
     { key: "streak", icon: Zap, value: `${kpis.streak}${kpis.streakCapped ? "+" : ""}`, label: "day streak", sr: `${kpis.streakCapped ? "At least " : ""}${kpis.streak} day logging streak` },
   ];
   return (
-    <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0 md:col-span-2 md:grid-cols-4 md:gap-3">
+    <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0 md:col-span-2 md:grid-cols-4 md:gap-4">
       {tiles.map((t) => (
         <li key={t.key} className={cn("grid min-w-0 gap-0.5 rounded-[20px] bg-surface p-3 shadow-card md:p-4", t.deskOnly && "hidden md:grid")}>
           <t.icon className="mb-1 size-[18px] text-brand-deep" aria-hidden />
