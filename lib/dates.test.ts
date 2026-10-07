@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, DateSchema, isAllowedLogDate, todayIn } from "./dates";
+import { addDays, DateSchema, formatLocalDate, isAllowedLogDate, parseLocalDate, todayIn } from "./dates";
 
 describe("todayIn", () => {
   it("uses the user's timezone, not UTC (00:30 IST is still the previous UTC day)", () => {
@@ -29,5 +29,17 @@ describe("addDays / DateSchema", () => {
   });
   it("validates format", () => {
     expect(DateSchema.safeParse("06-10-2026").success).toBe(false);
+  });
+});
+
+describe("parseLocalDate / formatLocalDate", () => {
+  it("round-trips without shifting a day, regardless of the host's UTC offset", () => {
+    expect(formatLocalDate(parseLocalDate("2026-10-07"))).toBe("2026-10-07");
+    expect(formatLocalDate(parseLocalDate("2026-01-01"))).toBe("2026-01-01");
+    expect(formatLocalDate(parseLocalDate("2026-12-31"))).toBe("2026-12-31");
+  });
+  it("parses using local getters, not UTC ones", () => {
+    const d = parseLocalDate("2026-10-07");
+    expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 9, 7]);
   });
 });

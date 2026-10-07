@@ -24,3 +24,18 @@ export function isAllowedLogDate(date: string, now: Date = new Date()): boolean 
 }
 
 export const DateSchema = z.string().refine((d) => isAllowedLogDate(d), { message: "Pick a date within the last year." });
+
+// For UI widgets (e.g. a calendar picker) that build native Date objects from a
+// YYYY-MM-DD string and read them back with local getters. Unlike `parse` above (which
+// anchors at UTC midnight for day-arithmetic), these use the host's local timezone on
+// both ends, so round-tripping through them never shifts the calendar day.
+export function parseLocalDate(date: string): Date {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y!, m! - 1, d!);
+}
+export function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
