@@ -98,9 +98,9 @@ async function resolveFoods(userId: string): Promise<Record<string, FoodRow>> {
     }
     if (!out[key]) throw new Error(`No catalogue food for "${key}" (searched ${pick.q.join(", ")}). Run pnpm seed:foods first.`);
   }
-  // The longest OFF product name in the catalogue (≥ 40 chars), to exercise truncation.
+  // A long but realistic OFF product name (40–80 chars, no label boilerplate), to exercise truncation.
   const [long] = await db.select().from(food)
-    .where(and(eq(food.source, "off"), sql`${food.deletedAt} IS NULL`, sql`length(${food.name}) >= 40`, sql`${food.ownerId} IS NULL`))
+    .where(and(eq(food.source, "off"), sql`${food.deletedAt} IS NULL`, sql`length(${food.name}) BETWEEN 40 AND 80`, sql`${food.name} !~* '(www\\.|bpom|kode|trademark|reg\\.)'`, sql`${food.name} ~ '^[ -~]+$'`, sql`${food.ownerId} IS NULL`))
     .orderBy(sql`length(${food.name}) DESC`, food.id).limit(1);
   if (!long) throw new Error("No OFF food with a name of 40+ characters. Run pnpm seed:foods first.");
   out.long = long;
