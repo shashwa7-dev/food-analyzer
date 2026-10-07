@@ -97,7 +97,8 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   const r = view.result;
   const unit = r.basis === "per_100ml" ? "ml" : "g";
   const p = r.portions[r.defaultPortion] ?? r.portions[0];
-  const n = p?.grams ? nutrientsFor(r.per100, p.grams) : r.per100;
+  // No per-100 values (per-serving label, weight unknown): show the one serving as printed.
+  const n = r.per100 ? (p?.grams ? nutrientsFor(r.per100, p.grams) : r.per100) : (r.perServing ?? { energyKcal: 0, protein: 0, carbs: 0, fat: 0 });
   return (
     <div className="flex flex-col gap-4">
       <header>
@@ -129,7 +130,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
           <IngredientsUnknownNote ingredientsKnown={r.ingredients.length > 0} hasAllergies={hasAllergies} />
           {r.kind === "meal" && r.items && r.items.length > 0 && <MealItems items={r.items} unit={unit} />}
           <section className={CARD}>
-            <AddScanToMeal scanId={view.id} food={{ name: r.name, per100: r.per100, portions: r.portions, defaultPortion: r.defaultPortion, basis: r.basis }} date={date} defaultMeal={meal} isToday={isToday} />
+            <AddScanToMeal scanId={view.id} food={{ name: r.name, per100: r.per100, perServing: r.perServing, portions: r.portions, defaultPortion: r.defaultPortion, basis: r.basis }} date={date} defaultMeal={meal} isToday={isToday} />
           </section>
         </div>
         <div className="flex flex-col gap-4">
@@ -153,7 +154,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
               <p className="text-sm">{r.tip}</p>
             </section>
           ) : null}
-          <SaveScanToFoods scanId={view.id} />
+          {r.per100 && <SaveScanToFoods scanId={view.id} />}
           <Link href={`/scan${scanQuery(sp)}`} className={`${LINK_BUTTON} text-accent`}>Scan something else</Link>
           <DeleteScanButton scanId={view.id} />
         </div>

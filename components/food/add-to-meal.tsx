@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { logEntryBody, stepQuantity, type LogTarget } from "@/lib/log/quantity";
 import { MEALS, type Meal, type Nutrients, type Portion } from "@/lib/nutrition/types";
 
-export type LoggableFood = { name: string; per100: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml" };
+/** per100 null (+ perServing): a per-serving label with no serving weight — logged by servings only, never by grams. */
+export type LoggableFood = { name: string; per100: Nutrients | null; perServing?: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml" };
 
 /**
  * Portion chips, quantity stepper / custom grams and meal chips, then POST /log. `target` says what
@@ -20,7 +21,8 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone }: {
 }) {
   const router = useRouter();
   const qc = useQueryClient();
-  const loggable = food.portions.map((p, i) => ({ p, i })).filter(({ p }) => p.grams);
+  const servingsOnly = food.per100 === null;
+  const loggable = food.portions.map((p, i) => ({ p, i })).filter(({ p }) => p.grams || servingsOnly);
   const [portionIndex, setPortionIndex] = useState(loggable.find(({ i }) => i === food.defaultPortion)?.i ?? loggable[0]?.i ?? 0);
   const [quantity, setQuantity] = useState(1);
   const [meal, setMeal] = useState<Meal>(defaultMeal);
@@ -29,7 +31,7 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone }: {
   const customGrams = Number(customText);
   const customValid = customText.trim() !== "" && Number.isFinite(customGrams) && customGrams >= 1 && customGrams <= 5000;
   const grams = custom ? (customValid ? customGrams : 0) : (food.portions[portionIndex]?.grams ?? 0) * quantity;
-  const kcal = Math.round((food.per100.energyKcal * grams) / 100);
+  const kcal = food.per100 ? Math.round((food.per100.energyKcal * grams) / 100) : Math.round((food.perServing?.energyKcal ?? 0) * quantity);
   const unit = food.basis === "per_100ml" ? "ml" : "g";
   const step = (dir: 1 | -1) => setQuantity((q) => stepQuantity(q, dir));
   const add = useMutation({
@@ -52,13 +54,15 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone }: {
           {loggable.map(({ p, i }) => (
             <button key={p.label} type="button" aria-pressed={!custom && i === portionIndex} onClick={() => { setPortionIndex(i); setCustom(false); }}
               className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">
-              {p.label} <span className="num opacity-70">{p.grams} {unit}</span>
+              {p.label} {p.grams !== null && <span className="num opacity-70">{p.grams} {unit}</span>}
             </button>
           ))}
+          {!servingsOnly && (
           <button type="button" aria-pressed={custom} onClick={() => setCustom(true)}
             className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">
             Custom g/ml
           </button>
+          )}
         </div>
       </fieldset>
       {custom ? (

@@ -82,7 +82,7 @@ export interface AiOutcome {
 type Profile = EngineInput["profile"];
 
 const HINT_RETAKE = "Some numbers look off — retake the label photo";
-const HINT_NO_SERVING = "No serving size printed — log by grams";
+const HINT_NO_SERVING = "No serving weight printed — log it by servings, not grams";
 const HINT_BACK = "Add a photo of the back for exact facts";
 const NAME_MATCH_MIN = 0.8;
 const MEAL_MATCH_MIN = 0.6;
@@ -330,7 +330,9 @@ async function labelScan(
   const { gradeCategory } = classify({ source: "crowd", name, categories, per100: merged.per100 });
 
   const built = buildResult({
-    name, brand, foodId: null, kind: "packaged", inputKind: "label", basis, per100: merged.per100, provenance: merged.provenance,
+    name, brand, foodId: null, kind: "packaged", inputKind: "label", basis, provenance: merged.provenance,
+    // Per-serving values of unknown weight are never passed off as per-100 (no grams logging, no grade).
+    ...(servingUnknown ? { per100: null, perServing: merged.per100 } : { per100: merged.per100 }),
     portions, defaultPortion, gradeCategory, gradePortionGrams: null, ingredients, allergens, mayContain, additives,
     nova: db?.nova ?? null, alternatives: [], hints, confidence, profile, ...(servingUnknown && { servingUnknown }),
   });
@@ -359,7 +361,8 @@ async function frontScan(x: Extraction, profile: Profile, deps: EngineDeps): Pro
   const { gradeCategory } = classify({ source: "crowd", name, categories, per100: est.per100 });
   const { portions, defaultPortion } = packagedPortions(est, x.product?.packSize, []);
   const built = buildResult({
-    name, brand: x.product?.brand || null, foodId: null, kind: "packaged", inputKind: "front", basis: est.basis, per100: est.per100, provenance,
+    name, brand: x.product?.brand || null, foodId: null, kind: "packaged", inputKind: "front", basis: est.basis, provenance,
+    ...(est.servingUnknown ? { per100: null, perServing: est.per100 } : { per100: est.per100 }),
     portions, defaultPortion, gradeCategory, gradePortionGrams: null, ingredients: x.ingredients ?? [],
     allergens: toOffAllergenTags(x.allergensDeclared ?? []), mayContain: toOffAllergenTags(x.mayContain ?? []),
     additives: toOffAdditiveTags(x.additives ?? []), nova: null, alternatives: [],

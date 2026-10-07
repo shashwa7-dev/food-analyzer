@@ -13,6 +13,10 @@ import { toFoodDraft, type SourceRecord } from "@/lib/foods/seed-map";
 import labelNamkeenJson from "@/lib/engine/__fixtures__/label-namkeen.json";
 import unreadableJson from "@/lib/engine/__fixtures__/unreadable.json";
 import frontOnlyJson from "@/lib/engine/__fixtures__/front-only.json";
+import perServingJson from "@/lib/engine/__fixtures__/label-per-serving-no-size.json";
+import { InvalidError } from "@/lib/errors";
+import { createCustomFoodFromScan } from "@/lib/foods/service";
+import { addEntry, updateEntry } from "@/lib/log/service";
 import { realDeps } from "./deps";
 import { NOT_CONFIGURED_MESSAGE, REFUNDED_MESSAGE, SCAN_MESSAGES } from "./messages";
 import { completeScan, createScan, deleteScan, getScan, listScans, visibleScanWhere, type CreateScanInput, type ScanDeps, type Schedule } from "./service";
@@ -635,5 +639,42 @@ describe("soft delete keeps deleted scans in every guard", () => {
     await deleteScan(u, body(r).scanId, clock);
     await testDb().delete(user).where(eq(user.id, u));
     expect(await testDb().select().from(scan).where(eq(scan.userId, u))).toHaveLength(0);
+  });
+});
+
+// --- Per-serving label with no serving weight (final review I2) ------------------------------------
+
+describe("per-serving label without a serving weight (Masala Oats, 160 kcal / 420 mg sodium per serving)", () => {
+  async function scanOats(u: string) {
+    const j = jobs();
+    const r = await createScan(u, aiInput(), deps(u, { extract: extracting(sanitiseExtraction(perServingJson)) }), j.schedule);
+    await j.runAll();
+    return body(r).scanId;
+  }
+
+  it("logs whole servings with the printed numbers and refuses grams", async () => {
+    const u = await createUser();
+    const id = await scanOats(u);
+    const view = await getScan(u, id, clock);
+    expect(view!.result).toMatchObject({ per100: null, servingUnknown: true, grade: null, perServing: { energyKcal: 160, sodiumMg: 420 } });
+
+    const date = new Date(clock).toISOString().slice(0, 10);
+    const one = await addEntry(u, { kind: "scan", date, meal: "breakfast", scanId: id, portionIndex: 0, quantity: 1 });
+    expect(one.nutrients).toMatchObject({ energyKcal: 160, sodiumMg: 420 });
+    expect(one.portion).toEqual({ label: "1 serving", amount: 1, unit: "serving", grams: null });
+    const two = await addEntry(u, { kind: "scan", date, meal: "breakfast", scanId: id, portionIndex: 0, quantity: 2 });
+    expect(two.nutrients).toMatchObject({ energyKcal: 320, sodiumMg: 840 });
+    // Editing the quantity later keeps the per-serving scaling.
+    expect((await updateEntry(u, one.id, { quantity: 1.5 }))!.nutrients).toMatchObject({ energyKcal: 240, sodiumMg: 630 });
+
+    // The 40 g case from the review: logging by grams is not possible.
+    await expect(addEntry(u, { kind: "scan_grams", date, meal: "breakfast", scanId: id, grams: 40 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  it("can't be saved to my foods (there is no per-100 g figure to store)", async () => {
+    const u = await createUser();
+    const id = await scanOats(u);
+    await expect(createCustomFoodFromScan(u, id)).rejects.toBeInstanceOf(InvalidError);
+    expect(await testDb().select().from(food).where(eq(food.ownerId, u))).toHaveLength(0);
   });
 });

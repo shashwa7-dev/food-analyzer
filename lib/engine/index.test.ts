@@ -187,7 +187,7 @@ describe("runAi — label", () => {
     expect(opts.signal).toBeInstanceOf(AbortSignal);
     expect(out.result).toMatchObject({ inputKind: "label", kind: "packaged", confidence: "high", name: "Aloo Bhujia", brand: "Shree Rama", basis: "per_100g", foodId: null });
     expect(out.result.hints).toEqual([]);
-    expect(out.result.per100.energyKcal).toBe(554);
+    expect(out.result.per100!.energyKcal).toBe(554);
     expect(out.result.provenance.energyKcal).toBe("label");
     expect(out.result.portions.map((p) => p.label)).toEqual(["1 serving", "1 pack", "100 g"]);
     expect(out.result.portions[out.result.defaultPortion]?.label).toBe("1 serving");
@@ -214,9 +214,9 @@ describe("runAi — label", () => {
     expect(d.findFoodByBarcode).toHaveBeenCalledTimes(1);
     expect(d.findFoodByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
     expect(d.fetchOffByBarcode).not.toHaveBeenCalled();
-    expect(out.result.per100.energyKcal).toBe(554);
+    expect(out.result.per100!.energyKcal).toBe(554);
     expect(out.result.provenance.energyKcal).toBe("label");
-    expect(out.result.per100.transFat).toBe(0.2);
+    expect(out.result.per100!.transFat).toBe(0.2);
     expect(out.result.provenance.transFat).toBe("community");
   });
 
@@ -233,18 +233,29 @@ describe("runAi — label", () => {
     const out = await runAi(input(), d, DEADLINE, null);
     expect(out.result.confidence).toBe("low");
     expect(out.result.hints).toContain("Some numbers look off — retake the label photo");
-    expect(out.result.per100.energyKcal).toBe(254); // values kept
+    expect(out.result.per100!.energyKcal).toBe(254); // values kept
     expect(out.crowdCandidate).toBeNull();
   });
 
-  it("per-serving without a serving size: low confidence, grams hint, servingUnknown, no crowd candidate", async () => {
+  it("per-serving without a serving size: low confidence, servings-only hint, servingUnknown, no crowd candidate", async () => {
     const d = deps({ extract: extractReturning(perServing) });
     const out = await runAi(input(), d, DEADLINE, null);
     expect(out.result.confidence).toBe("low");
-    expect(out.result.hints).toContain("No serving size printed — log by grams");
+    expect(out.result.hints).toContain("No serving weight printed — log it by servings, not grams");
     expect(out.result.servingUnknown).toBe(true);
     expect(out.result.portions).toEqual([{ label: "1 serving", amount: 1, unit: "serving", grams: null }]);
     expect(out.crowdCandidate).toBeNull();
+  });
+
+  it("per-serving without a serving size never stores the per-serving numbers as per-100, and is ungraded", async () => {
+    const out = await runAi(input(), deps({ extract: extractReturning(perServing) }), DEADLINE, null);
+    expect(out.result.per100).toBeNull();
+    expect(out.result.perServing).toMatchObject({ energyKcal: 160, sodiumMg: 420, protein: 4.4 });
+    expect(out.result.grade).toBeNull();
+    expect(out.result.gradeValue).toBeNull();
+    expect(out.result.reasons[0]!.text).toMatch(/no serving weight/);
+    // Goal flags read the one serving as printed (420 mg is 21% of a 2000 mg limit).
+    expect(out.result.flags.find((f) => f.key === "sodium")?.text).toBe("1 serving uses 21% of your daily sodium limit.");
   });
 
   it("beverage label: per_100ml, beverage categories, alternatives requested for a C–E grade", async () => {
@@ -275,7 +286,7 @@ describe("runAi — label", () => {
     const ingOnly: Extraction = { images: [{ index: 0, kind: "ingredients", quality: [] }], ingredients: ["Gram flour", "Groundnut oil"], allergensDeclared: ["peanut"] };
     const out = await runAi(input({ barcode: NAMKEEN_CODE }), deps({ extract: extractReturning(ingOnly) }), DEADLINE, food({ per100: { energyKcal: 554, protein: 11, carbs: 51.7, fat: 34 } }));
     expect(out.result.confidence).toBe("medium");
-    expect(out.result.per100.energyKcal).toBe(554);
+    expect(out.result.per100!.energyKcal).toBe(554);
     expect(out.result.ingredients).toEqual(["Gram flour", "Groundnut oil"]);
     expect(out.crowdCandidate).toBeNull();
   });
@@ -351,7 +362,7 @@ describe("runAi — meal", () => {
     expect(items[2]!.nutrients.energyKcal).toBe(78);
     const totalKcal = 165 + 260 + 78;
     expect(out.result.portions[out.result.defaultPortion]).toMatchObject({ grams: 365 });
-    expect(out.result.per100.energyKcal).toBeCloseTo((totalKcal / 365) * 100, 1);
+    expect(out.result.per100!.energyKcal).toBeCloseTo((totalKcal / 365) * 100, 1);
     expect(out.result.provenance.energyKcal).toBe("estimate");
     expect(out.result.grade).not.toBeNull();
     expect(out.crowdCandidate).toBeNull();

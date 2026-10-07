@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireApiUser } from "@/lib/session";
 import { apiError, invalid, json, notFound, serverError } from "@/lib/http";
-import { NotFoundError } from "@/lib/errors";
+import { InvalidError, NotFoundError } from "@/lib/errors";
 import { createCustomFood, createCustomFoodFromScan, CustomFoodSchema, searchFoods } from "@/lib/foods/service";
 import { getProfile } from "@/lib/profile/service";
 import { extractFromScanId } from "./from-scan";
@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       return json({ food }, { status: created ? 201 : 200 });
     } catch (e) {
       if (e instanceof NotFoundError) return notFound();
+      if (e instanceof InvalidError) return invalid(e.message);
       return apiError(500, "SERVER_ERROR", "Something went wrong. Try again.");
     }
   }

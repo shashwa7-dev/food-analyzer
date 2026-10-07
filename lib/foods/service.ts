@@ -4,7 +4,7 @@ import { db } from "@/lib/db/client";
 import { food, scan, userFoodStats } from "@/lib/db/schema";
 import { visibleFoodWhere } from "@/lib/authz";
 import type { ScanResult } from "@/lib/engine/result";
-import { NotFoundError } from "@/lib/errors";
+import { InvalidError, NotFoundError } from "@/lib/errors";
 import { classify } from "@/lib/nutrition/classify";
 import { explain } from "@/lib/nutrition/explain";
 import { gradeFood, GRADE_VERSION } from "@/lib/nutrition/grade";
@@ -216,6 +216,9 @@ export async function createCustomFoodFromScan(userId: string, scanId: string): 
   const [row] = await db.select({ status: scan.status, result: scan.result }).from(scan).where(and(eq(scan.id, scanId), visibleScanWhere(userId)));
   if (!row || row.status !== "done" || !row.result) throw new NotFoundError();
   const r: ScanResult = row.result;
+  // Per-serving values of unknown weight have no per-100 figure to store; saving them as one would be wrong.
+  if (!r.per100) throw new InvalidError("This label has no serving weight, so it can't be saved as a food. Log it by servings instead.");
+  const per100 = r.per100;
 
   const kind = r.kind === "packaged" ? ("packaged" as const) : ("dish" as const);
   const gradeCategory = r.kind === "packaged" ? ("general" as const) : ("dish" as const);
@@ -223,7 +226,7 @@ export async function createCustomFoodFromScan(userId: string, scanId: string): 
 
   const draft = {
     source: "custom" as const, sourceRef: scanId, ownerId: userId, kind, gradeCategory,
-    name: r.name, brand: r.brand, basis: r.basis, per100: r.per100, provenance: r.provenance,
+    name: r.name, brand: r.brand, basis: r.basis, per100, provenance: r.provenance,
     portions: r.portions, defaultPortion: r.defaultPortion, gradePortionGrams, ingredients: r.ingredients,
     // Personal flags on the saved food read these exactly as on curated foods (personalise).
     allergens: r.allergens ?? [], mayContain: r.mayContain ?? [], additives: r.additives ?? [],

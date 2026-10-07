@@ -40,6 +40,17 @@ describe("toOffAllergenTags", () => {
 });
 
 describe("buildResult", () => {
+  it("per-serving values of unknown weight: per100 null, perServing kept, ungraded, flags on the one serving", () => {
+    const serving: Portion = { label: "1 serving", amount: 1, unit: "serving", grams: null };
+    const r = buildResult(baseArgs({ per100: null, perServing: { energyKcal: 160, protein: 4, carbs: 25, fat: 5, sodiumMg: 420 }, portions: [serving], servingUnknown: true,
+      profile: { allergies: [], diet: "none", goal: "general", targets: PRESETS.general } }));
+    expect(r.per100).toBeNull();
+    expect(r.perServing?.energyKcal).toBe(160);
+    expect(r.servingUnknown).toBe(true);
+    expect(r.grade).toBeNull();
+    expect(r.components).toEqual([]);
+    expect(r.flags.some((f) => f.key === "sodium")).toBe(true);
+  });
   it("stores allergens, may-contain and additives as OFF tags (unmapped OFF tags kept), so Save to my foods can copy them", () => {
     const r = buildResult(baseArgs({ allergens: ["peanut", "en:celery"], mayContain: ["tree_nut", "glitter"], additives: ["en:e330"] }));
     expect(r.allergens).toEqual(["en:peanuts", "en:celery"]);

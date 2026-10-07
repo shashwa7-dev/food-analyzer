@@ -7,10 +7,10 @@ import type { ScanResult } from "@/lib/engine/result";
 import { InvalidError, NotFoundError } from "@/lib/errors";
 import { getFoodForUser } from "@/lib/foods/service";
 import { isFreeGramsPortion } from "@/lib/log/format";
-import { nutrientsFor, rescaleEntry } from "@/lib/nutrition/portions";
+import { nutrientsFor, rescaleEntry, scaleNutrients } from "@/lib/nutrition/portions";
 import { targetsFor } from "@/lib/nutrition/targets";
 import { dayTotals } from "@/lib/nutrition/totals";
-import { MEALS, type Portion } from "@/lib/nutrition/types";
+import { MEALS, type Nutrients, type Portion } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
 
@@ -91,12 +91,20 @@ async function addScanEntry(userId: string, input: Extract<AddEntryInput, { kind
   if (!row || row.status !== "done" || !row.result) throw new NotFoundError();
   const result: ScanResult = row.result;
 
-  const portion = input.kind === "scan_grams"
-    ? resolvePortion(result.portions, result.basis, { grams: input.grams })
-    : resolvePortion(result.portions, result.basis, { portionIndex: input.portionIndex, quantity: input.quantity });
-  const grams = portion.grams!;
+  let portion: Portion, nutrients: Nutrients;
+  if (result.per100) {
+    portion = input.kind === "scan_grams"
+      ? resolvePortion(result.portions, result.basis, { grams: input.grams })
+      : resolvePortion(result.portions, result.basis, { portionIndex: input.portionIndex, quantity: input.quantity });
+    nutrients = nutrientsFor(result.per100, portion.grams!);
+  } else {
+    // Per-serving label with no serving weight: only whole servings are loggable (the weight is unknown).
+    const serving = input.kind === "scan" ? result.portions[input.portionIndex] : undefined;
+    if (input.kind !== "scan" || !serving || !result.perServing) throw new InvalidError("This label has no serving weight. Log it by servings instead.");
+    portion = { label: serving.label, amount: input.quantity, unit: serving.unit, grams: null };
+    nutrients = scaleNutrients(result.perServing, input.quantity);
+  }
   const name = result.brand ? `${result.name} · ${result.brand}` : result.name;
-  const nutrients = nutrientsFor(result.per100, grams);
   const linkedFood = result.foodId ? await getFoodForUser(userId, result.foodId) : null;
 
   return db.transaction(async (tx) => {

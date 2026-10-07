@@ -11,7 +11,13 @@ export interface ScanResult {
   brand: string | null;
   foodId: string | null;
   basis: "per_100g" | "per_100ml";
-  per100: Nutrients;
+  /**
+   * Per-100 g/ml values. Null when the label gave per-serving values without a serving weight
+   * (`servingUnknown`): there is no honest per-100 figure, so the values live in `perServing`, the
+   * result is ungraded and can only be logged by servings (never by grams, never saved as a food).
+   */
+  per100: Nutrients | null;
+  perServing?: Nutrients;
   provenance: Partial<Record<NutrientKey, Provenance>>;
   portions: Portion[];
   defaultPortion: number;
@@ -54,6 +60,8 @@ export function toOffAllergenTags(keys: string[]): string[] {
 const isOffTag = (t: string) => /^[a-z]{2}:/.test(t);
 const union = (...lists: string[][]): string[] => [...new Set(lists.flat())];
 
+const NOT_GRADED = "Not graded: the label gives values per serving but no serving weight, so we can't compare it per 100 g.";
+
 const FALLBACK_PORTION: Portion = { label: "100 g", amount: 100, unit: "g", grams: 100 };
 
 export function buildResult(args: {
@@ -63,7 +71,9 @@ export function buildResult(args: {
   kind: "packaged" | "dish" | "meal";
   inputKind: "barcode" | "label" | "front" | "meal";
   basis: "per_100g" | "per_100ml";
-  per100: Nutrients;
+  /** Null with `perServing` set: one serving's values of unknown weight (see ScanResult.per100). */
+  per100: Nutrients | null;
+  perServing?: Nutrients;
   provenance: Partial<Record<NutrientKey, Provenance>>;
   portions: Portion[];
   defaultPortion: number;
@@ -84,9 +94,13 @@ export function buildResult(args: {
   /** Use this grade instead of recomputing: a catalogue food's stored grade (grades shown are the stored neutral grade), or a meal's dishScore on its exact total. */
   precomputedGrade?: GradeResult;
 }): ScanResult {
-  const grade = args.precomputedGrade ?? gradeFood({
+  const per100 = args.per100;
+  const perServing = per100 ? undefined : args.perServing;
+  if (!per100 && !perServing) throw new Error("buildResult needs per100 or perServing");
+  // Unknown serving weight: nothing per-100 to grade on, so the result is ungraded.
+  const grade: GradeResult = !per100 ? { grade: null, value: null, components: [] } : args.precomputedGrade ?? gradeFood({
     gradeCategory: args.gradeCategory,
-    per100: args.per100,
+    per100,
     gradePortionGrams: args.gradePortionGrams,
     additives: args.additives,
     nova: args.nova,
@@ -94,17 +108,11 @@ export function buildResult(args: {
 
   const portion = args.portions[args.defaultPortion] ?? args.portions[0] ?? FALLBACK_PORTION;
   const portionGrams = portion.grams && portion.grams > 0 ? portion.grams : 100;
-  const perPortion = nutrientsFor(args.per100, portionGrams);
+  const perPortion = per100 ? nutrientsFor(per100, portionGrams) : perServing!;
 
-  const reasons = explain({
-    name: args.name,
-    grade,
-    per100: args.per100,
-    basis: args.basis,
-    perPortion,
-    portionLabel: portion.label,
-    targets: args.profile.targets,
-  });
+  const reasons: Reason[] = per100
+    ? explain({ name: args.name, grade, per100, basis: args.basis, perPortion, portionLabel: portion.label, targets: args.profile.targets })
+    : [{ tone: "warn", text: NOT_GRADED }];
 
   // Model keys become OFF tags; tags we don't map (en:celery, ...) are kept so a saved food carries them too.
   const allergens = union(toOffAllergenTags(args.allergens), args.allergens.filter(isOffTag));
@@ -128,7 +136,8 @@ export function buildResult(args: {
     brand: args.brand,
     foodId: args.foodId,
     basis: args.basis,
-    per100: args.per100,
+    per100,
+    ...(perServing && { perServing }),
     provenance: args.provenance,
     portions: args.portions,
     defaultPortion: args.defaultPortion,
@@ -147,6 +156,6 @@ export function buildResult(args: {
     confidence,
     inputKind: args.inputKind,
     tip: args.tip,
-    servingUnknown: args.servingUnknown,
+    servingUnknown: per100 ? args.servingUnknown : true,
   };
 }

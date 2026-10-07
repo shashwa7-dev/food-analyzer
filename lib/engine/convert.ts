@@ -17,8 +17,8 @@ export interface ConvertedFacts {
  * this as UNREADABLE_IMAGE unless a DB match supplies them) — returns null.
  *
  * A per_serving label with no printed serving size can't be scaled: the per-serving values
- * are returned as-is (servingGrams: null, servingUnknown: true) so the result can show them
- * as "1 serving" with a 100 g-equivalent and a low-confidence hint.
+ * are returned as-is (servingGrams: null, servingUnknown: true). The engine then keeps them as
+ * the result's `perServing` (per100 null): ungraded, logged by servings only, never by grams.
  *
  * Out-of-range per-100 values (macro > 100 g, energy > 900 kcal) are NOT clamped here —
  * they're returned as computed; validateFacts flags them separately as "range".
