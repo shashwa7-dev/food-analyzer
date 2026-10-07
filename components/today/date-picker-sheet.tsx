@@ -5,9 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Check } from "lucide-react";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { ResponsiveSheet, SheetTitle } from "@/components/ui/responsive-sheet";
 import { api } from "@/lib/api-client";
 import { addDays, formatLocalDate, isAllowedLogDate, parseLocalDate } from "@/lib/dates";
 import { dayLabels } from "@/lib/today/headline";
@@ -95,7 +93,6 @@ function DatePickerBody({ date, today, onDone }: { date: string; today: string; 
 }
 
 export function DatePickerSheet({ open, onOpenChange, date, today }: { open: boolean; onOpenChange: (open: boolean) => void; date: string; today: string }) {
-  const isDesktop = useMediaQuery("(min-width: 900px)");
   const close = () => onOpenChange(false);
   // A fresh body per opening, so each one starts from the page's date and its month; it stays
   // mounted while closing so the sheet doesn't empty mid-animation.
@@ -107,22 +104,10 @@ export function DatePickerSheet({ open, onOpenChange, date, today }: { open: boo
   }
   const body = <DatePickerBody key={session} date={date} today={today} onDone={close} />;
 
-  if (isDesktop) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent showCloseButton={false} className="gap-3.5 p-[22px] sm:max-w-[400px]">
-          <DialogTitle className="sr-only">Pick a date</DialogTitle>
-          {body}
-        </DialogContent>
-      </Dialog>
-    );
-  }
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-      <DrawerContent className="shadow-[0_-10px_30px_rgb(0_0_0/.18)]">
-        <DrawerTitle className="sr-only">Pick a date</DrawerTitle>
-        <div className="px-[18px] pt-2.5 pb-[calc(22px+env(safe-area-inset-bottom))]">{body}</div>
-      </DrawerContent>
-    </Drawer>
+    <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
+      <SheetTitle className="sr-only">Pick a date</SheetTitle>
+      {body}
+    </ResponsiveSheet>
   );
 }

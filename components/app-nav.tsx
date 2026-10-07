@@ -103,7 +103,7 @@ export function AppNav({
       {phoneNav && (
         <nav
           aria-label="Main"
-          className="fixed inset-x-0 bottom-0 z-30 mx-3 mb-[calc(12px+env(safe-area-inset-bottom))] grid h-[72px] grid-cols-5 rounded-[28px] bg-surface px-1.5 shadow md:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 mx-3 mb-[calc(12px+env(safe-area-inset-bottom))] grid h-[72px] grid-cols-5 rounded-[28px] bg-surface px-1.5 shadow-card md:hidden"
         >
           {PHONE_ITEMS.map(({ href, label, icon: Icon, primary }) => {
             const isActive = active(href);
