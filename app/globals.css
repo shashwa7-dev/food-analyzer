@@ -3,19 +3,27 @@
 @import "shadcn/tailwind.css";
 
 :root {
-  --bg: #F6F7F6; --surface: #FFFFFF; --sunken: #EEF1EF; --ink: #0F1512; --muted: #5E6A64;
-  --line: #E1E6E3; --accent: #15803D; --accent-ink: #FFFFFF; --accent-soft: #E3F2E8;
+  --bg: #FAFBF6; --wash-a: #EEF4DA; --surface: #FFFFFF; --sunken: #F1F3EC; --ink: #12150F; --muted: #646B5E;
+  --line: #E4E8DC; --accent-ink: #FFFFFF;
+  --brand: #A6D84A; --brand-soft: #E3F2C2; --brand-deep: #4D7A12; --brand-ink: #12150F;
+  --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
+  --action: #12150F; --action-ink: #FFFFFF;
+  --protein: #2E7CF6; --carbs: #7A5AF8; --fat: #D6408F; --fat-soft: #FBE3EF;
   --ok: #1F8A4C; --warn: #B86E00; --bad: #C43A16;
   --g-a: #038141; --g-b: #85BB2F; --g-c: #FECB02; --g-d: #EE8100; --g-e: #E63E11;
-  --shadow-card: 0 1px 2px rgb(15 21 18 / .06), 0 4px 16px rgb(15 21 18 / .05);
+  --shadow-card: 0 1px 2px rgb(20 26 12 / .05), 0 8px 24px rgb(20 26 12 / .06);
   /* camera viewfinder: always dark, with white marks on top, in both themes */
   --viewfinder: #141613; --on-media: #FFFFFF; --on-media-ink: #111111;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #0B0F0D; --surface: #131916; --sunken: #19201C; --ink: #E8EEEA; --muted: #93A099;
-    --line: #25302A; --accent: #4ADE80; --accent-ink: #06210F; --accent-soft: #163322;
+    --bg: #11140F; --wash-a: #1B2312; --surface: #1A1E17; --sunken: #20251C; --ink: #EDF1E6; --muted: #9AA290;
+    --line: #2A3124; --accent-ink: #06210F;
+    --brand: #A6D84A; --brand-soft: #26331A; --brand-deep: #B9E36E; --brand-ink: #12150F;
+    --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
+    --action: var(--brand); --action-ink: #12150F;
+    --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
     --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: none;
   }
 }
@@ -23,25 +31,29 @@
 @theme inline {
   --color-bg: var(--bg); --color-surface: var(--surface); --color-sunken: var(--sunken);
   --color-ink: var(--ink); --color-subtle: var(--muted); --color-line: var(--line);
+  --color-wash-a: var(--wash-a);
   /* shadcn semantic names mapped to our tokens */
   --color-background: var(--bg); --color-foreground: var(--ink);
-  --color-primary: var(--accent); --color-primary-foreground: var(--accent-ink);
+  --color-primary: var(--action); --color-primary-foreground: var(--action-ink);
   --color-secondary: var(--sunken); --color-secondary-foreground: var(--ink);
   --color-muted: var(--sunken); --color-muted-foreground: var(--muted);
   --color-popover: var(--surface); --color-popover-foreground: var(--ink);
   --color-card: var(--surface); --color-card-foreground: var(--ink);
-  --color-border: var(--line); --color-input: var(--line); --color-ring: var(--accent);
+  --color-border: var(--line); --color-input: var(--line); --color-ring: var(--brand-deep);
   --color-destructive: var(--bad);
   --radius: 12px;
   --breakpoint-md: 900px;
   --color-accent: var(--accent); --color-accent-ink: var(--accent-ink); --color-accent-soft: var(--accent-soft);
+  --color-brand: var(--brand); --color-brand-soft: var(--brand-soft); --color-brand-deep: var(--brand-deep); --color-brand-ink: var(--brand-ink);
+  --color-action: var(--action); --color-action-ink: var(--action-ink);
+  --color-protein: var(--protein); --color-carbs: var(--carbs); --color-fat: var(--fat); --color-fat-soft: var(--fat-soft);
   --color-ok: var(--ok); --color-warn: var(--warn); --color-bad: var(--bad);
   --color-grade-a: var(--g-a); --color-grade-b: var(--g-b); --color-grade-c: var(--g-c);
   --color-grade-d: var(--g-d); --color-grade-e: var(--g-e);
   --color-viewfinder: var(--viewfinder); --color-on-media: var(--on-media); --color-on-media-ink: var(--on-media-ink);
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --text-xs: 12px; --text-sm: 13px; --text-base: 15px; --text-lg: 17px; --text-xl: 22px; --text-2xl: 30px; --text-3xl: 40px;
-  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 18px;
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 24px; --radius-xl: 30px;
   --shadow-card: var(--shadow-card);
 }
 
@@ -54,6 +66,7 @@ body {
 /* --shadow-card is "none" in dark mode (surfaces barely differ from bg there), but a
    toast floats above everything and needs a real shadow in both themes. */
 .cn-toast { box-shadow: 0 2px 8px rgb(0 0 0 / .18), 0 8px 24px rgb(0 0 0 / .14) !important; }
+.bg-wash { background: linear-gradient(180deg, var(--wash-a) 0, var(--bg) 45%); }
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .title { font-weight: 600; letter-spacing: -0.032em; line-height: 1.1; text-wrap: balance; }
 .section-title { font-size: 17px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.3; }

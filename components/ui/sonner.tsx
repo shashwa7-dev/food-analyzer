@@ -10,7 +10,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       icons={{
         success: (
-          <CircleCheckIcon className="size-4" />
+          <CircleCheckIcon className="size-4 text-brand" />
         ),
         info: (
           <InfoIcon className="size-4" />
@@ -27,24 +27,27 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "var(--surface)",
-          "--normal-text": "var(--ink)",
-          "--normal-border": "var(--line)",
-          "--success-bg": "var(--surface)",
-          "--success-text": "var(--ok)",
-          "--success-border": "var(--line)",
-          "--error-bg": "var(--surface)",
-          "--error-text": "var(--bad)",
-          "--error-border": "var(--line)",
-          "--warning-bg": "var(--surface)",
-          "--warning-text": "var(--warn)",
-          "--warning-border": "var(--line)",
-          "--border-radius": "var(--radius)",
+          // Every toast kind is the same ink pill now (mock-c1's single `.toast` style) —
+          // the icon, not the surface, carries the success/error/warning meaning.
+          "--normal-bg": "var(--action)",
+          "--normal-text": "var(--action-ink)",
+          "--normal-border": "var(--action)",
+          "--success-bg": "var(--action)",
+          "--success-text": "var(--action-ink)",
+          "--success-border": "var(--action)",
+          "--error-bg": "var(--action)",
+          "--error-text": "var(--action-ink)",
+          "--error-border": "var(--action)",
+          "--warning-bg": "var(--action)",
+          "--warning-text": "var(--action-ink)",
+          "--warning-border": "var(--action)",
+          "--border-radius": "18px",
         } as React.CSSProperties
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast",
+          toast: "cn-toast rounded-[18px] bg-action text-action-ink shadow-lg",
+          actionButton: "rounded-xl bg-action-ink/15",
         },
       }}
       {...props}
