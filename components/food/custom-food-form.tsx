@@ -285,8 +285,9 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
             <ChevronDown className={cn("size-4 shrink-0 text-subtle transition-transform motion-reduce:transition-none", microsOpen && "rotate-180")} aria-hidden />
           </button>
         </h2>
+        {/* Folded away, the fields aren't rendered; their values live in `values` and are saved either way. */}
         <div id={`${uid}-micros`} hidden={!microsOpen} className="grid grid-cols-2 gap-2.5">
-          {MICRO_FIELDS.map((f) => (
+          {microsOpen && MICRO_FIELDS.map((f) => (
             <Field key={f.key} id={fieldId(f.key)} label={f.label} unit={f.unit} inputMode="decimal" value={values[f.key]!} onChange={setValue(f.key)} error={fieldError(f.key)} />
           ))}
         </div>
