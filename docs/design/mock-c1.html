@@ -663,6 +663,135 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
   .desk .main.t2A, .desk .main.t2C { grid-template-columns: 1fr; }
   .t2-meals, .t2-two { grid-template-columns: 1fr; }
 }
+
+/* ---------- v7: sidebar / empty state / borders ---------- */
+.sbx-block { --bg: #11140F; --surface: #1A1E17; --sunken: #20251C; --line: #2A3124; --ink: #EDF1E6; --muted: #9AA290;
+  --brand-soft: #26331A; --brand-deep: #B9E36E; --action: var(--brand); --action-ink: #12150F; --shadow: none;
+  --wash-a: #1B2312; --wash-b: #11140F; color: var(--ink); background: #0C0E0B; border-radius: 22px; padding: 22px; }
+.sbx-block .block-head h2, .sbx-block .block-head p { color: var(--ink); }
+.sbx-block .block-head p { color: var(--muted); }
+.sbx-row, .sbx-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.sbx-fig { margin: 0; display: grid; gap: 10px; align-content: start; }
+.sbx-fig figcaption { font-size: 13px; color: var(--muted); line-height: 1.45; }
+.sbx-fig figcaption b { color: var(--ink); }
+.sbx { width: 100%; max-width: 252px; padding: 18px 14px; display: flex; flex-direction: column; gap: 6px; border-radius: 20px; background: linear-gradient(180deg, var(--wash-a), var(--wash-b) 60%); border: 1px solid var(--line); min-height: 380px; }
+.sbx .logo { padding: 2px 10px 10px; }
+.sbx-nav { display: grid; gap: 2px; }
+.sbx-item { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 550; white-space: nowrap; }
+.sbx-item svg { width: 20px; height: 20px; flex: none; }
+.sbx-item .count { margin-left: auto; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--sunken); }
+.sbx-item.on { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px rgb(255 255 255 / .07); font-weight: 600; }
+.sbx-item.on svg { color: var(--brand-deep); }
+.sbx kbd { margin-left: auto; font: 600 11px/1 "Geist Mono", ui-monospace, monospace; padding: 4px 6px; border-radius: 6px; }
+.sbx-scan-a { background: var(--brand); color: #12150F; font-weight: 650; margin-bottom: 8px; }
+.sbx-scan-a kbd { background: rgb(18 21 15 / .14); color: #12150F; }
+.sbx-scan-b { color: var(--ink); font-weight: 600; margin-bottom: 8px; padding-left: 8px; }
+.sbx-tile { width: 32px; height: 32px; border-radius: 999px; background: var(--brand); color: #12150F; display: grid; place-items: center; }
+.sbx-tile svg { width: 18px; height: 18px; }
+.sbx-scan-b kbd { background: var(--sunken); color: var(--muted); }
+.sbx-scan-c { align-self: center; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 999px; background: var(--brand); color: #12150F; font-weight: 650; text-decoration: none; margin: 2px 0 12px; white-space: nowrap; }
+.sbx-scan-c svg { width: 18px; height: 18px; }
+.sbx-scan-c kbd { margin-left: 2px; background: rgb(18 21 15 / .14); color: #12150F; }
+.sbx .t2-credit { margin-top: auto; }
+.sbx-pair { margin-top: 26px; }
+.sbx-pane { padding: 18px; border-radius: 20px; background: var(--bg); border: 1px solid var(--line); }
+.sbx-pane.wash { background: linear-gradient(180deg, var(--wash-a), var(--wash-b) 70%); }
+.sbx-pane .card { background: var(--surface); border-radius: 22px; }
+.ec-old .ec-oldbtn { display: inline-flex; gap: 8px; align-items: center; width: fit-content; min-height: 40px; padding: 0 14px; border-radius: 999px; background: var(--sunken); color: var(--ink); font-weight: 600; text-decoration: none; }
+.ec-old .ec-oldbtn svg { width: 16px; height: 16px; }
+.ec-new { display: grid; justify-items: center; text-align: center; gap: 6px; padding: 14px 6px 6px; }
+.ec-tile { width: 44px; height: 44px; border-radius: 14px; background: var(--brand-soft); color: var(--brand-deep); display: grid; place-items: center; margin-bottom: 4px; }
+.ec-tile svg { width: 22px; height: 22px; }
+.ec-new b { font-size: 15px; }
+.ec-new .muted { font-size: 13px; max-width: 26ch; }
+.ec-btn { margin-top: 8px; min-height: 44px; padding: 0 18px; font-size: 14px; text-decoration: none; }
+.bdx { display: grid; gap: 12px; }
+.bdx.nobd .card { box-shadow: none; }
+.bdx.bd .card { box-shadow: 0 0 0 1px rgb(255 255 255 / .07); }
+
+/* ---------- v8: food detail options ---------- */
+.fd-fig { margin: 26px 0 0; display: grid; gap: 10px; }
+.fd-fig figcaption { font-size: 13.5px; color: var(--muted); max-width: 90ch; line-height: 1.5; }
+.fd-fig figcaption b { color: var(--ink); }
+.fd-frame { border-radius: 20px; border: 1px solid var(--line); background: linear-gradient(180deg, var(--wash-a), var(--wash-b) 45%); overflow: hidden; }
+.fd-page { padding: 22px 28px 28px; max-width: 1040px; margin: 0 auto; display: grid; gap: 18px; }
+.fd-top { display: flex; align-items: center; gap: 12px; }
+.fd-round { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+.fd-round svg { width: 20px; height: 20px; }
+.fd-crumb { color: var(--muted); font-size: 14px; font-weight: 550; }
+.fd-muted { color: var(--muted); font-size: 13px; }
+.fd-k { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.fd-k svg { width: 14px; height: 14px; }
+.fd-title h3 { margin: 0; font-size: 30px; font-weight: 650; letter-spacing: -0.035em; line-height: 1.1; }
+.fd-title p { margin: 4px 0 0; }
+.fd-verdict { display: flex; align-items: center; gap: 14px; }
+.fd-verdict > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.fd-verdict b { font-size: 17px; }
+.gb.md { width: 44px; height: 44px; border-radius: 14px; font-size: 22px; color: #12150F; }
+.fd-chip { display: inline-flex; gap: 6px; align-items: center; padding: 7px 12px; border-radius: 999px; background: var(--sunken); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.fd-chip svg { width: 15px; height: 15px; color: var(--g-a); }
+.fd-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.fd-stats > div { display: grid; gap: 4px; padding: 14px 16px; border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 1px rgb(255 255 255 / .07); }
+.fd-stats b { font-size: 22px; letter-spacing: -0.03em; }
+.fd-mbar { display: flex; height: 8px; border-radius: 8px; overflow: hidden; gap: 2px; }
+.fd-mbar i { display: block; height: 100%; }
+.fd-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.fd-card { background: var(--surface); border-radius: 20px; padding: 16px 18px; display: grid; gap: 10px; box-shadow: 0 0 0 1px rgb(255 255 255 / .07); }
+.fd-h { display: flex; justify-content: space-between; align-items: baseline; }
+.fd-h b { font-size: 15px; }
+.fd-why { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; }
+.fd-why li { display: flex; gap: 10px; align-items: center; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dot.bad { background: var(--g-e); } .dot.warn { background: var(--g-d); }
+.fd-note { margin: 0; display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); padding: 10px 12px; border-radius: 12px; background: var(--sunken); }
+.fd-note svg { width: 16px; height: 16px; color: var(--g-d); flex: none; }
+.fd-table { display: grid; }
+.fd-tr { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-top: 1px solid var(--line); }
+.fd-tr:first-child { border-top: 0; }
+.fd-foot { margin: 0; font-size: 12.5px; color: var(--muted); }
+.fd-src { margin: 0; display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.fd-src svg { width: 13px; height: 13px; }
+.fd-better { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; background: color-mix(in srgb, var(--g-a) 10%, var(--surface)); color: var(--ink); text-decoration: none; }
+.fd-better > span:nth-child(2) { display: grid; gap: 2px; flex: 1; }
+.fd-better b { font-size: 14.5px; }
+.fd-better .chev { width: 18px; height: 18px; color: var(--muted); }
+.gb.sm { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; color: #fff; flex: none; }
+.fd-add { display: flex; align-items: center; gap: 10px; }
+.fd-step { display: inline-flex; align-items: center; gap: 6px; padding: 4px; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px rgb(255 255 255 / .07); white-space: nowrap; font-size: 14px; }
+.fd-step.wide { display: flex; justify-content: space-between; }
+.fd-step b { font-size: 16px; }
+.fd-sbtn { width: 40px; height: 40px; border-radius: 50%; background: var(--sunken); display: grid; place-items: center; }
+.fd-sbtn svg { width: 18px; height: 18px; }
+.fd-addbtn { min-height: 48px; padding: 0 20px; font-size: 15px; white-space: nowrap; }
+.fd-addbtn.wide { width: 100%; }
+.fd-a { display: grid; gap: 16px; }
+.fd-a-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; flex-wrap: wrap; }
+.fd-b { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+.fd-b-side { display: grid; gap: 16px; }
+.fd-label { background: var(--surface); border-radius: 18px; padding: 16px 18px; box-shadow: 0 0 0 1px rgb(255 255 255 / .07); border-top: 6px solid var(--ink); }
+.fd-l-title { font-size: 22px; font-weight: 750; letter-spacing: -0.02em; }
+.fd-l-sub { font-size: 13px; color: var(--muted); padding-bottom: 8px; border-bottom: 6px solid var(--ink); }
+.fd-l-big { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; border-bottom: 3px solid var(--ink); font-weight: 700; }
+.fd-l-big b { font-size: 26px; }
+.fd-l-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 600; }
+.fd-l-row.sub { padding-left: 14px; font-weight: 400; color: var(--muted); }
+.fd-l-ing { margin: 10px 0 6px; font-size: 12.5px; color: var(--muted); }
+.fd-c { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
+.fd-c-main { display: grid; gap: 14px; }
+.fd-c-kcal { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+.fd-c-kcal b { font-size: 44px; letter-spacing: -0.045em; line-height: 1; }
+.fd-legend { display: flex; gap: 16px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.fd-legend span { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.fd-legend i { width: 9px; height: 9px; border-radius: 3px; }
+.fd-tabs { display: flex; gap: 6px; margin-top: 6px; }
+.fd-tabs span { padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
+.fd-tabs span.on { background: var(--action); color: var(--action-ink); border-color: transparent; }
+.fd-c-act { gap: 12px; }
+.fd-meals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.fd-meals span { display: grid; justify-items: center; gap: 3px; padding: 8px 2px; border-radius: 12px; border: 1px solid var(--line); font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.fd-meals span svg { width: 18px; height: 18px; }
+.fd-meals span.on { background: var(--brand-soft); color: var(--brand-deep); border-color: var(--brand); }
+@media (max-width: 880px) { .fd-grid2, .fd-b, .fd-c { grid-template-columns: 1fr; } .fd-stats { grid-template-columns: repeat(2, 1fr); } }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -736,7 +865,7 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
       <button id="v-forest" data-v="forest" aria-pressed="false"><span class="dot" style="background:#C2E46A"></span>C3 Lime &amp; Forest</button>
     </div>
   </div>
-  <nav class="jump" aria-label="Sections"><a href="#root">Core</a><a href="#scan-flow">Scan flow</a><a href="#search">Search &amp; popups</a><a href="#progress">Progress</a><a href="#account">Account</a><a href="#today-desktop">Today on desktop</a></nav>
+  <nav class="jump" aria-label="Sections"><a href="#root">Core</a><a href="#scan-flow">Scan flow</a><a href="#search">Search &amp; popups</a><a href="#progress">Progress</a><a href="#account">Account</a><a href="#today-desktop">Today on desktop</a><a href="#sidebar-options">Sidebar &amp; cards</a><a href="#food-detail">Food detail</a></nav>
   <p class="variant-note" id="note">C1 follows the reference most closely: bright lime fills, black main buttons, and a pale lime wash at the top of each screen.</p>
 </header>
 
@@ -1409,6 +1538,145 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
     </div></div>
     <figcaption>Phone with workouts: energy balance and a workouts card</figcaption>
   </figure></div>
+</section>
+
+<section class="block sbx-block" id="sidebar-options" data-force-dark>
+  <div class="block-head"><h2>Sidebar Scan button, empty state and card borders</h2>
+  <p>Shown in dark mode, as you're using it. Pick (a), (b) or (c) for the Scan food button.</p></div>
+  <div class="sbx-row">
+    <figure class="sbx-fig"><div class="sbx">
+      <div class="logo">EATR<span>i8</span></div>
+      <a class="sbx-item sbx-scan-a" href="#"><svg aria-hidden="true"><use href="#i-scan"/></svg><span>Scan food</span><kbd>S</kbd></a>
+      <nav class="sbx-nav"><a class="sbx-item on" href="#"><svg aria-hidden="true"><use href="#i-today"/></svg><span>Today</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg><span>Progress</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-search"/></svg><span>Foods</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg><span>History</span><span class="count num">4</span></a></nav>
+      <a class="t2-credit" href="#"><svg aria-hidden="true"><use href="#i-spark"/></svg><span class="num">18 / 20 scans left</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+    </div><figcaption><b>(a) Same row, lime fill</b> · recommended. Same height, padding and pill as the nav items; only the fill and the S key set it apart.</figcaption></figure>
+    <figure class="sbx-fig"><div class="sbx">
+      <div class="logo">EATR<span>i8</span></div>
+      <a class="sbx-item sbx-scan-b" href="#"><span class="sbx-tile"><svg aria-hidden="true"><use href="#i-scan"/></svg></span><span>Scan food</span><kbd>S</kbd></a>
+      <nav class="sbx-nav"><a class="sbx-item on" href="#"><svg aria-hidden="true"><use href="#i-today"/></svg><span>Today</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg><span>Progress</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-search"/></svg><span>Foods</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg><span>History</span><span class="count num">4</span></a></nav>
+      <a class="t2-credit" href="#"><svg aria-hidden="true"><use href="#i-spark"/></svg><span class="num">18 / 20 scans left</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+    </div><figcaption><b>(b) Plain nav row</b> · identical to the items, with a lime icon tile. Quietest, but Scan no longer stands out.</figcaption></figure>
+    <figure class="sbx-fig"><div class="sbx">
+      <div class="logo">EATR<span>i8</span></div>
+      <a class="sbx-scan-c" href="#"><svg aria-hidden="true"><use href="#i-scan"/></svg><span>Scan</span><kbd>S</kbd></a>
+      <nav class="sbx-nav"><a class="sbx-item on" href="#"><svg aria-hidden="true"><use href="#i-today"/></svg><span>Today</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg><span>Progress</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-search"/></svg><span>Foods</span></a><a class="sbx-item" href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg><span>History</span><span class="count num">4</span></a></nav>
+      <a class="t2-credit" href="#"><svg aria-hidden="true"><use href="#i-spark"/></svg><span class="num">18 / 20 scans left</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+    </div><figcaption><b>(c) Compact pill</b> · a smaller centred button above the list. Still separate from the list, but less heavy than today.</figcaption></figure>
+  </div>
+  <div class="sbx-pair">
+    <figure class="sbx-fig"><div class="sbx-pane"><section class="card t2-card ec-old">
+      <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-hist"/></svg>Recent scans</b><a class="link" href="#">History<svg aria-hidden="true"><use href="#i-chev"/></svg></a></div>
+      <p class="muted" style="margin:0">No scans yet</p>
+      <a class="ec-oldbtn" href="#"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan food</a>
+    </section></div><figcaption><b>Before</b> · empty Recent scans, left-aligned</figcaption></figure>
+    <figure class="sbx-fig"><div class="sbx-pane"><section class="card t2-card">
+      <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-hist"/></svg>Recent scans</b><a class="link" href="#">History<svg aria-hidden="true"><use href="#i-chev"/></svg></a></div>
+      <div class="ec-new">
+        <span class="ec-tile"><svg aria-hidden="true"><use href="#i-scan"/></svg></span>
+        <b>No scans yet</b>
+        <span class="muted">Scan a barcode or label to see it here.</span>
+        <a class="btn solid ec-btn" href="#"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan food</a>
+      </div>
+    </section></div><figcaption><b>After</b> · centred icon, message and button</figcaption></figure>
+  </div>
+  <div class="sbx-pair">
+    <figure class="sbx-fig"><div class="sbx-pane wash"><div class="bdx nobd">
+      <div class="card macro" style="color:var(--protein)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-protein"/></svg>Protein</span><div class="bar"><i style="width:63%"></i></div><span class="val num">38<small> / 60 g</small></span></div>
+      <div class="card meal"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sun"/></svg></span><div class="body"><b>Lunch</b><div class="items">Roti, Dal, Boiled rice, Curd</div><span class="chip num"><svg aria-hidden="true"><use href="#i-flame"/></svg>558 kcal</span></div><button class="add" aria-label="Add"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div>
+    </div></div><figcaption><b>Before</b> · cards blend into the green wash</figcaption></figure>
+    <figure class="sbx-fig"><div class="sbx-pane wash"><div class="bdx bd">
+      <div class="card macro" style="color:var(--protein)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-protein"/></svg>Protein</span><div class="bar"><i style="width:63%"></i></div><span class="val num">38<small> / 60 g</small></span></div>
+      <div class="card meal"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sun"/></svg></span><div class="body"><b>Lunch</b><div class="items">Roti, Dal, Boiled rice, Curd</div><span class="chip num"><svg aria-hidden="true"><use href="#i-flame"/></svg>558 kcal</span></div><button class="add" aria-label="Add"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div>
+    </div></div><figcaption><b>After</b> · hairline border on every card</figcaption></figure>
+  </div>
+</section>
+
+<section class="block sbx-block" id="food-detail">
+  <div class="block-head"><h2>Food detail: three cleaner options</h2>
+  <p>Your Paneer page, simplified. All three drop the big grade card, the A–E bar, the three ring cards and the full-width sticky button. One grade line, one row of numbers, and the add control where your hand already is.</p></div>
+  <figure class="fd-fig"><div class="fd-frame"><div class="fd-page">
+    <div class="fd-top"><span class="fd-round"><svg aria-hidden="true"><use href="#i-back"/></svg></span><span class="fd-crumb">Foods</span></div>
+    <div class="fd-a">
+      <div class="fd-a-head"><div class="fd-title"><h3>Paneer</h3><p class="fd-muted">Pragati · Packaged · 100 g</p></div><div class="fd-add">
+      <div class="fd-step"><span class="fd-sbtn"><svg aria-hidden="true"><use href="#i-minus"/></svg></span><span class="num"><b>100</b> g</span><span class="fd-sbtn"><svg aria-hidden="true"><use href="#i-plus"/></svg></span></div>
+      <button class="btn solid fd-addbtn"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add to Breakfast</button>
+    </div></div>
+      <div class="fd-verdict"><span class="gb md" style="background:var(--g-d)">D</span><div><b>Eat now and then</b><span class="fd-muted">High saturated fat · 15 g per 100 g</span></div><span class="fd-chip"><svg aria-hidden="true"><use href="#i-leaf"/></svg>Veg</span></div>
+      <div class="fd-stats">
+      <div><span class="fd-k"><svg aria-hidden="true"><use href="#i-flame"/></svg>Calories</span><b class="num">289</b><span class="fd-muted">kcal</span></div>
+      <div><span class="fd-k" style="color:var(--protein)"><svg aria-hidden="true"><use href="#i-protein"/></svg>Protein</span><b class="num">14 g</b><span class="fd-muted">19% kcal</span></div>
+      <div><span class="fd-k" style="color:var(--carbs)"><svg aria-hidden="true"><use href="#i-wheat"/></svg>Carbs</span><b class="num">2 g</b><span class="fd-muted">3% kcal</span></div>
+      <div><span class="fd-k" style="color:var(--fat)"><svg aria-hidden="true"><use href="#i-drop"/></svg>Fat</span><b class="num">25 g</b><span class="fd-muted">78% kcal</span></div>
+    </div>
+      <div class="fd-mbar" role="img" aria-label="Calories from protein 19%, carbs 3%, fat 78%"><i style="width:19%;background:var(--protein)"></i><i style="width:3%;background:var(--carbs)"></i><i style="width:78%;background:var(--fat)"></i></div>
+      <div class="fd-grid2"><section class="fd-card">
+      <div class="fd-h"><b>Why D</b></div>
+      <ul class="fd-why">
+        <li><i class="dot bad"></i>High saturated fat · 15 g per 100 g</li>
+        <li><i class="dot warn"></i>Energy-dense · 289 kcal per 100 g</li>
+      </ul>
+      <p class="fd-note"><svg aria-hidden="true"><use href="#i-alert"/></svg>100 g uses 68% of your daily saturated-fat limit.</p>
+    </section><section class="fd-card">
+      <div class="fd-h"><b>Nutrition</b><span class="fd-muted">per 100 g</span></div>
+      <div class="fd-table"><div class="fd-tr"><span>Calories</span><span class="num">289 kcal</span></div><div class="fd-tr"><span>Protein</span><span class="num">14 g</span></div><div class="fd-tr"><span>Carbs</span><span class="num">2 g</span></div><div class="fd-tr"><span>Sugars</span><span class="num">0 g</span></div><div class="fd-tr"><span>Fat</span><span class="num">25 g</span></div><div class="fd-tr"><span>Saturated fat</span><span class="num">15 g</span></div></div>
+      <p class="fd-foot">Milk, Milk Solids, Citric Acid &amp; Common Salt</p>
+      <p class="fd-src"><svg aria-hidden="true"><use href="#i-globe"/></svg>Open Food Facts · community data</p>
+    </section></div>
+      <a class="fd-better" href="#"><span class="gb sm" style="background:var(--g-a)">A</span><span><span class="fd-k">Better pick</span><b>Amul Taaza Milky Milk</b></span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+    </div>
+  </div></div><figcaption><b>A · Summary + facts (recommended).</b> Name and an inline "100 g · Add to Breakfast" at the top. One verdict line, a 4-number strip, a thin calories-split bar, then "Why D" and Nutrition side by side. Calm and scannable.</figcaption></figure>
+  <figure class="fd-fig"><div class="fd-frame"><div class="fd-page">
+    <div class="fd-top"><span class="fd-round"><svg aria-hidden="true"><use href="#i-back"/></svg></span><span class="fd-crumb">Foods</span></div>
+    <div class="fd-b">
+      <section class="fd-label">
+      <div class="fd-l-title">Nutrition facts</div>
+      <div class="fd-l-sub">per 100 g</div>
+      <div class="fd-l-big"><span>Calories</span><b class="num">289</b></div>
+      <div class="fd-l-row"><span>Protein</span><span class="num">14 g</span></div><div class="fd-l-row"><span>Carbs</span><span class="num">2 g</span></div><div class="fd-l-row sub"><span>Sugars</span><span class="num">0 g</span></div><div class="fd-l-row"><span>Fat</span><span class="num">25 g</span></div><div class="fd-l-row sub"><span>Saturated fat</span><span class="num">15 g</span></div>
+      <p class="fd-l-ing">Ingredients: Milk, Milk Solids, Citric Acid &amp; Common Salt</p>
+      <p class="fd-src"><svg aria-hidden="true"><use href="#i-globe"/></svg>Open Food Facts · community data</p>
+    </section>
+      <div class="fd-b-side">
+        <div class="fd-title"><h3>Paneer</h3><p class="fd-muted">Pragati · Packaged · 100 g</p></div>
+        <div class="fd-verdict"><span class="gb md" style="background:var(--g-d)">D</span><div><b>Eat now and then</b><span class="fd-muted">High saturated fat · 15 g per 100 g</span></div><span class="fd-chip"><svg aria-hidden="true"><use href="#i-leaf"/></svg>Veg</span></div>
+        <ul class="fd-why">
+          <li><i class="dot bad"></i>High saturated fat · 15 g per 100 g</li>
+          <li><i class="dot warn"></i>Energy-dense · 289 kcal per 100 g</li>
+        </ul>
+        <p class="fd-note"><svg aria-hidden="true"><use href="#i-alert"/></svg>100 g uses 68% of your daily saturated-fat limit.</p>
+        <a class="fd-better" href="#"><span class="gb sm" style="background:var(--g-a)">A</span><span><span class="fd-k">Better pick</span><b>Amul Taaza Milky Milk</b></span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+        <div class="fd-add">
+      <div class="fd-step"><span class="fd-sbtn"><svg aria-hidden="true"><use href="#i-minus"/></svg></span><span class="num"><b>100</b> g</span><span class="fd-sbtn"><svg aria-hidden="true"><use href="#i-plus"/></svg></span></div>
+      <button class="btn solid fd-addbtn"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add to Breakfast</button>
+    </div>
+      </div>
+    </div>
+  </div></div><figcaption><b>B · Label style.</b> A familiar nutrition-label panel on the left; the decision (verdict, reasons, better pick, add) on the right. Feels trustworthy for packaged foods.</figcaption></figure>
+  <figure class="fd-fig"><div class="fd-frame"><div class="fd-page">
+    <div class="fd-top"><span class="fd-round"><svg aria-hidden="true"><use href="#i-back"/></svg></span><span class="fd-crumb">Foods</span></div>
+    <div class="fd-c">
+      <div class="fd-c-main">
+        <div class="fd-title"><h3>Paneer</h3><p class="fd-muted">Pragati · Packaged · 100 g</p></div>
+        <div class="fd-verdict"><span class="gb md" style="background:var(--g-d)">D</span><div><b>Eat now and then</b><span class="fd-muted">High saturated fat · 15 g per 100 g</span></div><span class="fd-chip"><svg aria-hidden="true"><use href="#i-leaf"/></svg>Veg</span></div>
+        <div class="fd-c-kcal"><b class="num">289</b><span class="fd-muted">kcal per 100 g</span></div>
+        <div class="fd-mbar" role="img" aria-label="Calories from protein 19%, carbs 3%, fat 78%"><i style="width:19%;background:var(--protein)"></i><i style="width:3%;background:var(--carbs)"></i><i style="width:78%;background:var(--fat)"></i></div>
+        <div class="fd-legend num"><span><i style="background:var(--protein)"></i>Protein 14 g</span><span><i style="background:var(--carbs)"></i>Carbs 2 g</span><span><i style="background:var(--fat)"></i>Fat 25 g</span></div>
+        <div class="fd-tabs"><span class="on">Why D</span><span>Nutrition</span><span>Ingredients</span></div>
+        <ul class="fd-why">
+          <li><i class="dot bad"></i>High saturated fat · 15 g per 100 g</li>
+          <li><i class="dot warn"></i>Energy-dense · 289 kcal per 100 g</li>
+        </ul>
+        <p class="fd-note"><svg aria-hidden="true"><use href="#i-alert"/></svg>100 g uses 68% of your daily saturated-fat limit.</p>
+      </div>
+      <aside class="fd-card fd-c-act">
+        <b>Add to a meal</b>
+        <div class="fd-meals"><span class="on"><svg aria-hidden="true"><use href="#i-sunrise"/></svg>Breakfast</span><span><svg aria-hidden="true"><use href="#i-sun"/></svg>Lunch</span><span><svg aria-hidden="true"><use href="#i-cookie"/></svg>Snacks</span><span><svg aria-hidden="true"><use href="#i-moon"/></svg>Dinner</span></div>
+        <div class="fd-step wide"><span class="fd-sbtn"><svg aria-hidden="true"><use href="#i-minus"/></svg></span><span class="num"><b>100</b> g · 289 kcal</span><span class="fd-sbtn"><svg aria-hidden="true"><use href="#i-plus"/></svg></span></div>
+        <button class="btn solid fd-addbtn wide"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add to Breakfast</button>
+        <a class="fd-better" href="#"><span class="gb sm" style="background:var(--g-a)">A</span><span><span class="fd-k">Better pick</span><b>Amul Taaza Milky Milk</b></span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+      </aside>
+    </div>
+  </div></div><figcaption><b>C · Story + action panel.</b> Big calories and the split bar on the left with tabs for Why / Nutrition / Ingredients; a sticky "Add to a meal" panel on the right with meal tiles and the stepper.</figcaption></figure>
 </section>
 </main>
 
