@@ -239,9 +239,11 @@ export async function resolveBarcode(input: EngineInput, deps: EngineDeps): Prom
 
 // --- runAi (1 credit) -----------------------------------------------------------------------------
 
-type Route = "label" | "meal" | "front" | "barcode";
+// Exported for eval/run.ts, which scores triage accuracy against a fixture's expected `kind`
+// by calling this same function directly (extract + triage, no DB wiring needed for that metric).
+export type Route = "label" | "meal" | "front" | "barcode";
 
-function triage(x: Extraction): Route {
+export function triage(x: Extraction): Route {
   const images = x.images;
   if (images.length > 0 && images.every((i) => i.kind === "not_food")) throw notFood();
   const usable = images.filter((i) => i.kind !== "not_food" && i.kind !== "unreadable");

@@ -2,24 +2,9 @@
 // Not run in CI: it needs a real GOOGLE_GENERATIVE_AI_API_KEY and makes a real network call.
 // With no key configured, it prints a clear message and exits 0 (so an accidental CI run, or a
 // contributor without a key, doesn't fail a build over this).
-import { readFileSync } from "node:fs";
-import { extname } from "node:path";
+import { loadImages } from "@/lib/engine/load-images";
 import { extract } from "@/lib/engine/model";
 import { DEFAULT_MODEL_FAST, DEFAULT_MODEL_STRONG } from "@/lib/engine/models";
-import type { EngineImage } from "@/lib/engine/schema";
-
-const MIME_BY_EXT: Record<string, EngineImage["mime"]> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-};
-
-function mimeFor(path: string): EngineImage["mime"] {
-  const mime = MIME_BY_EXT[extname(path).toLowerCase()];
-  if (!mime) throw new Error(`unsupported image extension: ${path} (expected .jpg/.jpeg/.png/.webp)`);
-  return mime;
-}
 
 // Checks MODEL_FAST / MODEL_STRONG against the live Gemini models list, so a stale default in
 // lib/env.ts (a model Google has retired or renamed) is caught before `extract()` wastes a call.
@@ -64,7 +49,7 @@ async function main() {
   }
   if (paths.length > 3) throw new Error(`scan:try takes at most 3 images, got ${paths.length}`);
 
-  const images: EngineImage[] = paths.map((path) => ({ mime: mimeFor(path), data: new Uint8Array(readFileSync(path)) }));
+  const images = loadImages(paths);
 
   const deadline = Date.now() + 50_000;
   const result = await extract(images, { model: "fast", signal: new AbortController().signal, deadline });

@@ -50,6 +50,8 @@ The app runs at `http://localhost:3000`.
 | `pnpm seed:foods` | Normalise and seed the food catalogue into Postgres (idempotent on `(source, sourceRef)`) |
 | `pnpm regrade` | Recompute stored food grades after a `gradeVersion` bump |
 | `pnpm search:smoke` | Manual smoke check of search ranking against a fixed query list |
+| `pnpm scan:try <image...>` | Manual smoke test of the scanning engine against 1–3 real image files (needs `GOOGLE_GENERATIVE_AI_API_KEY`) |
+| `pnpm eval [--models=fast,strong]` | Scanning eval harness against a local fixture suite (needs `GOOGLE_GENERATIVE_AI_API_KEY` and fixtures — see [`eval/README.md`](eval/README.md)) |
 
 ## Environment variables (M1)
 
@@ -64,12 +66,37 @@ The app runs at `http://localhost:3000`.
 
 All env vars are validated at boot through `lib/env.ts` (zod; an empty string counts as unset). There are no `NEXT_PUBLIC_` secrets.
 
-### Coming in M2
+## Scanning (M2)
 
-Not needed for M1; will be required once scanning ships:
+Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onward.
 
-- `GOOGLE_GENERATIVE_AI_API_KEY` — Google AI Studio key for the scanning/extraction engine
-- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — Cloudflare R2 bucket + token for scan thumbnail storage
+### Environment variables
+
+| Var | Required | Source |
+|---|---|---|
+| `GOOGLE_GENERATIVE_AI_API_KEY` | For AI-assisted (photo) scans | Google AI Studio API key. Set it in `.env.local`, which is git-ignored (see `.gitignore`'s `.env*` entry) — never commit a real key anywhere else. Without it, barcode scans still work (free, no model call), but photo scans return `503 SERVICE_BUSY`. |
+| `MODEL_FAST` | no | Model id for the (only) tier the engine currently calls. Defaults to `gemini-3.5-flash-lite` (`lib/engine/models.ts`). |
+| `MODEL_STRONG` | no | Reserved for a future strong-tier pass; not yet called by the engine. Defaults to `gemini-3.5-flash`. |
+| `DAILY_AI_SCAN_CAP` | no | Global cap on model-calling scans per UTC day, across all users combined. Defaults to `300`. Once hit, new AI scans get `503 SERVICE_BUSY` until the day rolls over (`lib/scans/deps.ts`, `lib/rate-limit.ts`). |
+
+### Credits
+
+- Each plan gets a monthly allowance of AI-assisted (photo) scans: Basic 20/month, Pro 200/month (`lib/credits/plans.ts`). The allowance resets lazily — on the first read or spend after the UTC month rolls over, not on a schedule (`lib/credits/ledger.ts`).
+- A barcode scan (code found in our catalogue or Open Food Facts) costs 0 credits — only AI-assisted scans are charged, 1 credit each.
+- A charged scan that fails is refunded automatically, atomically with the failure write (`failScanTx` in `lib/scans/service.ts`).
+- Independent of credits, each user is capped at 25 AI-assisted scans per UTC day (`DAILY_AI_SCANS_PER_USER` in `lib/rate-limit.ts`); refunded scans still count toward it, so a refund can't be looped for free scans.
+
+### Scanning eval harness
+
+`pnpm eval` runs the extraction engine against a local fixture suite and reports per-field accuracy, schema-failure rate, triage accuracy, latency and cost. It needs `GOOGLE_GENERATIVE_AI_API_KEY` and fixtures under `eval/fixtures/`; with either missing it prints `skipped: ...` and exits 0. See [`eval/README.md`](eval/README.md) for how to add fixtures.
+
+### Trying a single scan
+
+`pnpm scan:try <image...>` runs one real extraction against 1–3 image files and prints the result, usage and cost — a quick way to check a single label/photo without the eval harness.
+
+### No image storage
+
+Scan photos are held in memory only for the single model call and then discarded — they are never written to disk or any bucket (`lib/engine/schema.ts`). R2/thumbnail storage is not part of M2.
 
 ### Barcode decoding on /scan
 

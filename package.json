@@ -17,6 +17,7 @@
     "regrade": "tsx --env-file-if-exists=.env.local scripts/regrade.ts",
     "search:smoke": "tsx --env-file-if-exists=.env.local scripts/search-smoke.ts",
     "scan:try": "tsx --env-file-if-exists=.env.local scripts/scan-try.ts",
+    "eval": "tsx --env-file-if-exists=.env.local eval/run.ts",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
