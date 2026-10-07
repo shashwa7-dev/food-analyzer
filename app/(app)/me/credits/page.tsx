@@ -15,7 +15,7 @@ const MONTH_LONG = ["January", "February", "March", "April", "May", "June", "Jul
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
-    <div className="grid min-w-0 justify-items-center rounded-2xl bg-surface px-1 py-2.5 text-center shadow-card">
+    <div className="grid min-w-0 justify-items-center rounded-[20px] bg-surface px-1 py-2.5 text-center shadow-card">
       <b className="num text-[20px] leading-tight font-bold tracking-[-0.03em] text-ink">{value}</b>
       <span className="truncate text-[12px] whitespace-nowrap text-subtle">{label}</span>
     </div>
