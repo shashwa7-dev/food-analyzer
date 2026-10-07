@@ -77,11 +77,15 @@ export async function dismissNotice(userId: string, key: NoticeKey) {
     .where(eq(profile.userId, userId));
 }
 
-export async function deleteAccount(userId: string, now: Date = new Date()) {
-  // Scan photos first (spec §A Deletion): both R2 prefixes go before the user row does. A failure throws
-  // and stops here, with the account intact, so trying again finishes the job (listing is retry-safe).
-  // An upload still in flight finds its scan gone and removes its own objects (attachScanPhotos).
-  await deleteUserPhotos(userId);
+/**
+ * Deletes the account. Scan photos first (spec §A Deletion): both R2 prefixes go before the user row
+ * does, and a failure throws with the account intact, so trying again finishes the job. Pass
+ * `photosDeleted` when the caller already did that step (deleteAccountAction does it before signing the
+ * user out, so a storage error never happens after sign-out). After the commit a best-effort second
+ * sweep catches a thumbnail an in-flight scan job put in the meantime.
+ */
+export async function deleteAccount(userId: string, now: Date = new Date(), opts: { photosDeleted?: boolean } = {}) {
+  if (!opts.photosDeleted) await deleteUserPhotos(userId);
   await db.transaction(async (tx) => {
     // Lock order (review N4): the user's running scans first, then the profile — the same order as
     // failScanTx (conditional scan UPDATE, then refundScan's profile lock) and deleteScan. Taking the
@@ -93,6 +97,14 @@ export async function deleteAccount(userId: string, now: Date = new Date()) {
     await recordTombstone(tx, userId, now);
     await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods
   });
+  // Second photo sweep, after the commit and best-effort: an upload that finished between the first
+  // sweep and the commit could otherwise leave objects behind (attachScanPhotos also cleans up after
+  // itself when its scan is gone, but only for its own keys and only if it gets that far).
+  try {
+    await deleteUserPhotos(userId);
+  } catch (err) {
+    console.error("post-deletion photo sweep failed", err);
+  }
   // Opportunistic retention sweep (review N5), after the deletion has committed: a failure here must
   // never fail or roll back the deletion itself.
   try {

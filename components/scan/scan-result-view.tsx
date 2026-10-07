@@ -167,16 +167,14 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   return (
     <div data-no-phone-nav className="mx-auto flex w-full max-w-[1000px] flex-col gap-3">
       {hasPhotos ? (
-        <>
-          <PhotoHero urls={view.photoUrls}>
-            <ResultTopBar scanId={view.id} title="Scan result" onMedia />
-          </PhotoHero>
-          {/* The sheet over the photo's bottom edge (mock-c1 `.sheet-body`), on a phone only. */}
-          <div className="relative -mx-4 -mt-10 flex flex-col gap-3 rounded-t-[32px] bg-bg px-4 pt-2.5 md:mx-0 md:mt-1 md:rounded-none md:bg-transparent md:p-0">
-            <span aria-hidden="true" className="mx-auto mb-1 block h-[5px] w-10 shrink-0 rounded-full bg-line md:hidden" />
-            {content}
-          </div>
-        </>
+        <PhotoHero
+          urls={view.photoUrls}
+          name={r.name}
+          mediaBar={<ResultTopBar scanId={view.id} title="Scan result" onMedia />}
+          plainBar={<ResultTopBar scanId={view.id} title="Scan result" />}
+        >
+          {content}
+        </PhotoHero>
       ) : (
         <>
           <ResultTopBar scanId={view.id} title="Scan result" />

@@ -30,6 +30,20 @@ export function parseListPage(xml: string): { keys: string[]; next: string | nul
   return { keys, next: truncated && token ? xmlUnescape(token) : null };
 }
 
+/**
+ * The per-key failures in a DeleteObjects response. With <Quiet> S3/R2 answer 200 and list only the
+ * keys that failed, as <Error> entries — so a 200 alone doesn't mean the keys are gone.
+ */
+export function parseDeleteErrors(xml: string): { key: string; code: string }[] {
+  return [...xml.matchAll(/<Error>([\s\S]*?)<\/Error>/g)].map((m) => ({
+    key: xmlUnescape(m[1]!.match(/<Key>([\s\S]*?)<\/Key>/)?.[1] ?? ""),
+    code: m[1]!.match(/<Code>([\s\S]*?)<\/Code>/)?.[1] ?? "Unknown",
+  }));
+}
+
+/** deletePrefix's bound: list → delete rounds before it gives up (1000 keys a round; a user has far fewer). */
+export const MAX_PREFIX_ROUNDS = 50;
+
 export function deleteObjectsBody(keys: string[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?><Delete><Quiet>true</Quiet>${keys.map((k) => `<Object><Key>${xmlEscape(k)}</Key></Object>`).join("")}</Delete>`;
 }
@@ -55,7 +69,14 @@ export function r2Client(cfg: R2Config) {
 export function createR2Store(cfg: R2Config): PhotoStore {
   const c = r2Client(cfg);
   const deleteKeys = async (keys: string[]) => {
-    for (let i = 0; i < keys.length; i += BATCH) await c.bucketXml("delete", "POST", deleteObjectsBody(keys.slice(i, i + BATCH)), "DeleteObjects");
+    for (let i = 0; i < keys.length; i += BATCH) {
+      const res = await c.bucketXml("delete", "POST", deleteObjectsBody(keys.slice(i, i + BATCH)), "DeleteObjects");
+      const errors = parseDeleteErrors(await res.text());
+      if (errors.length > 0) {
+        const sample = errors.slice(0, 3).map((e) => `${e.key} (${e.code})`).join(", ");
+        throw new Error(`R2 DeleteObjects failed for ${errors.length} key(s): ${sample}`);
+      }
+    }
   };
   return {
     async put(key, bytes, contentType) {
@@ -69,8 +90,10 @@ export function createR2Store(cfg: R2Config): PhotoStore {
     deleteKeys,
     async deletePrefix(prefix) {
       // Delete each page as it is listed and list again from the start: a run cut short leaves only
-      // undeleted keys behind, so calling it again finishes the job.
-      for (;;) {
+      // undeleted keys behind, so calling it again finishes the job. deleteKeys throws on any per-key
+      // failure, and the round cap stops a listing that never empties from spinning forever.
+      for (let round = 0; ; round++) {
+        if (round >= MAX_PREFIX_ROUNDS) throw new Error(`R2 deletePrefix(${prefix}) still listing keys after ${MAX_PREFIX_ROUNDS} rounds`);
         const sp = new URLSearchParams({ "list-type": "2", prefix, "max-keys": String(BATCH) });
         const { keys, next } = parseListPage(await (await c.send(`${c.base}?${sp}`, { method: "GET" }, "ListObjectsV2")).text());
         if (keys.length > 0) await deleteKeys(keys);

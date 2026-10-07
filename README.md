@@ -111,6 +111,7 @@ Set up once per bucket: create the bucket (R2 → Create bucket, location Automa
 
 ### Before launch
 
+- Apply `pnpm r2:lifecycle` (or the dashboard rule) before enabling R2 in production. Without it, display copies are never deleted, which breaks the privacy promise.
 - Rotate the old Gemini key: `NEXT_PUBLIC_GEMINI_API_KEY` is still in `master` history (added in `3afd1c4`, removed in `4d2b34c`). Revoke it in Google AI Studio and make sure `GOOGLE_GENERATIVE_AI_API_KEY` is a different, server-only key.
 
 ### Scanning eval harness

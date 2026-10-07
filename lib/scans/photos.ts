@@ -2,7 +2,7 @@
 // 320 px thumbnail from the first. EXIF orientation is applied first; sharp then writes no metadata at
 // all (no EXIF, no GPS, no ICC), since nothing here asks it to keep any. Never upscales. Full-size
 // originals are never stored. Only bytes that already passed lib/scans/upload.ts's checks come here.
-import sharp from "sharp";
+import sharp, { type OutputInfo } from "sharp";
 
 export const DISPLAY_EDGE = 1080;
 export const THUMB_EDGE = 320;
@@ -22,11 +22,15 @@ export function fitLongEdge(width: number, height: number, edge: number): { widt
   return { width: Math.max(1, Math.round(width * k)), height: Math.max(1, Math.round(height * k)) };
 }
 
-async function encode(bytes: Uint8Array, edge: number, qualities: number[], target: number): Promise<Buffer> {
+/**
+ * Encodes one size from the decoded pixels, stepping quality down until it fits the aim (or the floor).
+ * `raw` is already upright and at most DISPLAY_EDGE on its long edge.
+ */
+async function encode(raw: { data: Buffer; info: OutputInfo }, edge: number, qualities: number[], target: number): Promise<Buffer> {
+  const { width, height, channels } = raw.info;
   let out: Buffer | null = null;
   for (const quality of qualities) {
-    out = await sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS, failOn: "error" })
-      .rotate() // apply the EXIF orientation; the output carries none
+    out = await sharp(raw.data, { raw: { width, height, channels: channels as 1 | 2 | 3 | 4 } })
       .resize({ width: edge, height: edge, fit: "inside", withoutEnlargement: true })
       .webp({ quality, effort: 4 })
       .toBuffer();
@@ -35,9 +39,18 @@ async function encode(bytes: Uint8Array, edge: number, qualities: number[], targ
   return out!;
 }
 
-/** One photo's display copy and, unless `thumb: false`, its thumbnail. Throws on undecodable bytes. */
+/**
+ * One photo's display copy and, unless `thumb: false`, its thumbnail. The input is decoded once: rotated
+ * upright and shrunk to the display size as raw pixels (which carry no metadata), and both outputs are
+ * encoded from those. Throws on undecodable bytes.
+ */
 export async function processPhoto(bytes: Uint8Array, opts: { thumb?: boolean } = {}): Promise<{ display: Buffer; thumb?: Buffer }> {
-  const display = await encode(bytes, DISPLAY_EDGE, DISPLAY_QUALITIES, DISPLAY_TARGET_BYTES);
+  const raw = await sharp(bytes, { limitInputPixels: MAX_INPUT_PIXELS, failOn: "error" })
+    .rotate() // apply the EXIF orientation; the raw pixels carry none
+    .resize({ width: DISPLAY_EDGE, height: DISPLAY_EDGE, fit: "inside", withoutEnlargement: true })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const display = await encode(raw, DISPLAY_EDGE, DISPLAY_QUALITIES, DISPLAY_TARGET_BYTES);
   if (opts.thumb === false) return { display };
-  return { display, thumb: await encode(bytes, THUMB_EDGE, THUMB_QUALITIES, THUMB_TARGET_BYTES) };
+  return { display, thumb: await encode(raw, THUMB_EDGE, THUMB_QUALITIES, THUMB_TARGET_BYTES) };
 }

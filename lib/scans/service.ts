@@ -244,8 +244,12 @@ export async function createScan(userId: string, input: CreateScanInput, deps: S
       // Photos (spec §A) are processed and uploaded alongside the model call and recorded once the
       // job has finished; none of it can fail, change or delay the scan's own writes.
       const photos = uploadScanPhotos(userId, scanId, input.images, now);
-      await completeScan(scanId, userId, engineInput, deps, { deadline, barcodeFood, offNotFound });
-      await attachScanPhotos(userId, scanId, await photos);
+      try {
+        await completeScan(scanId, userId, engineInput, deps, { deadline, barcodeFood, offNotFound });
+      } finally {
+        // Also when the job throws: attach then misses (the scan isn't done) and removes the uploads.
+        await attachScanPhotos(userId, scanId, await photos);
+      }
     });
   }
   return ok(res.row);

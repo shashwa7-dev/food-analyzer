@@ -42,7 +42,8 @@ export async function deleteAccountAction(confirmText: string) {
   const { userId } = await requireUser();
   if (confirmText !== "DELETE") return { ok: false as const, message: "Type DELETE to confirm." };
   // Scan photos go first, while the user is still signed in, so a storage error is an answer they can
-  // retry instead of a signed-out dead end. deleteAccount runs it again (cheap: nothing left to list).
+  // retry instead of a signed-out dead end; deleteAccount then skips that step (photosDeleted) and only
+  // runs its best-effort sweep after the commit.
   try {
     await deleteUserPhotos(userId);
   } catch (err) {
@@ -50,6 +51,6 @@ export async function deleteAccountAction(confirmText: string) {
     return { ok: false as const, message: "Couldn't delete your account. Try again." };
   }
   await auth.api.signOut({ headers: await headers() }).catch(() => undefined);
-  await deleteAccount(userId);
+  await deleteAccount(userId, new Date(), { photosDeleted: true });
   redirect("/");
 }

@@ -15,6 +15,7 @@ import { GradeBadge } from "@/components/grade-badge";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { ScanThumb } from "@/components/scan/scan-thumb";
+import { MODE_META } from "@/components/scan/mode-meta";
 import { ResponsiveSheet, SheetTitle } from "@/components/ui/responsive-sheet";
 import { GRADE_BASIS, GRADE_SHORT, GRADE_UNAVAILABLE_NOTE, GRADES, gradeLegend } from "@/lib/scans/grade-legend";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
@@ -30,6 +31,12 @@ function useDebounced<T>(v: T, ms: number) {
     return () => clearTimeout(t);
   }, [v, ms]);
   return d;
+}
+
+/** The scan's kind icon in a plain tile (a thumbnail's fallback). */
+function KindTile({ kind }: { kind: ScanListItem["inputKind"] }) {
+  const Icon = kind ? MODE_META[kind].icon : ScanLine;
+  return <IconTile size="md"><Icon /></IconTile>;
 }
 
 /**
@@ -49,7 +56,8 @@ function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
         ) : failed ? (
           <IconTile size="md" tone="bad"><AlertCircle /></IconTile>
         ) : s.thumbnailUrl ? (
-          <ScanThumb src={s.thumbnailUrl} size="md" fallback={<GradeBadge grade={s.grade} size="md" />} />
+          // A lapsed thumbnail falls back to the plain kind tile: the grade badge is already on the right.
+          <ScanThumb src={s.thumbnailUrl} size="md" fallback={<KindTile kind={s.inputKind} />} />
         ) : (
           <GradeBadge grade={s.grade} size="md" />
         )}

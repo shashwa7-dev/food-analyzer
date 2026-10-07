@@ -137,6 +137,22 @@ describe("scan photos: upload", () => {
     expect(await credits(u)).toBe(20);
   });
 
+  it("a job that throws still removes the photos it uploaded", async () => {
+    const u = await createUser();
+    let broken = false;
+    const d: ScanDeps = {
+      ...deps(u),
+      // The model call fails, then the clock throws inside completeScan's failure path, so the job rejects.
+      extract: vi.fn(async () => { broken = true; throw new Error("model down"); }),
+      now: () => { if (broken) throw new Error("clock broke"); return clock; },
+    };
+    const j = jobs();
+    const r = await createScan(u, aiInput(), d, j.schedule);
+    await expect(j.runAll()).rejects.toThrow("clock broke");
+    expect(store.keys()).toEqual([]);
+    expect(await rowOf(idOf(r))).toMatchObject({ photoCount: 0, thumbnailKey: null });
+  });
+
   it("a scan deleted while its job runs keeps no photos", async () => {
     const u = await createUser();
     const j = jobs();
@@ -203,6 +219,31 @@ describe("scan photos: deletion", () => {
     const kept = await scanWithPhotos(other, [PHOTO]);
     await deleteAccount(u);
     expect(store.keys()).toEqual([`display/u/${other}/${kept}/1.webp`, `thumb/u/${other}/${kept}.webp`]);
+  });
+
+  it("account deletion sweeps again after the commit, catching a thumbnail put in the meantime", async () => {
+    const u = await createUser();
+    await scanWithPhotos(u);
+    const sweep = store.deletePrefix.bind(store);
+    let calls = 0;
+    store.deletePrefix = async (prefix) => {
+      await sweep(prefix);
+      // An in-flight job uploads a thumbnail right after the first sweep of the thumb/ prefix.
+      if (++calls === 2) await store.put(`thumb/u/${u}/late.webp`, new Uint8Array([1]), "image/webp");
+    };
+    await deleteAccount(u);
+    expect(calls).toBe(4);
+    expect(store.keys()).toEqual([]);
+  });
+
+  it("with photosDeleted, deletion skips the first sweep and a failing second sweep doesn't stop it", async () => {
+    const u = await createUser();
+    await scanWithPhotos(u);
+    let calls = 0;
+    store.deletePrefix = async () => { calls++; throw new Error("R2 down"); };
+    await deleteAccount(u, new Date(clock), { photosDeleted: true });
+    expect(calls).toBe(1); // only the post-commit sweep, which gave up quietly
+    expect(await testDb().select().from(scan).where(eq(scan.userId, u))).toHaveLength(0);
   });
 
   it("account deletion stops, account intact, when the photos can't be deleted", async () => {
