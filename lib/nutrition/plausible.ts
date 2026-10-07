@@ -1,0 +1,144 @@
+import { MICRO_KEYS, NUTRIENT_KEYS, type MicroKey, type NutrientKey } from "./types";
+
+/**
+ * Plausibility bounds for per-100 g/ml values: the one place that says what a real food can hold.
+ * Source data has unit errors (an Open Food Facts product with 350,428 mg sodium per 100 g, sodium
+ * keyed in as mg where g was meant); a value past these bounds is treated as unknown, never clamped to
+ * the bound, because a wrong number is worse than a missing one.
+ *
+ * Applied where per-100 data enters (the OFF mapping on seed and live lookup, the seed draft, the scan
+ * engine's label/front facts) and where stored rows are read for display (lib/foods/sane.ts).
+ */
+export const PER100_MAX: Record<NutrientKey, number> = {
+  // Pure fat is 900 kcal at 9 kcal/g; food-specific Atwater factors go a touch higher (FNDDS lard: 902).
+  energyKcal: 910,
+  protein: 100, carbs: 100, fat: 100, fibre: 100,
+  sugars: 100, addedSugars: 100, satFat: 100, transFat: 100,
+  sodiumMg: 40_000, // pure salt is ~39,300 mg sodium per 100 g
+};
+
+/**
+ * Bounds for the micros (lib/nutrition/types.ts MICRO_KEYS), per 100 g/ml in each key's own unit: the
+ * richest real food we know of (the comment; USDA FoodData Central unless noted), rounded up a little.
+ * They are deliberately tight. Open Food Facts is full of 1,000x slips (a label's mg typed as g, or µg as
+ * mg: Mango Pickle with 2,000 mg iron, a chaas with 1,220 mg zinc and 26,800 mg calcium), and a loose
+ * bound shows those as confident numbers. A value past its bound is unknown, never clamped. The cost is
+ * that a few true outliers (supplement tablets, salt substitutes, cod liver oil) show no value at all.
+ */
+export const MICRO_MAX: Record<MicroKey, number> = {
+  cholesterolMg: 3_100, // brains 3,080 mg; egg yolk 1,080 mg
+  potassiumMg: 6_100, // instant tea powder 6,040 mg; instant coffee 3,540 mg
+  calciumMg: 4_000, // dried herbs ~2,100 mg; dry milk 1,260 mg; processed cheese 1,380 mg
+  ironMg: 150, // dried thyme 124 mg; fortified infant cereal 64 mg
+  magnesiumMg: 1_000, // wheat bran 611 mg; cacao powder ~680 mg; hemp seeds ~700 mg
+  zincMg: 100, // canned oysters 98.9 mg
+  phosphorusMg: 2_500, // protein powder mixes 1,430 mg; dried egg yolk ~1,000 mg
+  vitaminAUg: 10_000, // beef liver 7,680-9,400 µg RAE
+  vitaminCMg: 3_000, // acerola ~1,680 mg; fortified drink powders 560 mg
+  vitaminDUg: 100, // fatty fish ~25 µg; fortified foods well under; cod liver oil (250) is left out
+  vitaminEMg: 150, // wheat germ oil 149 mg
+  vitaminKUg: 2_000, // dried basil ~1,700 µg; raw parsley 1,640 µg
+  thiaminMg: 70, // fortified nutritional yeast ~64 mg; yeast extract 23 mg
+  riboflavinMg: 70, // fortified nutritional yeast ~65 mg; yeast extract 17.5 mg
+  niacinMg: 150, // yeast extract 128 mg
+  vitaminB6Mg: 70, // fortified nutritional yeast ~64 mg
+  folateUg: 6_000, // yeast extract 5,880 µg DFE
+  vitaminB12Ug: 200, // fortified nutritional yeast ~160 µg; clams 99 µg; beef liver 83 µg
+};
+
+/** The upper bounds a set of values is checked against: per 100 g/ml, or per serving of unknown weight. */
+export interface PlausibleBounds { max: Record<NutrientKey, number>; microMax: Record<MicroKey, number> }
+export const PER100_BOUNDS: PlausibleBounds = { max: PER100_MAX, microMax: MICRO_MAX };
+
+/**
+ * Bounds for one serving of unknown weight: a custom food entered "per serving" with no weight (Quick
+ * add's "Save to My foods" always is one) is stored as if the serving were 100 g, so its "per 100"
+ * values are really a whole serving's, and a 1,100 kcal thali is a normal meal. These are the log's own
+ * per-entry limits (NutrientsInput: 5,000 kcal, 500 g a macro, 20,000 mg sodium); a micro may be what
+ * a 500 g serving of the richest food holds (5x MICRO_MAX). Parts are still checked against wholes.
+ */
+export const SERVING_BOUNDS: PlausibleBounds = {
+  max: { energyKcal: 5000, protein: 500, carbs: 500, fat: 500, fibre: 500, sugars: 500, addedSugars: 500, satFat: 500, transFat: 500, sodiumMg: 20_000 },
+  microMax: Object.fromEntries(Object.entries(MICRO_MAX).map(([k, v]) => [k, v * 5])) as Record<MicroKey, number>,
+};
+
+/**
+ * Slack for a part-of-whole check: 1 g or 5 % of the whole, whichever is larger. Reference tables
+ * measure sugars and carbs separately, so a part can exceed its whole by analytical noise (FNDDS butter:
+ * sugars 0.58 g, carbs 0.06 g; paneer: 23.3 g vs 22.5 g); a unit or field error is far larger
+ * (OFF "Melody": sugars 53.8 g, carbs 0 g).
+ */
+const partSlack = (whole: number): number => Math.max(1, whole * 0.05);
+
+/** A part can't exceed its wholes: sugars within carbs, added sugars within sugars and carbs, sat/trans fat within fat. */
+const PART_OF: Partial<Record<NutrientKey, NutrientKey[]>> = { sugars: ["carbs"], addedSugars: ["sugars", "carbs"], satFat: ["fat"], transFat: ["fat"] };
+
+export const CORE_KEYS = ["energyKcal", "protein", "carbs", "fat"] as const satisfies readonly NutrientKey[];
+export type CoreKey = (typeof CORE_KEYS)[number];
+const isCore = (k: NutrientKey): k is CoreKey => (CORE_KEYS as readonly string[]).includes(k);
+
+const inRange = (k: NutrientKey, v: number, b: PlausibleBounds = PER100_BOUNDS): boolean => Number.isFinite(v) && v >= 0 && v <= b.max[k];
+
+/** The keys of `per100` outside their range: negative, non-finite, or past PER100_MAX (or `bounds`). */
+export function outOfRangeKeys(per100: Partial<Record<NutrientKey, number | undefined>>, bounds: PlausibleBounds = PER100_BOUNDS): NutrientKey[] {
+  return NUTRIENT_KEYS.filter((k) => per100[k] !== undefined && !inRange(k, per100[k], bounds));
+}
+
+/**
+ * The keys of `per100` holding an implausible value: out of its range (negative, non-finite, past
+ * PER100_MAX), or a part larger than its whole by more than PART_SLACK. A part is only compared with a
+ * whole that is itself in range (an absurd whole is reported on its own).
+ */
+export function implausibleKeys(per100: Partial<Record<NutrientKey, number | undefined>>, bounds: PlausibleBounds = PER100_BOUNDS): NutrientKey[] {
+  const out: NutrientKey[] = [];
+  for (const k of NUTRIENT_KEYS) {
+    const v = per100[k];
+    if (v === undefined) continue;
+    if (!inRange(k, v, bounds)) { out.push(k); continue; }
+    const exceeds = (PART_OF[k] ?? []).some((w) => {
+      const whole = per100[w];
+      return whole !== undefined && !out.includes(w) && inRange(w, whole, bounds) && v > whole + partSlack(whole);
+    });
+    if (exceeds) out.push(k);
+  }
+  return out;
+}
+
+/** The micros of `per100` holding an implausible value: negative, non-finite, or past MICRO_MAX. */
+export function implausibleMicroKeys(per100: Partial<Record<MicroKey, number | undefined>>, bounds: PlausibleBounds = PER100_BOUNDS): MicroKey[] {
+  return MICRO_KEYS.filter((k) => {
+    const v = per100[k];
+    return v !== undefined && !(Number.isFinite(v) && v >= 0 && v <= bounds.microMax[k]);
+  });
+}
+
+export interface PlausibleNutrients<T> {
+  /** `per100` with every implausible optional value removed (energy and macros are left as they are). */
+  per100: T;
+  /** Optional macro-set values that were removed (the ones a grade, a total or a provenance can depend on). */
+  dropped: NutrientKey[];
+  /** Micros that were removed: display data only, so dropping one never touches a grade. */
+  droppedMicros: MicroKey[];
+  /** Implausible energy/protein/carbs/fat: required, so not removable here. The caller rejects the record. */
+  badCore: CoreKey[];
+}
+
+/**
+ * Drops implausible optional per-100 values (they become unknown) and reports implausible core ones.
+ * `bounds` is SERVING_BOUNDS for a food whose "per 100" is really one serving of unknown weight
+ * (lib/foods/sane.ts boundsFor).
+ */
+export function dropImplausible<T extends Partial<Record<NutrientKey | MicroKey, number | undefined>>>(per100: T, bounds: PlausibleBounds = PER100_BOUNDS): PlausibleNutrients<T> {
+  const bad = implausibleKeys(per100, bounds);
+  const droppedMicros = implausibleMicroKeys(per100, bounds);
+  if (bad.length === 0 && droppedMicros.length === 0) return { per100, dropped: [], droppedMicros, badCore: [] };
+  const out = { ...per100 };
+  for (const k of droppedMicros) delete out[k];
+  const dropped: NutrientKey[] = [];
+  const badCore: CoreKey[] = [];
+  for (const k of bad) {
+    if (isCore(k)) badCore.push(k);
+    else { delete out[k]; dropped.push(k); }
+  }
+  return { per100: out, dropped, droppedMicros, badCore };
+}

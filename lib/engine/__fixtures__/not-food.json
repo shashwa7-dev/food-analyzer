@@ -1,0 +1,6 @@
+{
+  "images": [
+    { "index": 0, "kind": "not_food", "quality": [] },
+    { "index": 1, "kind": "not_food", "quality": ["too_dark"] }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "images": [
+    { "index": 0, "kind": "nutrition_panel", "quality": [] },
+    { "index": 1, "kind": "barcode", "quality": [] }
+  ],
+  "barcodeText": "8901764012273",
+  "product": {
+    "name": "Cola Soft Drink",
+    "brand": "Fizzup",
+    "categoryGuess": "Carbonated soft drink",
+    "packSize": { "value": 750, "unit": "ml" }
+  },
+  "facts": {
+    "basis": "per_100ml",
+    "servingSize": { "value": 250, "unit": "ml" },
+    "energyKcal": 44,
+    "energyKj": 184,
+    "protein": 0,
+    "carbs": 10.9,
+    "sugars": 10.9,
+    "addedSugars": 10.9,
+    "fat": 0,
+    "sodiumMg": 10
+  },
+  "ingredients": [
+    "Carbonated water",
+    "Sugar",
+    "Colour (INS 150d)",
+    "Acidity regulator (INS 338)",
+    "Natural flavours",
+    "Caffeine",
+    "Preservative (INS 211)"
+  ],
+  "additives": ["INS 150d", "INS 338", "INS 211"],
+  "printedLanguage": "en"
+}

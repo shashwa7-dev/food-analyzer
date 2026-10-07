@@ -1,0 +1,684 @@
+<title>EATRi8 Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Figtree:wght@400;500;600;700&family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* ---------- shell tokens (prototype chrome) ---------- */
+:root{
+  --page:#F2F3EE;
+  --g-a:#038141; --g-b:#85BB2F; --g-c:#FECB02; --g-d:#EE8100; --g-e:#E63E11;
+  --ok:#1F8A4C; --warn:#B86E00; --bad:#C43A16;
+}
+/* ---------- direction A: Nutrition label ---------- */
+.app[data-dir="a"]{
+  --bg:#F2F3EE; --surface:#FFFFFF; --sunken:#E8EAE3; --ink:#121412; --muted:#5B6059; --line:#121412; --line-soft:#D5D8CF;
+  --accent:#121412; --accent-ink:#FFFFFF; --accent-soft:#E3E6DD;
+  --r-sm:3px; --r:4px; --r-lg:6px; --shadow:none; --bw:1.5px; --rule:7px;
+  --f-display:"Archivo", "Arial Narrow", system-ui, sans-serif; --f-body:"Archivo", system-ui, sans-serif; --f-mono:"JetBrains Mono", ui-monospace, monospace;
+  --display-stretch:72%; --display-weight:850; --title-case:uppercase; --title-track:.01em;
+}
+/* ---------- direction B: Clean ---------- */
+.app[data-dir="b"]{
+  --bg:#F6F7F6; --surface:#FFFFFF; --sunken:#EEF1EF; --ink:#0F1512; --muted:#5E6A64; --line:#E1E6E3; --line-soft:#E8ECEA;
+  --accent:#15803D; --accent-ink:#FFFFFF; --accent-soft:#E3F2E8;
+  --r-sm:8px; --r:12px; --r-lg:18px; --shadow:0 1px 2px rgb(15 21 18 / .06), 0 4px 16px rgb(15 21 18 / .05); --bw:1px; --rule:0px;
+  --f-display:"Geist", system-ui, sans-serif; --f-body:"Geist", system-ui, sans-serif; --f-mono:"Geist Mono", ui-monospace, monospace;
+  --display-stretch:100%; --display-weight:650; --title-case:none; --title-track:-.015em;
+}
+/* ---------- direction C: Warm ---------- */
+.app[data-dir="c"]{
+  --bg:#FFF5EC; --surface:#FFFFFF; --sunken:#FBE9DB; --ink:#2B1A11; --muted:#7B6152; --line:#F0D9C8; --line-soft:#F4E3D6;
+  --accent:#D9481F; --accent-ink:#FFFFFF; --accent-soft:#FDE1D5;
+  --r-sm:12px; --r:18px; --r-lg:26px; --shadow:0 2px 0 rgb(43 26 17 / .06); --bw:1px; --rule:0px;
+  --f-display:"Bricolage Grotesque", system-ui, sans-serif; --f-body:"Figtree", system-ui, sans-serif; --f-mono:"JetBrains Mono", ui-monospace, monospace;
+  --display-stretch:100%; --display-weight:750; --title-case:none; --title-track:-.02em;
+}
+/* ---------- dark palettes ---------- */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ color-scheme:dark; --page:#111311; --ok:#4CC27E; --warn:#F0A43A; --bad:#FF7A57; }
+  :root:not([data-theme="light"]) .app[data-dir="a"]{ --bg:#111311; --surface:#191C19; --sunken:#202420; --ink:#EEF0E9; --muted:#A3A89F; --line:#EEF0E9; --line-soft:#30352F; --accent:#EEF0E9; --accent-ink:#111311; --accent-soft:#262A25; }
+  :root:not([data-theme="light"]) .app[data-dir="b"]{ --bg:#0B0F0D; --surface:#131916; --sunken:#19201C; --ink:#E8EEEA; --muted:#93A099; --line:#25302A; --line-soft:#1F2823; --accent:#4ADE80; --accent-ink:#06210F; --accent-soft:#163322; --shadow:none; }
+  :root:not([data-theme="light"]) .app[data-dir="c"]{ --bg:#1A110C; --surface:#241812; --sunken:#2E2018; --ink:#FBEBDF; --muted:#C2A491; --line:#3E2C21; --line-soft:#35261D; --accent:#FF7A50; --accent-ink:#2A0E04; --accent-soft:#45251A; --shadow:none; }
+}
+:root[data-theme="dark"]{ color-scheme:dark; --page:#111311; --ok:#4CC27E; --warn:#F0A43A; --bad:#FF7A57; }
+:root[data-theme="dark"] .app[data-dir="a"]{ --bg:#111311; --surface:#191C19; --sunken:#202420; --ink:#EEF0E9; --muted:#A3A89F; --line:#EEF0E9; --line-soft:#30352F; --accent:#EEF0E9; --accent-ink:#111311; --accent-soft:#262A25; }
+:root[data-theme="dark"] .app[data-dir="b"]{ --bg:#0B0F0D; --surface:#131916; --sunken:#19201C; --ink:#E8EEEA; --muted:#93A099; --line:#25302A; --line-soft:#1F2823; --accent:#4ADE80; --accent-ink:#06210F; --accent-soft:#163322; --shadow:none; }
+:root[data-theme="dark"] .app[data-dir="c"]{ --bg:#1A110C; --surface:#241812; --sunken:#2E2018; --ink:#FBEBDF; --muted:#C2A491; --line:#3E2C21; --line-soft:#35261D; --accent:#FF7A50; --accent-ink:#2A0E04; --accent-soft:#45251A; --shadow:none; }
+
+/* ---------- base ---------- */
+html,body{height:100%}
+body{background:var(--page); margin:0}
+.app{min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased}
+.app *{box-sizing:border-box}
+button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer}
+input,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.num{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.tiny{font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; font-weight:600}
+
+/* prototype bar */
+.protobar{position:sticky; top:env(safe-area-inset-top,0px); z-index:40; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:8px 16px; background:var(--ink); color:var(--bg); font-size:12.5px}
+.protobar strong{font-weight:700}
+.protobar .seg{display:flex; gap:2px; background:color-mix(in srgb, var(--bg) 18%, transparent); padding:2px; border-radius:8px}
+.protobar .seg button{padding:4px 10px; border-radius:6px; font-size:12.5px; font-weight:600}
+.protobar .seg button[aria-pressed="true"]{background:var(--bg); color:var(--ink)}
+.protobar .spacer{flex:1}
+
+/* layout */
+.layout{display:grid; grid-template-columns:1fr; min-height:calc(100dvh - 40px)}
+.side{display:none}
+.rail{display:none}
+.main{padding:16px 16px calc(96px + env(safe-area-inset-bottom,0px)); max-width:720px; width:100%; margin-inline:auto}
+@media (min-width: 900px){
+  .layout{grid-template-columns:232px minmax(0,1fr)}
+  .side{display:flex; flex-direction:column; gap:4px; padding:20px 14px; border-right:var(--bw) solid var(--line-soft); position:sticky; top:40px; height:calc(100dvh - 40px)}
+  .main{padding:28px 32px 48px}
+  .tabbar{display:none !important}
+}
+@media (min-width: 1240px){
+  .layout{grid-template-columns:232px minmax(0,1fr) 320px}
+  .rail{display:flex; flex-direction:column; gap:16px; padding:28px 20px; border-left:var(--bw) solid var(--line-soft); position:sticky; top:40px; height:calc(100dvh - 40px); overflow:auto}
+}
+.brand{font-family:var(--f-display); font-stretch:var(--display-stretch); font-weight:var(--display-weight); font-size:24px; letter-spacing:var(--title-track); padding:4px 10px 18px}
+.brand span{color:var(--accent)}
+.app[data-dir="a"] .brand span{color:var(--ink); background:var(--g-a); color:#fff; padding:0 4px; margin-left:2px}
+.navbtn{display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:var(--r); font-weight:550; color:var(--muted)}
+.navbtn svg{width:20px; height:20px}
+.navbtn[aria-current="page"]{color:var(--ink); background:var(--accent-soft)}
+.app[data-dir="a"] .navbtn[aria-current="page"]{background:var(--ink); color:var(--bg)}
+.navscan{margin-top:10px; justify-content:center; background:var(--accent); color:var(--accent-ink); font-weight:700}
+.navscan[aria-current="page"]{background:var(--accent); color:var(--accent-ink)}
+.side .credits-mini{margin-top:auto; padding:12px; border:var(--bw) solid var(--line-soft); border-radius:var(--r)}
+
+/* tab bar */
+.tabbar{position:fixed; left:0; right:0; bottom:0; z-index:30; display:grid; grid-template-columns:repeat(5,1fr); align-items:end; padding:6px 8px calc(8px + env(safe-area-inset-bottom,0px)); background:var(--surface); border-top:var(--bw) solid var(--line-soft)}
+.tab{display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0; min-height:48px; font-size:11px; font-weight:600; color:var(--muted)}
+.tab svg{width:22px; height:22px}
+.tab[aria-current="page"]{color:var(--ink)}
+.tab-scan{position:relative}
+.tab-scan .fab{width:58px; height:58px; margin-top:-26px; border-radius:var(--r-lg); display:grid; place-items:center; background:var(--accent); color:var(--accent-ink); box-shadow:0 6px 18px rgb(0 0 0 / .18)}
+.app[data-dir="c"] .tab-scan .fab, .app[data-dir="b"] .tab-scan .fab{border-radius:50%}
+.tab-scan .fab svg{width:26px; height:26px}
+
+/* typography */
+.h1{font-family:var(--f-display); font-stretch:var(--display-stretch); font-weight:var(--display-weight); text-transform:var(--title-case); letter-spacing:var(--title-track); font-size:30px; line-height:1.05; margin:0; text-wrap:balance}
+.h2{font-family:var(--f-display); font-stretch:var(--display-stretch); font-weight:var(--display-weight); text-transform:var(--title-case); letter-spacing:var(--title-track); font-size:19px; line-height:1.15; margin:0}
+.app[data-dir="a"] .h2{font-size:18px}
+.pagehead{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:16px}
+.app[data-dir="a"] .pagehead{border-bottom:var(--rule) solid var(--ink); padding-bottom:10px}
+
+/* surfaces */
+.card{background:var(--surface); border:var(--bw) solid var(--line-soft); border-radius:var(--r-lg); box-shadow:var(--shadow)}
+.app[data-dir="a"] .card{border-color:var(--line)}
+.stack{display:flex; flex-direction:column; gap:14px}
+.row{display:flex; align-items:center; gap:10px}
+.between{justify-content:space-between}
+.pill{display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:var(--accent-soft); font-size:12.5px; font-weight:650}
+.app[data-dir="a"] .pill{border-radius:var(--r-sm); background:transparent; border:var(--bw) solid var(--line)}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; padding:0 18px; border-radius:var(--r); font-weight:700; background:var(--accent); color:var(--accent-ink)}
+.btn.ghost{background:transparent; color:var(--ink); border:var(--bw) solid var(--line)}
+.app:not([data-dir="a"]) .btn.ghost{border-color:var(--line)}
+.btn.block{width:100%}
+.iconbtn{width:40px; height:40px; display:grid; place-items:center; border-radius:var(--r)}
+.iconbtn svg{width:20px; height:20px}
+.chip{padding:8px 12px; border-radius:var(--r); border:var(--bw) solid var(--line-soft); font-size:13.5px; font-weight:600; background:var(--surface); min-height:40px}
+.chip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.chips{display:flex; flex-wrap:wrap; gap:8px}
+
+/* grade badge + strip */
+.grade{display:inline-grid; place-items:center; width:30px; height:30px; border-radius:var(--r-sm); font-family:var(--f-display); font-stretch:var(--display-stretch); font-weight:800; font-size:16px; color:#fff; flex:none}
+.grade.sm{width:24px; height:24px; font-size:13px}
+.g-A{background:var(--g-a)} .g-B{background:var(--g-b)} .g-C{background:var(--g-c); color:#2a2100} .g-D{background:var(--g-d)} .g-E{background:var(--g-e)}
+.strip{display:flex; align-items:center; gap:3px}
+.strip span{display:grid; place-items:center; width:34px; height:40px; color:#fff; font-family:var(--f-display); font-stretch:var(--display-stretch); font-weight:800; font-size:17px; opacity:.42; border-radius:var(--r-sm)}
+.strip span.on{width:50px; height:56px; font-size:28px; opacity:1; box-shadow:0 0 0 3px var(--surface), 0 0 0 4.5px var(--ink)}
+.strip span:nth-child(1){background:var(--g-a)} .strip span:nth-child(2){background:var(--g-b)} .strip span:nth-child(3){background:var(--g-c); color:#2a2100} .strip span:nth-child(4){background:var(--g-d)} .strip span:nth-child(5){background:var(--g-e)}
+
+/* Today */
+.daybar{display:flex; align-items:center; gap:6px}
+.summary{display:grid; grid-template-columns:auto 1fr; gap:18px; padding:18px; align-items:center}
+.ring{position:relative; width:132px; height:132px}
+.ring svg{width:100%; height:100%; transform:rotate(-90deg)}
+.ring .center{position:absolute; inset:0; display:grid; place-content:center; text-align:center}
+.ring .big{font-family:var(--f-display); font-stretch:var(--display-stretch); font-weight:var(--display-weight); font-size:30px; line-height:1}
+.macros{display:grid; gap:10px}
+.macro .lab{display:flex; justify-content:space-between; font-size:13px; font-weight:600}
+.bar{height:8px; border-radius:99px; background:var(--sunken); overflow:hidden; margin-top:5px}
+.app[data-dir="a"] .bar{border-radius:0; height:9px; border:1px solid var(--line); background:transparent}
+.bar i{display:block; height:100%; border-radius:inherit; background:var(--ink)}
+.bar i.warn{background:var(--warn)} .bar i.over{background:var(--bad)}
+.limits{display:grid; grid-template-columns:repeat(3,1fr); border-top:var(--bw) solid var(--line-soft)}
+.app[data-dir="a"] .limits{border-top-color:var(--line)}
+.limit{padding:12px 14px}
+.limit + .limit{border-left:var(--bw) solid var(--line-soft)}
+.app[data-dir="a"] .limit + .limit{border-left-color:var(--line)}
+.limit .v{font-size:17px; font-weight:700}
+.meal{padding:4px 0}
+.mealhead{display:flex; align-items:center; justify-content:space-between; padding:12px 16px}
+.mealhead .kcal{font-size:13px}
+.entry{display:flex; align-items:center; gap:12px; padding:11px 16px; border-top:var(--bw) solid var(--line-soft); width:100%; text-align:left; min-height:56px}
+.entry .name{font-weight:600}
+.entry .meta{font-size:12.5px; color:var(--muted)}
+.entry .k{margin-left:auto; font-weight:600}
+.addrow{display:flex; align-items:center; gap:8px; padding:12px 16px; border-top:var(--bw) solid var(--line-soft); color:var(--accent); font-weight:700; width:100%; min-height:48px}
+.app[data-dir="a"] .addrow{color:var(--ink)}
+.tag{font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:2px 6px; border-radius:var(--r-sm); background:var(--sunken); color:var(--muted)}
+
+/* search list */
+.search{display:flex; align-items:center; gap:10px; padding:0 14px; min-height:52px; border-radius:var(--r); background:var(--surface); border:var(--bw) solid var(--line)}
+.search input{flex:1; border:0; outline:0; background:transparent; font-size:16px; min-width:0}
+.search svg{width:20px; height:20px; color:var(--muted)}
+.list{display:flex; flex-direction:column}
+.hit{display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:var(--bw) solid var(--line-soft); text-align:left; width:100%; min-height:60px}
+.hit .name{font-weight:650}
+.hit .meta{font-size:12.5px; color:var(--muted)}
+.hit .add{margin-left:auto; width:36px; height:36px; display:grid; place-items:center; border-radius:var(--r); border:var(--bw) solid var(--line)}
+.hit .add svg{width:18px;height:18px}
+.segtabs{display:flex; gap:4px; padding:4px; border-radius:var(--r); background:var(--sunken)}
+.segtabs button{flex:1; min-height:40px; border-radius:calc(var(--r) - 2px); font-weight:650; font-size:14px; color:var(--muted)}
+.segtabs button[aria-selected="true"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+.app[data-dir="a"] .segtabs{background:transparent; border:var(--bw) solid var(--line); padding:0; gap:0}
+.app[data-dir="a"] .segtabs button{border-radius:0}
+.app[data-dir="a"] .segtabs button[aria-selected="true"]{background:var(--ink); color:var(--bg)}
+
+/* sheet */
+.scrim{position:fixed; inset:0; background:rgb(0 0 0 / .45); z-index:50; display:flex; align-items:flex-end; justify-content:center}
+.sheet{background:var(--bg); width:100%; max-width:640px; max-height:88dvh; overflow:auto; border-radius:var(--r-lg) var(--r-lg) 0 0; padding:10px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.grab{width:40px; height:4px; border-radius:4px; background:var(--line); margin:4px auto 12px}
+@media (min-width: 900px){ .scrim{align-items:center} .sheet{border-radius:var(--r-lg); max-height:80dvh; padding:20px 24px} .grab{display:none} }
+
+/* food detail */
+.hero{padding:18px; display:grid; gap:14px}
+.reasons{display:grid; gap:8px; margin:0; padding:0; list-style:none}
+.reasons li{display:flex; gap:10px; align-items:flex-start; font-size:14.5px}
+.dot{width:10px; height:10px; border-radius:50%; margin-top:6px; flex:none}
+.dot.good{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+.facts{width:100%; border-collapse:collapse; font-size:14px}
+.facts td{padding:9px 0; border-bottom:var(--bw) solid var(--line-soft)}
+.facts td:last-child{text-align:right}
+.app[data-dir="a"] .facts td{border-bottom-color:var(--line)}
+.app[data-dir="a"] .facts tr.thick td{border-bottom-width:var(--rule)}
+.prov{display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:650; color:var(--muted)}
+.prov::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--ok)}
+.prov.label::before{background:#3D7BD9} .prov.est::before{background:var(--warn)}
+.stepper{display:flex; align-items:center; border:var(--bw) solid var(--line); border-radius:var(--r); overflow:hidden}
+.stepper button{width:44px; height:44px; font-size:20px; font-weight:700}
+.stepper .val{min-width:64px; text-align:center; font-weight:700}
+.sticky-cta{position:sticky; bottom:calc(76px + env(safe-area-inset-bottom,0px)); padding-top:8px}
+@media (min-width: 900px){ .sticky-cta{bottom:16px} }
+.grid2{display:grid; gap:14px}
+@media (min-width: 1100px){ .grid2{grid-template-columns:1.1fr .9fr; align-items:start} }
+
+/* scan */
+.viewfinder{position:relative; aspect-ratio:3/4; max-height:62dvh; width:100%; border-radius:var(--r-lg); overflow:hidden; background:radial-gradient(120% 90% at 50% 40%, #3b3f38 0%, #141613 70%); color:#fff}
+@media (min-width: 900px){ .viewfinder{aspect-ratio:4/3} }
+.vf-frame{position:absolute; inset:16% 12%; border-radius:12px}
+.vf-frame i{position:absolute; width:34px; height:34px; border:4px solid #fff}
+.vf-frame i:nth-child(1){top:0; left:0; border-right:0; border-bottom:0}
+.vf-frame i:nth-child(2){top:0; right:0; border-left:0; border-bottom:0}
+.vf-frame i:nth-child(3){bottom:0; left:0; border-right:0; border-top:0}
+.vf-frame i:nth-child(4){bottom:0; right:0; border-left:0; border-top:0}
+.vf-pack{position:absolute; inset:24% 22%; border-radius:10px; background:linear-gradient(160deg,#E9B44C,#C9762B); box-shadow:0 20px 40px rgb(0 0 0/.45); display:grid; place-items:center; color:#3a1d06; font-family:var(--f-display); font-weight:800; font-size:22px; text-align:center; line-height:1.05}
+.vf-hint{position:absolute; left:0; right:0; top:14px; text-align:center; font-size:13.5px; font-weight:600; text-shadow:0 1px 3px #000}
+.vf-detect{position:absolute; left:50%; bottom:16px; transform:translateX(-50%); background:#fff; color:#111; padding:8px 14px; border-radius:999px; font-size:13px; font-weight:700; display:flex; gap:8px; align-items:center; white-space:nowrap}
+.shutterbar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; margin-top:16px}
+.shutter{width:76px; height:76px; border-radius:50%; border:5px solid var(--ink); display:grid; place-items:center}
+.shutter i{width:58px; height:58px; border-radius:50%; background:var(--accent)}
+.slots{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap}
+.slot{width:76px; height:76px; border-radius:var(--r); border:var(--bw) dashed var(--line); display:grid; place-items:center; font-size:11.5px; color:var(--muted); text-align:center; font-weight:600}
+.slot.full{border-style:solid; background:linear-gradient(160deg,#E9B44C,#C9762B); color:#3a1d06}
+.slot.full.back{background:repeating-linear-gradient(0deg,#f4f1e6 0 8px,#e3dfd0 8px 9px); color:#222}
+.steps{display:grid; gap:14px; padding:18px}
+.step{display:flex; gap:12px; align-items:center; font-weight:600}
+.step .s{width:26px; height:26px; border-radius:50%; display:grid; place-items:center; border:2px solid var(--line); flex:none}
+.step.done .s{background:var(--ok); border-color:var(--ok); color:#fff}
+.step.active .s{border-color:var(--accent); border-top-color:transparent; animation:spin .8s linear infinite}
+.step.wait{color:var(--muted)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ .step.active .s{animation:none; border-top-color:var(--accent)} }
+.banner{display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:var(--r); background:var(--accent-soft); font-size:14px}
+.banner svg{width:18px; height:18px; flex:none; margin-top:2px}
+.flag{display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:var(--r); border:var(--bw) solid var(--bad); color:var(--ink); font-size:14px}
+.flag b{color:var(--bad)}
+.alt{display:flex; gap:12px; align-items:center; padding:12px; border-radius:var(--r); border:var(--bw) solid var(--line-soft); text-align:left; width:100%}
+
+/* history */
+.thumb{width:48px; height:48px; border-radius:var(--r-sm); flex:none}
+.t1{background:linear-gradient(160deg,#E9B44C,#C9762B)} .t2{background:linear-gradient(160deg,#c9dfb0,#6e9a3e)} .t3{background:linear-gradient(160deg,#f2d39b,#b6862e)} .t4{background:linear-gradient(160deg,#9cc3e6,#3d6f9e)} .t5{background:linear-gradient(160deg,#e9a07a,#a6452a)}
+
+/* me */
+.setrow{display:flex; align-items:center; gap:12px; padding:14px 16px; border-top:var(--bw) solid var(--line-soft); width:100%; text-align:left; min-height:56px}
+.setrow:first-child{border-top:0}
+.setrow .v{margin-left:auto; color:var(--muted); font-size:14px; text-align:right}
+.setrow svg.chev{width:18px; height:18px; color:var(--muted)}
+.meter{height:10px; border-radius:99px; background:var(--sunken); overflow:hidden}
+.meter i{display:block; height:100%; background:var(--accent)}
+.plans{display:grid; gap:12px}
+@media (min-width: 640px){ .plans{grid-template-columns:1fr 1fr} }
+.plan{padding:16px; display:grid; gap:10px; align-content:start}
+.plan ul{margin:0; padding-left:18px; display:grid; gap:4px; font-size:14px}
+.plan.current{outline:2px solid var(--ink); outline-offset:-2px}
+
+/* workout */
+.ex{display:flex; gap:12px; align-items:center; padding:12px 16px; border-top:var(--bw) solid var(--line-soft)}
+.eximg{width:56px; height:56px; border-radius:var(--r-sm); background:var(--sunken); display:grid; place-items:center; flex:none}
+.eximg svg{width:30px; height:30px; color:var(--muted)}
+.sets{display:grid; grid-template-columns:auto 1fr 1fr auto; gap:6px 12px; align-items:center; padding:8px 16px 14px; font-size:14px}
+.sets .hd{font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted)}
+.check{width:28px; height:28px; border-radius:var(--r-sm); border:var(--bw) solid var(--line); display:grid; place-items:center}
+.check.on{background:var(--ok); border-color:var(--ok); color:#fff}
+
+/* onboarding */
+.goalgrid{display:grid; gap:10px}
+@media (min-width: 640px){ .goalgrid{grid-template-columns:1fr 1fr} }
+.goal{padding:16px; text-align:left; border-radius:var(--r-lg); border:var(--bw) solid var(--line-soft); background:var(--surface); display:grid; gap:4px; min-height:84px}
+.goal[aria-pressed="true"]{border-color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink)}
+.dots{display:flex; gap:6px}
+.dots i{width:28px; height:4px; border-radius:4px; background:var(--line-soft)}
+.dots i.on{background:var(--ink)}
+
+/* rail */
+.rail .card{padding:16px}
+.toast{position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:60; background:var(--ink); color:var(--bg); padding:12px 16px; border-radius:var(--r); font-weight:600; font-size:14px; box-shadow:0 8px 24px rgb(0 0 0/.25); max-width:calc(100% - 32px)}
+@media (min-width: 900px){ .toast{bottom:24px} }
+.note{font-size:12.5px; color:var(--muted)}
+hr.sep{border:0; border-top:var(--bw) solid var(--line-soft); margin:4px 0}
+.hide{display:none}
+
+/* ---------- B refinements: type scale + spacing ---------- */
+/* scale: 12 · 13 · 15 · 17 · 22 · 30 · 40 ; spacing: 4 · 8 · 12 · 16 · 20 · 24 · 32 */
+.app[data-dir="b"]{ font-size:15px; line-height:1.5; letter-spacing:-.006em; font-feature-settings:"ss01","cv11"; }
+.app[data-dir="b"] .num{ font-family:"Geist", system-ui, sans-serif; font-variant-numeric:tabular-nums; letter-spacing:-.01em }
+.app[data-dir="b"] .h1{ font-size:30px; font-weight:600; letter-spacing:-.032em; line-height:1.1 }
+.app[data-dir="b"] .h2{ font-size:17px; font-weight:600; letter-spacing:-.018em; line-height:1.3 }
+.app[data-dir="b"] .tiny{ font-size:13px; font-weight:500; text-transform:none; letter-spacing:-.003em }
+.app[data-dir="b"] .small{ font-size:13px }
+.app[data-dir="b"] .note{ font-size:13px; line-height:1.5 }
+.app[data-dir="b"] .tag{ font-size:11.5px; font-weight:600; text-transform:none; letter-spacing:0; padding:2px 8px; border-radius:999px }
+.app[data-dir="b"] .pagehead{ margin-bottom:24px; align-items:center }
+.app[data-dir="b"] .pagehead .tiny{ margin-bottom:2px }
+.app[data-dir="b"] .stack{ gap:16px }
+.app[data-dir="b"] .summary{ padding:20px; gap:24px }
+.app[data-dir="b"] .ring .big{ font-weight:600; letter-spacing:-.035em; font-size:32px }
+.app[data-dir="b"] .macros{ gap:12px }
+.app[data-dir="b"] .macro .lab{ font-weight:500 }
+.app[data-dir="b"] .macro .lab span:first-child{ color:var(--ink) }
+.app[data-dir="b"] .macro .lab span:last-child{ color:var(--muted) }
+.app[data-dir="b"] .bar{ height:6px }
+.app[data-dir="b"] .limit{ padding:14px 16px }
+.app[data-dir="b"] .limit .v{ font-size:17px; font-weight:600 }
+.app[data-dir="b"] .mealhead{ padding:16px 20px 12px }
+.app[data-dir="b"] .entry{ padding:12px 20px; gap:14px }
+.app[data-dir="b"] .entry .name, .app[data-dir="b"] .hit .name{ font-weight:550 }
+.app[data-dir="b"] .entry .meta, .app[data-dir="b"] .hit .meta{ font-size:13px; margin-top:1px }
+.app[data-dir="b"] .addrow{ padding:14px 20px; font-weight:600 }
+.app[data-dir="b"] .hit{ padding:14px 4px; gap:14px }
+.app[data-dir="b"] .card[style*="padding:16px"]{ padding:20px !important }
+.app[data-dir="b"] .hero{ padding:20px; gap:16px }
+.app[data-dir="b"] .reasons{ gap:10px }
+.app[data-dir="b"] .facts td{ padding:10px 0 }
+.app[data-dir="b"] .btn{ font-weight:600; letter-spacing:-.01em; border-radius:12px }
+.app[data-dir="b"] .chip{ font-weight:500 }
+.app[data-dir="b"] .grade{ font-family:"Geist", system-ui, sans-serif; font-weight:700; border-radius:8px }
+.app[data-dir="b"] .strip span{ font-family:"Geist", system-ui, sans-serif; font-weight:700 }
+.app[data-dir="b"] .brand{ font-size:22px; font-weight:700; letter-spacing:-.04em }
+.app[data-dir="b"] .navbtn{ font-weight:500 }
+.app[data-dir="b"] .navbtn[aria-current="page"]{ font-weight:600 }
+.app[data-dir="b"] .setrow{ padding:16px 20px }
+@media (min-width: 900px){ .app[data-dir="b"] .h1{ font-size:34px } }
+</style>
+
+<div class="app" id="app" data-dir="b">
+  <div class="protobar" role="region" aria-label="Prototype controls">
+    <strong>Prototype</strong><span>Sample data · nothing is saved</span>
+    <span class="spacer"></span>
+    <span>Look:</span>
+    <div class="seg" role="group" aria-label="Visual direction">
+      <button id="dir-a" data-dir="a" aria-pressed="false">A · Label</button>
+      <button id="dir-b" data-dir="b" aria-pressed="true">B · Clean</button>
+      <button id="dir-c" data-dir="c" aria-pressed="false">C · Warm</button>
+    </div>
+  </div>
+  <div class="layout">
+    <nav class="side" aria-label="Main">
+      <div class="brand">EATRi<span>8</span></div>
+      <div id="sidenav"></div>
+      <div class="credits-mini" id="sidecredits"></div>
+    </nav>
+    <main class="main" id="main"></main>
+    <aside class="rail" id="rail" aria-label="Today at a glance"></aside>
+  </div>
+  <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+  <div id="overlay"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+const I = {
+  today:'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  foods:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  scan:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 9v6M11 9v6M14 9v6M17 9v6"/>',
+  history:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+  me:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>', chev:'<path d="m9 18 6-6-6-6"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>', check:'<path d="m5 12 5 5 9-10"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  barcode:'<path d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12"/>',
+  dumbbell:'<path d="M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12"/>',
+  flame:'<path d="M12 3s5 4.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 1.5-4S9 11 11 11c0-3 1-8 1-8z"/>',
+  back:'<path d="M19 12H5M12 19l-7-7 7-7"/>', edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+};
+const ic = (n, cls='') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+
+/* ---------- sample data ---------- */
+const FOODS = {
+  'dal-tadka':{name:'Dal tadka', src:'INDB', kind:'dish', grade:'A', gv:84, per:{kcal:120,p:6,c:14,f:4.5,fib:3.5,sug:1.5,sod:280,sat:1.1}, portions:[['1 katori',150],['½ katori',75],['100 g',100]], reasons:[['good','Good protein: 9 g per katori'],['good','High fibre: 5 g per katori'],['warn','Moderate sodium: 420 mg per katori']]},
+  'dal-fry':{name:'Dal fry', src:'INDB', kind:'dish', grade:'B', gv:71, per:{kcal:135,p:6,c:14,f:6,fib:3.2,sug:1.6,sod:330,sat:1.8}, portions:[['1 katori',150],['100 g',100]], reasons:[['good','Good protein: 9 g per katori'],['warn','More oil than dal tadka']]},
+  'moong-dal':{name:'Moong dal, cooked', src:'INDB', kind:'dish', grade:'A', gv:88, per:{kcal:105,p:7,c:15,f:1.8,fib:4,sug:1,sod:250,sat:.4}, portions:[['1 katori',150],['100 g',100]], reasons:[['good','Light and high in fibre']]},
+  'dal-makhani':{name:'Dal makhani', src:'INDB', kind:'dish', grade:'C', gv:56, per:{kcal:190,p:7,c:15,f:11,fib:4,sug:2,sod:380,sat:6},portions:[['1 katori',150],['100 g',100]], reasons:[['bad','High saturated fat: 9 g per katori (butter, cream)'],['good','Good protein: 10.5 g per katori']]},
+  'masoor-dal':{name:'Masoor dal', src:'INDB', kind:'dish', grade:'A', gv:86, per:{kcal:110,p:7.5,c:16,f:2,fib:3.8,sug:1,sod:260,sat:.5}, portions:[['1 katori',150],['100 g',100]], reasons:[['good','Good protein, low fat']]},
+  'jeera-rice':{name:'Jeera rice', src:'INDB', kind:'dish', grade:'B', gv:68, per:{kcal:140,p:2.8,c:26,f:2.6,fib:.8,sug:.3,sod:180,sat:1}, portions:[['1 katori',150],['1 plate',250],['100 g',100]], reasons:[['warn','Low fibre: 1 g per katori'],['good','Low in sugar and salt']]},
+  'boiled-rice':{name:'Rice, white, boiled', src:'USDA', kind:'generic', grade:'B', gv:66, per:{kcal:130,p:2.7,c:28,f:.3,fib:.4,sug:.1,sod:1,sat:.1}, portions:[['1 katori',150],['1 cup',158],['100 g',100]], reasons:[['warn','Low fibre'],['good','Very low fat and salt']]},
+  'roti':{name:'Roti / chapati', src:'INDB', kind:'dish', grade:'A', gv:82, per:{kcal:300,p:9,c:50,f:7,fib:7,sug:1.5,sod:300,sat:1.2}, portions:[['1 roti',40],['100 g',100]], reasons:[['good','Whole wheat: 2.8 g fibre per roti']]},
+  'poha':{name:'Poha', src:'INDB', kind:'dish', grade:'B', gv:70, per:{kcal:116,p:2.5,c:20,f:3,fib:1.4,sug:2,sod:200,sat:.6}, portions:[['1 plate',250],['1 katori',150],['100 g',100]], reasons:[['good','Light breakfast'],['warn','Low protein: 6 g per plate']]},
+  'chai':{name:'Chai, with milk and sugar', src:'INDB', kind:'dish', grade:'C', gv:52, per:{kcal:70,p:2,c:10,f:2.2,fib:0,sug:9,sod:30,sat:1.4}, unit:'ml', portions:[['1 cup',150],['1 glass',250],['100 ml',100]], reasons:[['warn','Added sugar: about 13 g per cup']]},
+  'coffee':{name:'Coffee, with milk', src:'USDA', kind:'generic', grade:'B', gv:69, per:{kcal:45,p:2.3,c:4.5,f:1.9,fib:0,sug:4.4,sod:35,sat:1.1}, unit:'ml', portions:[['1 cup',150],['100 ml',100]], reasons:[['good','No added sugar']]},
+  'pbm':{name:'Paneer butter masala', src:'INDB', kind:'dish', grade:'D', gv:38, per:{kcal:230,p:8,c:8,f:19,fib:1.5,sug:4,sod:420,sat:10},portions:[['1 katori',150],['100 g',100]], reasons:[['bad','High saturated fat: 15 g per katori'],['good','Good protein: 12 g per katori']]},
+  'bhujia':{name:'Aloo bhujia', brand:'Sample brand', src:'Scan', kind:'packaged', grade:'E', gv:14, per:{kcal:560,p:11,c:42,f:38,fib:4,sug:2,sod:1050,sat:11}, portions:[['1 small bowl',30],['1 pack',200],['100 g',100]], reasons:[['bad','High sodium: 1,050 mg/100 g. One small bowl is 21% of your daily limit.'],['bad','High saturated fat: 11 g/100 g (palmolein oil)'],['warn','Ultra-processed: 4 additives incl. INS 627, 631']], scanned:true},
+  'chana':{name:'Roasted chana, plain', src:'USDA', kind:'generic', grade:'A', gv:90, per:{kcal:370,p:19,c:58,f:6,fib:17,sug:8,sod:25,sat:.7}, portions:[['1 small bowl',30],['100 g',100]], reasons:[['good','High protein: 5.7 g per bowl'],['good','Very high fibre'],['good','Almost no salt']]},
+  'makhana':{name:'Roasted makhana, lightly salted', src:'OFF', kind:'packaged', grade:'B', gv:72, per:{kcal:380,p:9.7,c:76,f:2,fib:14,sug:.5,sod:380,sat:.3}, portions:[['1 small bowl',30],['100 g',100]], reasons:[['good','Low fat'],['warn','Some added salt']]},
+};
+const MEALS = ['Breakfast','Lunch','Snack','Dinner'];
+let DIARY = [
+  {id:1, meal:'Breakfast', food:'poha', label:'1 plate', g:250},
+  {id:2, meal:'Breakfast', food:'chai', label:'1 cup', g:150},
+  {id:3, meal:'Lunch', food:'dal-tadka', label:'1 katori', g:150},
+  {id:4, meal:'Lunch', food:'jeera-rice', label:'1 katori', g:150},
+  {id:5, meal:'Lunch', food:'roti', label:'2 roti', g:80},
+  {id:6, meal:'Snack', food:'bhujia', label:'1 small bowl', g:30},
+];
+const TARGETS = {kcal:2000,p:60,c:275,f:67,fib:30,sug:50,sod:1500};
+const RECENTS = ['chai','roti','dal-tadka','poha','boiled-rice','coffee'];
+const SCANS = [
+  {food:'bhujia', when:'Today, 4:12 pm', kind:'Label + front', t:'t1', conf:'High'},
+  {food:'makhana', when:'Yesterday', kind:'Barcode', t:'t2', conf:'High'},
+  {food:'poha', when:'Sun 4 Oct', kind:'Meal photo', t:'t3', conf:'Low · estimated'},
+  {food:'coffee', when:'Fri 2 Oct', kind:'Barcode', t:'t4', conf:'High'},
+  {food:'pbm', when:'Thu 1 Oct', kind:'Meal photo', t:'t5', conf:'Medium'},
+];
+let state = {screen:'today', food:null, from:'today', scanStage:0, shots:[], histSeg:'scans', addTab:'search', addMeal:'Dinner', q:'', portion:0, qty:1, meal:'Lunch', goal:'low_sodium', credits:17, workoutPreview:true};
+
+const nutr = (key, g) => { const f = FOODS[key].per; const k = g/100; return {kcal:f.kcal*k,p:f.p*k,c:f.c*k,f:f.f*k,fib:f.fib*k,sug:f.sug*k,sod:f.sod*k,sat:f.sat*k}; };
+const sum = (rows) => rows.reduce((a,r)=>{const n=nutr(r.food,r.g); for(const k in n) a[k]=(a[k]||0)+n[k]; return a;},{kcal:0,p:0,c:0,f:0,fib:0,sug:0,sod:0,sat:0});
+const r0 = n => Math.round(n).toLocaleString('en-IN');
+const r1 = n => (Math.round(n*10)/10).toLocaleString('en-IN');
+const gradeEl = (g, sm) => `<span class="grade g-${g} ${sm?'sm':''}" aria-label="Grade ${g}">${g}</span>`;
+
+/* ---------- nav ---------- */
+const NAV = [['today','Today'],['foods','Foods'],['scan','Scan'],['history','History'],['me','Me']];
+function renderNav(){
+  const active = ['food','result','scanning'].includes(state.screen) ? state.from : (state.screen==='credits'||state.screen==='onboarding'?'me':state.screen==='workout'?'today':state.screen);
+  document.getElementById('tabbar').innerHTML = NAV.map(([k,l]) => k==='scan'
+    ? `<button class="tab tab-scan" data-go="scan" ${active==='scan'?'aria-current="page"':''}><span class="fab">${ic('scan')}</span>${l}</button>`
+    : `<button class="tab" data-go="${k}" ${active===k?'aria-current="page"':''}>${ic(k)}${l}</button>`).join('');
+  document.getElementById('sidenav').innerHTML = NAV.filter(n=>n[0]!=='scan').map(([k,l]) =>
+    `<button class="navbtn" data-go="${k}" ${active===k?'aria-current="page"':''}>${ic(k)}${l}</button>`).join('') +
+    `<button class="navbtn navscan" data-go="scan">${ic('scan')}Scan food</button>`;
+  document.getElementById('sidecredits').innerHTML = `<div class="tiny muted">AI scans left</div><div class="row between" style="margin:6px 0 8px"><b class="num" style="font-size:20px">${state.credits} / 20</b><span class="small muted">Basic</span></div><div class="meter"><i style="width:${state.credits/20*100}%"></i></div><div class="note" style="margin-top:8px">Barcode scans are free. Resets 1 Nov.</div>`;
+}
+
+/* ---------- screens ---------- */
+function todaySummary(compact){
+  const t = sum(DIARY); const pct = Math.min(t.kcal/TARGETS.kcal,1);
+  const C = 2*Math.PI*56; const left = TARGETS.kcal - t.kcal;
+  const macro = (lab, v, tgt, unit='g') => `<div class="macro"><div class="lab"><span>${lab}</span><span class="num">${r0(v)} / ${tgt} ${unit}</span></div><div class="bar"><i style="width:${Math.min(v/tgt,1)*100}%"></i></div></div>`;
+  const lim = (lab, v, tgt, unit) => { const ratio=v/tgt; const cls = ratio>1?'over':ratio>.8?'warn':''; const txt = ratio>1?`<span style="color:var(--bad)">over by ${r0(v-tgt)}</span>`:`${r0(tgt-v)} ${unit} left`;
+    return `<div class="limit"><div class="tiny muted">${lab}</div><div class="v num">${r0(v)}<span class="small muted"> / ${r0(tgt)} ${unit}</span></div><div class="bar"><i class="${cls}" style="width:${Math.min(ratio,1)*100}%"></i></div><div class="note" style="margin-top:4px">${txt}</div></div>`; };
+  return `<section class="card" aria-label="Today's totals">
+    <div class="summary" style="${compact?'grid-template-columns:1fr; justify-items:center':''}">
+      <div class="ring" role="img" aria-label="${r0(t.kcal)} of ${TARGETS.kcal} kcal eaten">
+        <svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="56" fill="none" stroke="var(--sunken)" stroke-width="12"/><circle cx="66" cy="66" r="56" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="${document.getElementById('app').dataset.dir==='a'?'butt':'round'}" stroke-dasharray="${C*pct} ${C}"/></svg>
+        <div class="center"><div class="big num">${r0(left)}</div><div class="small muted">kcal left</div></div>
+      </div>
+      <div class="macros" style="${compact?'width:100%':''}">
+        <div class="small muted"><b class="num" style="color:var(--ink)">${r0(t.kcal)}</b> eaten of <span class="num">${r0(TARGETS.kcal)}</span> kcal</div>
+        ${macro('Protein',t.p,TARGETS.p)}${macro('Carbs',t.c,TARGETS.c)}${macro('Fat',t.f,TARGETS.f)}
+      </div>
+    </div>
+    <div class="limits">${lim('Fibre',t.fib,TARGETS.fib,'g').replace('left','to go')}${lim('Sugar',t.sug,TARGETS.sug,'g')}${lim('Sodium',t.sod,TARGETS.sod,'mg')}</div>
+  </section>`;
+}
+function screenToday(){
+  const meals = MEALS.map(m => {
+    const rows = DIARY.filter(d=>d.meal===m); const k = rows.reduce((a,r)=>a+nutr(r.food,r.g).kcal,0);
+    return `<section class="card meal" aria-label="${m}">
+      <div class="mealhead"><h2 class="h2">${m}</h2><span class="kcal num muted">${rows.length? r0(k)+' kcal':''}</span></div>
+      ${rows.map(r=>{const f=FOODS[r.food]; return `<button class="entry" data-food="${r.food}">${gradeEl(f.grade,1)}<span><div class="name">${f.name}</div><div class="meta">${r.label}${f.scanned?' · <span class="tag">Scanned</span>':''}</div></span><span class="k num">${r0(nutr(r.food,r.g).kcal)}</span></button>`}).join('')}
+      <button class="addrow" data-add="${m}">${ic('plus')} Add to ${m.toLowerCase()}</button>
+    </section>`;}).join('');
+  return `<div class="pagehead"><div><div class="tiny muted">Tuesday</div><h1 class="h1">6 October</h1></div>
+      <div class="daybar"><button class="iconbtn" aria-label="Previous day">${ic('left')}</button><button class="pill">Today</button><button class="iconbtn" aria-label="Next day">${ic('right')}</button></div></div>
+    <div class="stack">${todaySummary()}
+      <div class="banner">${ic('info')}<span>Sodium is close to your low-sodium limit. Most of it came from <b>Aloo bhujia</b> (315 mg).</span></div>
+      ${meals}
+      <section class="card meal"><div class="mealhead"><h2 class="h2">Exercise</h2><span class="tag">Preview</span></div>
+        <button class="entry" data-go="workout"><span class="eximg" style="width:40px;height:40px">${ic('dumbbell')}</span><span><div class="name">Push day · 5 exercises</div><div class="meta">42 min · about 260 kcal burned</div></span>${ic('chev','chev')}</button></section>
+    </div>`;
+}
+function hitRow(key, ctx){ const f=FOODS[key]; const p=f.portions[0]; return `<button class="hit" data-food="${key}" data-ctx="${ctx||''}">${gradeEl(f.grade)}<span><div class="name">${f.name}${f.brand?` <span class="muted" style="font-weight:500">· ${f.brand}</span>`:''}</div><div class="meta">${p[0]} · <span class="num">${r0(f.per.kcal*p[1]/100)}</span> kcal · ${f.src}</div></span><span class="add" aria-hidden="true">${ic('plus')}</span></button>`; }
+function searchResults(q){
+  q=q.trim().toLowerCase(); if(q.length<2) return null;
+  const alias = {chawal:'rice', panner:'paneer', daal:'dal', bhaat:'rice'};
+  const qq = alias[q]||q;
+  return Object.keys(FOODS).filter(k=> (FOODS[k].name.toLowerCase().includes(qq)) );
+}
+function searchBlock(ctx){
+  const res = searchResults(state.q);
+  const list = res===null
+    ? `<div class="tiny muted" style="margin:16px 0 4px">Recent</div><div class="list">${RECENTS.map(k=>hitRow(k,ctx)).join('')}</div>`
+    : res.length ? `<div class="tiny muted" style="margin:16px 0 4px">${res.length} results</div><div class="list">${res.map(k=>hitRow(k,ctx)).join('')}</div>`
+    : `<div class="card" style="padding:16px; margin-top:16px"><b>No match for “${state.q}”</b><p class="small muted" style="margin:6px 0 12px">Scan it, or add it yourself. Your foods show up in search next time.</p><div class="row"><button class="btn" data-go="scan">${ic('scan')} Scan</button><button class="btn ghost" data-addtab="quick">Create food</button></div></div>`;
+  return `<label class="search" for="q">${ic('foods')}<input id="q" type="search" placeholder="Search: dal, chawal, coffee…" value="${state.q.replace(/"/g,'&quot;')}" autocomplete="off"></label>${list}`;
+}
+function screenFoods(){
+  return `<div class="pagehead"><h1 class="h1">Foods</h1><button class="btn ghost" data-addtab="quick" style="min-height:40px">${ic('plus')} Create</button></div>
+    <div class="stack">${searchBlock('foods')}
+    <p class="note">Try “dal”, “chawal” (Hinglish works) or “panner” (typos work). Data: INDB, USDA FoodData Central, Open Food Facts, and your scans.</p></div>`;
+}
+function screenFood(){
+  const key=state.food, f=FOODS[key]; const [plabel,pg]=f.portions[state.portion]; const g = pg*state.qty;
+  const n=nutr(key,g); const unit=f.unit||'g';
+  const isScan = state.screen==='result';
+  const provClass = f.scanned ? 'label' : '';
+  const provText = f.scanned ? 'Read from label' : f.src==='OFF'?'Verified · Open Food Facts':`Verified · ${f.src}`;
+  const flags = key==='bhujia' ? `<div class="flag">${ic('info')}<span><b>Not ideal for your goal.</b> You chose low sodium. One small bowl uses 21% of your 1,500 mg limit. Check the pack to confirm.</span></div>` : '';
+  const alts = (f.grade>'B') ? `<section class="card" style="padding:16px"><div class="row between" style="margin-bottom:10px"><h2 class="h2">Healthier in India</h2><span class="tag">Basic: top 1</span></div>
+      <button class="alt" data-food="chana">${gradeEl('A')}<span><div style="font-weight:650">Roasted chana, plain</div><div class="small muted">Same crunch, 98% less sodium, 3× the protein</div></span>${ic('chev','chev')}</button>
+      <div class="note" style="margin-top:10px">Pro shows 5 options. <button style="text-decoration:underline" data-go="credits">See plans</button></div></section>` : '';
+  const head = isScan ? `<div class="banner" style="margin-bottom:14px">${ic('check')}<span>Read from 2 photos. <b>Confidence: high.</b> 1 AI scan used, ${state.credits} left this month.</span></div>` : '';
+  return `<div class="pagehead"><div class="row"><button class="iconbtn" data-back aria-label="Back">${ic('back')}</button><div><div class="tiny muted">${isScan?'Scan result':f.kind==='dish'?'Dish':f.kind==='packaged'?'Packaged':'Food'}</div><h1 class="h1">${f.name}</h1>${f.brand?`<div class="small muted">${f.brand}</div>`:''}</div></div></div>
+  ${head}
+  <div class="grid2"><div class="stack">
+    <section class="card hero">
+      <div class="row between" style="flex-wrap:wrap; gap:14px"><div class="strip" role="img" aria-label="Grade ${f.grade}">${'ABCDE'.split('').map(x=>`<span class="${x===f.grade?'on':''}">${x}</span>`).join('')}</div>
+        <div style="text-align:right"><div class="num" style="font-size:26px; font-weight:700">${f.gv}<span class="small muted">/100</span></div><div class="note">${state.goal==='low_sodium'&&f.per.sod>400?'Adjusted for low sodium':'Health score'}</div></div></div>
+      <ul class="reasons">${f.reasons.map(([t,x])=>`<li><span class="dot ${t}"></span><span>${x}</span></li>`).join('')}</ul>
+    </section>
+    ${flags}
+    <section class="card" style="padding:16px; display:grid; gap:14px">
+      <h2 class="h2">Portion</h2>
+      <div class="chips" role="group" aria-label="Portion">${f.portions.map((p,i)=>`<button class="chip" data-portion="${i}" aria-pressed="${i===state.portion}">${p[0]} <span class="muted num">${p[1]} ${unit}</span></button>`).join('')}</div>
+      <div class="row between"><span class="small muted">How many?</span><div class="stepper"><button data-qty="-1" aria-label="Less">−</button><span class="val num">${state.qty % 1 ? state.qty.toFixed(1) : state.qty}</span><button data-qty="1" aria-label="More">+</button></div></div>
+      <div class="row between"><span class="small muted">Meal</span><div class="chips">${MEALS.map(m=>`<button class="chip" data-meal="${m}" aria-pressed="${m===state.meal}">${m}</button>`).join('')}</div></div>
+    </section>
+  </div>
+  <div class="stack">
+    <section class="card" style="padding:16px">
+      <div class="row between"><h2 class="h2">Nutrition</h2><span class="prov ${provClass}">${provText}</span></div>
+      <div class="small muted" style="margin:4px 0 6px">For ${state.qty} × ${plabel} (<span class="num">${r0(g)} ${unit}</span>)</div>
+      <table class="facts"><tbody>
+        <tr class="thick"><td><b>Calories</b></td><td class="num"><b>${r0(n.kcal)} kcal</b></td></tr>
+        <tr><td>Protein</td><td class="num">${r1(n.p)} g</td></tr>
+        <tr><td>Carbs</td><td class="num">${r1(n.c)} g</td></tr>
+        <tr><td>&nbsp;&nbsp;Sugars</td><td class="num">${r1(n.sug)} g</td></tr>
+        <tr><td>Fat</td><td class="num">${r1(n.f)} g</td></tr>
+        <tr><td>&nbsp;&nbsp;Saturated fat</td><td class="num">${r1(n.sat)} g</td></tr>
+        <tr><td>Fibre</td><td class="num">${r1(n.fib)} g</td></tr>
+        <tr><td>Sodium</td><td class="num">${r0(n.sod)} mg</td></tr>
+      </tbody></table>
+      ${key==='bhujia'?'<div class="note" style="margin-top:10px">Ingredients: gram flour, edible vegetable oil (palmolein), potato, salt, spices, INS 627, INS 631, citric acid, antioxidant (INS 319).</div>':''}
+    </section>
+    ${alts}
+    ${isScan?`<button class="btn ghost block" data-toast="Saved to My foods. It will show up in search.">Save to my foods</button>`:''}
+  </div></div>
+  <div class="sticky-cta"><button class="btn block" data-log>${ic('plus')} Add to ${state.meal.toLowerCase()} · <span class="num">${r0(n.kcal)}</span> kcal</button></div>`;
+}
+function screenScan(){
+  const n = state.shots.length;
+  return `<div class="pagehead"><h1 class="h1">Scan</h1><span class="pill">${state.credits} AI scans left</span></div>
+  <div class="viewfinder" role="img" aria-label="Camera preview">
+    <div class="vf-hint">Point at a barcode, a label or your plate</div>
+    <div class="vf-frame"><i></i><i></i><i></i><i></i></div>
+    <div class="vf-pack">ALOO<br>BHUJIA</div>
+    <div class="vf-detect">${ic('barcode')} No barcode yet · take a photo</div>
+  </div>
+  <div class="shutterbar">
+    <button class="btn ghost" data-toast="Opens your photo gallery" style="justify-self:start">${ic('image')} Gallery</button>
+    <button class="shutter" data-shot aria-label="Take photo"><i></i></button>
+    <span></span>
+  </div>
+  <div class="slots" aria-label="Photos">
+    ${[0,1,2].map(i=> i<n ? `<div class="slot full ${i===1?'back':''}">${i===0?'Front':'Label'}</div>` : `<div class="slot">${i===0?'Front':i===1?'Nutrition label':'Ingredients'}<br>(optional)</div>`).join('')}
+  </div>
+  <div class="stack" style="margin-top:16px">
+    ${n? `<button class="btn block" data-analyse>Analyse ${n} photo${n>1?'s':''} · uses 1 AI scan</button>` : `<p class="note">Tip: a photo of the nutrition label gives exact numbers. A barcode is free and instant.</p>`}
+    <button class="btn ghost block" data-barcode>${ic('barcode')} Simulate a barcode scan (free)</button>
+  </div>`;
+}
+function screenScanning(){
+  const st = ['Uploading photos','Reading the label','Checking the numbers','Scoring for your goal'];
+  return `<div class="pagehead"><h1 class="h1">Analysing</h1></div>
+  <section class="card steps" aria-live="polite">${st.map((s,i)=>`<div class="step ${i<state.scanStage?'done':i===state.scanStage?'active':'wait'}"><span class="s">${i<state.scanStage?ic('check'):''}</span>${s}</div>`).join('')}</section>
+  <p class="note" style="margin-top:12px">Usually 5–15 seconds. You can leave this screen. The result will be in History.</p>`;
+}
+function screenHistory(){
+  const seg = state.histSeg;
+  const scans = SCANS.map(s=>{const f=FOODS[s.food]; return `<button class="hit" data-food="${s.food}" data-ctx="history">${'<span class="thumb '+s.t+'"></span>'}<span><div class="name">${f.name}</div><div class="meta">${s.when} · ${s.kind} · ${s.conf}</div></span><span style="margin-left:auto">${gradeEl(f.grade)}</span></button>`}).join('');
+  const days = [['Mon 5 Oct',1880,'On target'],['Sun 4 Oct',2240,'Over by 240 kcal'],['Sat 3 Oct',1610,'Under'],['Fri 2 Oct',1950,'On target']].map(([d,k,s])=>`<button class="hit"><span><div class="name">${d}</div><div class="meta">${s}</div></span><span class="num" style="margin-left:auto; font-weight:650">${r0(k)} kcal</span>${ic('chev','chev')}</button>`).join('');
+  return `<div class="pagehead"><h1 class="h1">History</h1></div>
+  <div class="segtabs" role="tablist"><button role="tab" data-seg="scans" aria-selected="${seg==='scans'}">Scans</button><button role="tab" data-seg="days" aria-selected="${seg==='days'}">Days</button></div>
+  <div class="list" style="margin-top:8px">${seg==='scans'?scans:days}</div>`;
+}
+function screenMe(){
+  const row=(l,v,go)=>`<button class="setrow" ${go?`data-go="${go}"`:''}><span>${l}</span><span class="v">${v}</span>${ic('chev','chev')}</button>`;
+  return `<div class="pagehead"><div><div class="tiny muted">Signed in with Google</div><h1 class="h1">Me</h1></div></div>
+  <div class="stack">
+    <section class="card" style="padding:16px"><div class="row between"><div><div class="tiny muted">Plan</div><div class="h2" style="margin-top:4px">Basic</div></div><button class="btn ghost" data-go="credits" style="min-height:40px">Credits &amp; plans</button></div>
+      <div class="row between small" style="margin:12px 0 6px"><span>AI scans this month</span><b class="num">${state.credits} / 20 left</b></div><div class="meter"><i style="width:${state.credits/20*100}%"></i></div></section>
+    <section class="card">${row('Goal','Low sodium')}${row('Diet','Vegetarian')}${row('Allergies','Peanut')}${row('Daily targets','2,000 kcal · 60 g protein')}${row('Country','India')}${row('Portions','Household (katori, roti)')}</section>
+    <section class="card">${row('Set up again','Goal, diet, targets','onboarding')}${row('Data sources','INDB · USDA · OFF')}${row('Privacy and terms','')}</section>
+    <button class="btn ghost block" style="color:var(--bad)">Delete account</button>
+  </div>`;
+}
+function screenCredits(){
+  const tx=[['Aloo bhujia · label scan','−1','Today'],['Makhana · barcode','Free','Yesterday'],['Poha · meal photo','−1','4 Oct'],['Paneer butter masala · scan failed','Refunded','1 Oct'],['October allowance','+20','1 Oct']];
+  return `<div class="pagehead"><div class="row"><button class="iconbtn" data-back aria-label="Back">${ic('back')}</button><h1 class="h1">Credits</h1></div></div>
+  <div class="stack">
+    <section class="card" style="padding:18px"><div class="tiny muted">AI scans left this month</div><div class="num" style="font-size:40px; font-weight:700; line-height:1.1">${state.credits}<span class="small muted"> / 20</span></div><div class="meter" style="margin:10px 0"><i style="width:${state.credits/20*100}%"></i></div><div class="note">Resets on 1 November. Barcode scans, search and logging are always free. Failed scans are refunded.</div></section>
+    <div class="plans">
+      <section class="card plan current"><div class="row between"><b class="h2">Basic</b><span class="tag">Current</span></div><div class="num" style="font-size:22px; font-weight:700">₹0</div><ul><li>20 AI scans a month</li><li>Unlimited barcode scans and logging</li><li>1 healthier alternative</li><li>90 days of history</li></ul></section>
+      <section class="card plan"><div class="row between"><b class="h2">Pro</b><span class="tag">Coming soon</span></div><div class="num" style="font-size:22px; font-weight:700">Price TBC</div><ul><li>200 AI scans a month</li><li>5 alternatives, side by side</li><li>Goal-based scoring and trends</li><li>Unlimited history</li></ul><button class="btn block" data-toast="You're on the Pro waitlist. We'll email you when it opens.">Join the waitlist</button></section>
+    </div>
+    <section class="card"><div class="mealhead"><h2 class="h2">Activity</h2></div>${tx.map(([a,b,c])=>`<div class="entry"><span><div class="name">${a}</div><div class="meta">${c}</div></span><span class="k num">${b}</span></div>`).join('')}</section>
+  </div>`;
+}
+function screenOnboarding(){
+  const goals=[['general','Eat better','Balanced targets, honest grades'],['weight_loss','Lose weight','Lower calorie target'],['muscle','Build muscle','Higher protein target'],['low_sugar','Cut sugar','Sugar limit 25 g'],['low_sodium','Cut salt','Sodium limit 1,500 mg']];
+  return `<div class="pagehead"><div class="row"><button class="iconbtn" data-back aria-label="Back">${ic('back')}</button><div><div class="tiny muted">Step 1 of 4</div><h1 class="h1">What’s your goal?</h1></div></div></div>
+  <div class="dots" style="margin-bottom:16px"><i class="on"></i><i></i><i></i><i></i></div>
+  <div class="goalgrid">${goals.map(([k,t,d])=>`<button class="goal" data-goal="${k}" aria-pressed="${state.goal===k}"><b style="font-size:16px">${t}</b><span class="small muted">${d}</span></button>`).join('')}</div>
+  <div class="row" style="margin-top:20px; gap:10px"><button class="btn ghost" data-back>Skip</button><button class="btn" style="flex:1" data-toast="Next: diet, allergies, then your daily targets.">Continue</button></div>`;
+}
+function screenWorkout(){
+  const ex=[['Push-ups','Chest · bodyweight',[['1','12','—',1],['2','12','—',1],['3','10','—',0]]],['Dumbbell bench press','Chest · dumbbell',[['1','10','12.5 kg',1],['2','8','12.5 kg',0]]],['Shoulder press','Shoulders · dumbbell',[['1','10','10 kg',0]]]];
+  return `<div class="pagehead"><div class="row"><button class="iconbtn" data-back aria-label="Back">${ic('back')}</button><div><div class="tiny muted">Preview · not in v1</div><h1 class="h1">Push day</h1></div></div><span class="pill">${ic('flame')} ~260 kcal</span></div>
+  <div class="stack">
+    <label class="search" for="exq">${ic('foods')}<input id="exq" placeholder="Search 800+ exercises: squat, plank…"></label>
+    ${ex.map(([n,m,sets])=>`<section class="card"><div class="ex" style="border-top:0"><span class="eximg">${ic('dumbbell')}</span><span><div style="font-weight:650">${n}</div><div class="small muted">${m}</div></span></div>
+      <div class="sets"><span class="hd">Set</span><span class="hd">Reps</span><span class="hd">Weight</span><span class="hd">Done</span>${sets.map(([s,r,w,d])=>`<span class="num">${s}</span><span class="num">${r}</span><span class="num">${w}</span><span class="check ${d?'on':''}">${d?ic('check'):''}</span>`).join('')}</div></section>`).join('')}
+    <button class="btn ghost block">${ic('plus')} Add exercise</button>
+    <p class="note">Exercise data and images: free-exercise-db (public domain). Calories burned are estimated from MET values.</p>
+  </div>`;
+}
+function renderRail(){
+  const rows = RECENTS.slice(0,4).map(k=>{const f=FOODS[k],p=f.portions[0];return `<button class="hit" data-food="${k}" data-ctx="today" style="padding:8px 0; min-height:48px">${gradeEl(f.grade,1)}<span><div class="name small">${f.name}</div><div class="meta">${p[0]} · ${r0(f.per.kcal*p[1]/100)} kcal</div></span></button>`}).join('');
+  document.getElementById('rail').innerHTML = state.screen==='today'
+    ? `<section class="card"><div class="h2" style="margin-bottom:6px">Log again</div><div class="list">${rows}</div></section>
+       <section class="card"><div class="tiny muted">Streak</div><div class="h2" style="margin:4px 0">5 days logged</div><div class="note">Log dinner to keep it going.</div></section>`
+    : `${todaySummary(true)}`;
+}
+
+/* ---------- add sheet ---------- */
+function renderOverlay(){
+  const ov = document.getElementById('overlay');
+  if(!state.sheet){ ov.innerHTML=''; return; }
+  const t = state.addTab;
+  const body = t==='search' ? searchBlock('add')
+    : t==='quick' ? `<div class="stack" style="margin-top:14px">
+        <label class="small" for="qa-name">Name<input id="qa-name" class="search" style="width:100%; margin-top:6px" placeholder="e.g. Mom's rajma"></label>
+        <div class="grid2" style="grid-template-columns:1fr 1fr">${[['qa-k','Calories (kcal)','350'],['qa-p','Protein (g)','14'],['qa-c','Carbs (g)','48'],['qa-f','Fat (g)','10']].map(([id,l,v])=>`<label class="small" for="${id}">${l}<input id="${id}" class="search num" style="width:100%; margin-top:6px" inputmode="decimal" placeholder="${v}"></label>`).join('')}</div>
+        <label class="row small"><input type="checkbox" id="qa-save" checked> Save to My foods so I can search it later</label>
+        <button class="btn block" data-toast="Added to ${state.addMeal.toLowerCase()}." data-close>Add to ${state.addMeal.toLowerCase()}</button></div>`
+    : `<div class="stack" style="margin-top:14px"><p class="small">Barcode, label, front of pack or your plate. One button does all of it.</p><button class="btn block" data-go="scan" data-close>${ic('scan')} Open camera</button></div>`;
+  ov.innerHTML = `<div class="scrim" data-close-scrim><div class="sheet" role="dialog" aria-modal="true" aria-label="Add food">
+    <div class="grab"></div>
+    <div class="row between" style="margin-bottom:12px"><h2 class="h2">Add to ${state.addMeal.toLowerCase()}</h2><button class="iconbtn" data-close aria-label="Close">${ic('x')}</button></div>
+    <div class="segtabs" role="tablist"><button role="tab" data-addtab="search" aria-selected="${t==='search'}">Search</button><button role="tab" data-addtab="scan" aria-selected="${t==='scan'}">Scan</button><button role="tab" data-addtab="quick" aria-selected="${t==='quick'}">Quick add</button></div>
+    <div style="margin-top:12px">${body}</div></div></div>`;
+}
+
+/* ---------- render & events ---------- */
+function render(){
+  const s=state.screen; const m=document.getElementById('main');
+  m.innerHTML = s==='today'?screenToday(): s==='foods'?screenFoods(): s==='food'||s==='result'?screenFood(): s==='scan'?screenScan(): s==='scanning'?screenScanning(): s==='history'?screenHistory(): s==='me'?screenMe(): s==='credits'?screenCredits(): s==='onboarding'?screenOnboarding(): screenWorkout();
+  renderNav(); renderRail(); renderOverlay();
+}
+function go(screen){ if(!['food','result','scanning','credits','onboarding','workout'].includes(screen)) state.from = screen; state.screen=screen; state.sheet=false; window.scrollTo({top:0}); render(); }
+function openFood(key, ctx){ state.food=key; state.portion=0; state.qty=1; state.meal = ctx==='add'?state.addMeal:(FOODS[key].scanned?'Snack':'Lunch'); state.prev=state.screen; state.sheet=false; state.screen='food'; window.scrollTo({top:0}); render(); }
+let toastT; function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=`<div class="toast">${msg}</div>`; clearTimeout(toastT); toastT=setTimeout(()=>t.innerHTML='',2600); }
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+document.getElementById('app').addEventListener('click', e=>{
+  const b = e.target.closest('button, [data-close-scrim]'); if(!b) return;
+  if(b.matches('[data-close-scrim]') && e.target!==b) { if(!e.target.closest('button')) return; }
+  const d=b.dataset;
+  if(b.matches('[data-close-scrim]') && e.target===b){ state.sheet=false; render(); return; }
+  if(d.dir){ document.getElementById('app').dataset.dir=d.dir; document.querySelectorAll('.protobar .seg button').forEach(x=>x.setAttribute('aria-pressed', x===b)); render(); return; }
+  if(d.go){ go(d.go); if(d.close!==undefined){state.sheet=false; render();} return; }
+  if(d.add){ state.addMeal=d.add; state.addTab='search'; state.q=''; state.sheet=true; render(); setTimeout(()=>document.getElementById('q')?.focus(),30); return; }
+  if(d.addtab){ if(!state.sheet){ state.addMeal='Dinner'; state.sheet=true; } state.addTab=d.addtab; render(); return; }
+  if(d.close!==undefined){ state.sheet=false; if(d.toast) toast(d.toast); render(); return; }
+  if(d.food){ if(d.ctx==='history'){ state.from='history'; openFood(d.food); return;} openFood(d.food, d.ctx); return; }
+  if(d.portion){ state.portion=+d.portion; render(); return; }
+  if(d.qty){ state.qty=Math.max(.5, state.qty + (+d.qty)*(state.qty<1||(state.qty===1&&+d.qty<0)?.5:1)); render(); return; }
+  if(d.meal){ state.meal=d.meal; render(); return; }
+  if(d.log!==undefined){ const f=FOODS[state.food],[pl,pg]=f.portions[state.portion]; DIARY.push({id:Date.now(), meal:state.meal, food:state.food, label:(state.qty===1?pl:`${state.qty} × ${pl}`), g:pg*state.qty}); toast(`Added ${f.name} to ${state.meal.toLowerCase()}.`); go('today'); return; }
+  if(d.back!==undefined){ go(state.from||'today'); return; }
+  if(d.seg){ state.histSeg=d.seg; render(); return; }
+  if(d.goal){ state.goal=d.goal; render(); return; }
+  if(d.shot!==undefined){ if(state.shots.length<3) state.shots.push(1); render(); return; }
+  if(d.barcode!==undefined){ toast('Barcode found: Roasted makhana. Free scan, no credit used.'); state.from='scan'; openFood('makhana'); return; }
+  if(d.analyse!==undefined){ state.scanStage=0; state.screen='scanning'; render();
+    const tick=()=>{ state.scanStage++; if(state.scanStage>=4){ state.credits--; state.shots=[]; state.food='bhujia'; state.portion=0; state.qty=1; state.meal='Snack'; state.screen='result'; render(); return;} render(); setTimeout(tick, reduce?200:900); };
+    setTimeout(tick, reduce?200:900); return; }
+  if(d.toast){ toast(d.toast); return; }
+});
+document.getElementById('app').addEventListener('input', e=>{
+  if(e.target.id==='q'){ state.q=e.target.value; const pos=e.target.selectionStart; render(); const q=document.getElementById('q'); q.focus(); q.setSelectionRange(pos,pos); }
+});
+render();
+</script>

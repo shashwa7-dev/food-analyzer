@@ -1,0 +1,11 @@
+{
+  "images": [
+    { "index": 0, "kind": "front", "quality": [] }
+  ],
+  "product": {
+    "name": "Shree Rama Aloo Bhujia",
+    "brand": "Shree Rama",
+    "categoryGuess": "Namkeen"
+  },
+  "printedLanguage": "en"
+}

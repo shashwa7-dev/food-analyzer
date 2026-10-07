@@ -1,215 +1,134 @@
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
+/* Tailwind's dark: variant follows the appearance setting, matching the dark palette blocks below. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) { @slot; }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) { @slot; }
+  }
 }
 
 :root {
-  /* ========== BASE THEME COLORS (LIGHT) - HSL ========== */
-  --background: 54 45% 95%; /* Converted from oklch(0.9529 0.0146 102.4597) */
-  --foreground: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --card: 54 45% 95%; /* Converted from oklch(0.9529 0.0146 102.4597) */
-  --card-foreground: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --popover: 0 0% 100%; /* Converted from oklch(1.0000 0 0) */
-  --popover-foreground: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --primary: 44 25% 38%; /* Converted from oklch(0.6083 0.0623 44.3588) */
-  --primary-foreground: 0 0% 100%; /* Converted from oklch(1.0000 0 0) */
-  --secondary: 80 15% 72%; /* Converted from oklch(0.7473 0.0387 80.5476) */
-  --secondary-foreground: 0 0% 100%; /* Converted from oklch(1.0000 0 0) */
-  --muted: 49 15% 82%; /* Converted from oklch(0.8502 0.0389 49.0874) */
-  --muted-foreground: 37 20% 52%; /* Converted from oklch(0.5416 0.0512 37.2132) */
-  --accent: 49 15% 82%; /* Converted from oklch(0.8502 0.0389 49.0874) */
-  --accent-foreground: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --destructive: 53 4% 22%; /* Converted from oklch(0.2225 0.0098 52.9636) */
-  --destructive-foreground: 0 0% 100%; /* Converted from oklch(1.0000 0 0) */
-  --border: 80 15% 72%; /* Converted from oklch(0.7473 0.0387 80.5476) */
-  --input: 80 15% 72%; /* Converted from oklch(0.7473 0.0387 80.5476) */
-  --ring: 44 25% 38%; /* Converted from oklch(0.6083 0.0623 44.3588) */
-  --sidebar: 49 11% 87%; /* Converted from oklch(0.8903 0.0278 49.5658) */
-  --sidebar-foreground: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --sidebar-primary: 44 25% 38%; /* Converted from oklch(0.6083 0.0623 44.3588) */
-  --sidebar-primary-foreground: 0 0% 100%; /* Converted from oklch(1.0000 0 0) */
-  --sidebar-accent: 52 21% 70%; /* Converted from oklch(0.7272 0.0539 52.3320) */
-  --sidebar-accent-foreground: 0 0% 100%; /* Converted from oklch(1.0000 0 0) */
-  --sidebar-border: 52 16% 62%; /* Converted from oklch(0.6440 0.0405 52.3917) */
-  --sidebar-ring: 44 25% 38%; /* Converted from oklch(0.6083 0.0623 44.3588) */
-
-  /* ========== HEALTH SCORE COLORS - HSL ========== */
-  --health-excellent: 142 71% 45%; /* Green for excellent (8-10) */
-  --health-good: 82 84% 44%; /* Lime for good (6-7) */
-  --health-fair: 45 93% 47%; /* Yellow for fair (4-5) */
-  --health-poor: 24 95% 53%; /* Orange for poor (2-3) */
-  --health-very-poor: 0 84% 60%; /* Red for very poor (0-1) */
-
-  /* ========== NUTRITION COLORS - HSL ========== */
-  --nutrition-calories: 43 96% 56%; /* Amber for calories */
-  --nutrition-protein: 258 90% 66%; /* Purple for protein */
-  --nutrition-carbs: 188 95% 42%; /* Cyan for carbs */
-  --nutrition-fat: 24 95% 53%; /* Orange for fats */
-  --nutrition-sodium: 0 84% 60%; /* Red for sodium */
-  --nutrition-fiber: 142 71% 45%; /* Green for fiber */
-
-  /* ========== SECTION INDICATORS - HSL ========== */
-  --section-health: 258 90% 66%; /* Purple for health section */
-  --section-nutrition: 142 71% 45%; /* Green for nutrition section */
-  --section-concerns: 0 84% 60%; /* Red for concerns section */
-  --section-info: 44 25% 38%; /* Primary blue for info section */
-
-  /* ========== FONTS & SHADOWS ========== */
-  --font-sans: DM Sans, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: Menlo, monospace;
-  --radius: 0.5rem;
-  --shadow-2xs: 2px 2px 0px 0px hsl(20 18% 51% / 0.06);
-  --shadow-xs: 2px 2px 0px 0px hsl(20 18% 51% / 0.06);
-  --shadow-sm: 2px 2px 0px 0px hsl(20 18% 51% / 0.11),
-    2px 1px 2px -1px hsl(20 18% 51% / 0.11);
-  --shadow: 2px 2px 0px 0px hsl(20 18% 51% / 0.11),
-    2px 1px 2px -1px hsl(20 18% 51% / 0.11);
-  --shadow-md: 2px 2px 0px 0px hsl(20 18% 51% / 0.11),
-    2px 2px 4px -1px hsl(20 18% 51% / 0.11);
-  --shadow-lg: 2px 2px 0px 0px hsl(20 18% 51% / 0.11),
-    2px 4px 6px -1px hsl(20 18% 51% / 0.11);
-  --shadow-xl: 2px 2px 0px 0px hsl(20 18% 51% / 0.11),
-    2px 8px 10px -1px hsl(20 18% 51% / 0.11);
-  --shadow-2xl: 2px 2px 0px 0px hsl(20 18% 51% / 0.28);
-  --tracking-normal: 0em;
-  --spacing: 0.25rem;
+  color-scheme: light;
+  --bg: #FAFBF6; --wash-a: #EEF4DA; --surface: #FFFFFF; --sunken: #F1F3EC; --ink: #12150F; --muted: #646B5E;
+  --line: #E4E8DC; --accent-ink: #FFFFFF;
+  --brand: #A6D84A; --brand-soft: #E3F2C2; --brand-deep: #4D7A12; --brand-ink: #12150F;
+  --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
+  --action: #12150F; --action-ink: #FFFFFF;
+  --protein: #2E7CF6; --carbs: #7A5AF8; --fat: #D6408F; --fat-soft: #FBE3EF;
+  --ok: #1F8A4C; --warn: #B86E00; --bad: #C43A16;
+  /* --warn as text: --warn itself is 3.9:1 on white, fine for icons and bars but not for words (≥ 5:1 on its 10% tint). */
+  --warn-ink: #945A00;
+  /* Text on tinted fills: --good-ink on grade-a/15 (refund pill), --on-brand-soft on --brand-soft (Free pill, plan badge); both ≥ 4.5:1. */
+  --good-ink: #026B36; --on-brand-soft: #446C10;
+  --g-a: #038141; --g-b: #85BB2F; --g-c: #FECB02; --g-d: #EE8100; --g-e: #D63A0F;
+  /* Letters on grade fills (and the red destructive button): white on the dark A and E, ink on the light B, C, D; all ≥ 4.5:1. */
+  --on-grade: #FFFFFF; --on-grade-light: #12150F;
+  /* Macro numbers as text: a shade deeper than the fills so they pass 4.5:1 on --bg, --surface and --sunken. */
+  --protein-ink: #1F66D6; --carbs-ink: #6E4CF0; --fat-ink: #C2307C;
+  /* A 1 px hairline ring first, so a card holds its edge against the top wash (no layout shift). */
+  --shadow-card: 0 0 0 1px rgb(20 26 12 / .06), 0 1px 2px rgb(20 26 12 / .05), 0 8px 24px rgb(20 26 12 / .06);
+  /* camera viewfinder: always dark, with white marks on top, in both themes */
+  --viewfinder: #141613; --on-media: #FFFFFF; --on-media-ink: #111111;
 }
-
-/* ========== DARK THEME - HSL ========== */
-.dark {
-  --background: 48 6% 27%; /* Converted from oklch(0.2721 0.0141 48.1783) */
-  --foreground: 54 45% 95%; /* Converted from oklch(0.9529 0.0146 102.4597) */
-  --card: 51 6% 32%; /* Converted from oklch(0.3291 0.0156 50.8936) */
-  --card-foreground: 54 45% 95%; /* Converted from oklch(0.9529 0.0146 102.4597) */
-  --popover: 51 6% 32%; /* Converted from oklch(0.3291 0.0156 50.8936) */
-  --popover-foreground: 54 45% 95%; /* Converted from oklch(0.9529 0.0146 102.4597) */
-  --primary: 52 21% 70%; /* Converted from oklch(0.7272 0.0539 52.3320) */
-  --primary-foreground: 48 6% 27%; /* Converted from oklch(0.2721 0.0141 48.1783) */
-  --secondary: 37 20% 52%; /* Converted from oklch(0.5416 0.0512 37.2132) */
-  --secondary-foreground: 54 45% 95%; /* Converted from oklch(0.9529 0.0146 102.4597) */
-  --muted: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --muted-foreground: 51 15% 73%; /* Converted from oklch(0.7575 0.0380 50.8610) */
-  --accent: 80 15% 72%; /* Converted from oklch(0.7473 0.0387 80.5476) */
-  --accent-foreground: 48 6% 27%; /* Converted from oklch(0.2721 0.0141 48.1783) */
-  --destructive: 21 72% 69%; /* Converted from oklch(0.6875 0.1420 21.4566) */
-  --destructive-foreground: 48 6% 27%; /* Converted from oklch(0.2721 0.0141 48.1783) */
-  --border: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --input: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --ring: 52 21% 70%; /* Converted from oklch(0.7272 0.0539 52.3320) */
-  --sidebar: 53 4% 22%; /* Converted from oklch(0.2225 0.0098 52.9636) */
-  --sidebar-foreground: 54 45% 95%; /* Converted from oklch(0.9529 0.0146 102.4597) */
-  --sidebar-primary: 52 21% 70%; /* Converted from oklch(0.7272 0.0539 52.3320) */
-  --sidebar-primary-foreground: 53 4% 22%; /* Converted from oklch(0.2225 0.0098 52.9636) */
-  --sidebar-accent: 80 15% 72%; /* Converted from oklch(0.7473 0.0387 80.5476) */
-  --sidebar-accent-foreground: 53 4% 22%; /* Converted from oklch(0.2225 0.0098 52.9636) */
-  --sidebar-border: 39 10% 26%; /* Converted from oklch(0.4063 0.0255 40.3627) */
-  --sidebar-ring: 52 21% 70%; /* Converted from oklch(0.7272 0.0539 52.3320) */
-
-  /* ========== DARK THEME HEALTH COLORS - HSL ========== */
-  --health-excellent: 142 85% 50%; /* Brighter green for dark theme */
-  --health-good: 82 90% 55%; /* Brighter lime for dark theme */
-  --health-fair: 45 100% 60%; /* Brighter yellow for dark theme */
-  --health-poor: 24 100% 65%; /* Brighter orange for dark theme */
-  --health-very-poor: 0 90% 70%; /* Brighter red for dark theme */
-
-  /* ========== DARK THEME NUTRITION COLORS - HSL ========== */
-  --nutrition-calories: 43 100% 65%; /* Brighter amber for dark theme */
-  --nutrition-protein: 258 85% 75%; /* Brighter purple for dark theme */
-  --nutrition-carbs: 188 90% 55%; /* Brighter cyan for dark theme */
-  --nutrition-fat: 24 100% 65%; /* Brighter orange for dark theme */
-  --nutrition-sodium: 0 90% 70%; /* Brighter red for dark theme */
-  --nutrition-fiber: 142 85% 50%; /* Brighter green for dark theme */
-
-  /* ========== DARK THEME SECTION INDICATORS - HSL ========== */
-  --section-health: 258 85% 75%; /* Brighter purple for dark theme */
-  --section-nutrition: 142 85% 50%; /* Brighter green for dark theme */
-  --section-concerns: 0 90% 70%; /* Brighter red for dark theme */
-  --section-info: 52 21% 70%; /* Primary color for dark theme */
-
-  /* ========== DARK THEME SHADOWS ========== */
-  --shadow-2xs: 2px 2px 0px 0px hsl(20 18% 30% / 0.06);
-  --shadow-xs: 2px 2px 0px 0px hsl(20 18% 30% / 0.06);
-  --shadow-sm: 2px 2px 0px 0px hsl(20 18% 30% / 0.11),
-    2px 1px 2px -1px hsl(20 18% 30% / 0.11);
-  --shadow: 2px 2px 0px 0px hsl(20 18% 30% / 0.11),
-    2px 1px 2px -1px hsl(20 18% 30% / 0.11);
-  --shadow-md: 2px 2px 0px 0px hsl(20 18% 30% / 0.11),
-    2px 2px 4px -1px hsl(20 18% 30% / 0.11);
-  --shadow-lg: 2px 2px 0px 0px hsl(20 18% 30% / 0.11),
-    2px 4px 6px -1px hsl(20 18% 30% / 0.11);
-  --shadow-xl: 2px 2px 0px 0px hsl(20 18% 30% / 0.11),
-    2px 8px 10px -1px hsl(20 18% 30% / 0.11);
-  --shadow-2xl: 2px 2px 0px 0px hsl(20 18% 30% / 0.28);
+/* Appearance (lib/theme.ts): <html data-theme="dark|light|system">, from the eatri8-theme cookie on the
+   server render; Dark when unset. Light is the bare :root above. The dark palette is applied by two
+   blocks: CSS can't share one declaration list between a plain rule and a rule inside @media.
+   The two blocks MUST stay identical (app/globals-css.test.ts checks this). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11140F; --wash-a: #1B2312; --surface: #1A1E17; --sunken: #20251C; --ink: #EDF1E6; --muted: #9AA290;
+  --line: #2A3124; --accent-ink: #06210F;
+  --brand: #A6D84A; --brand-soft: #26331A; --brand-deep: #B9E36E; --brand-ink: #12150F;
+  --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
+  --action: var(--brand); --action-ink: #12150F;
+  --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
+  --protein-ink: var(--protein); --carbs-ink: var(--carbs); --fat-ink: var(--fat);
+  --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: 0 0 0 1px rgb(255 255 255 / .07); --warn-ink: var(--warn);
+  --good-ink: var(--ok); --on-brand-soft: var(--brand-deep);
 }
-
-.glass_bg {
-  /* From https://css.glass */
-  background: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-}
-
-.animated-gradient {
-  background: repeating-linear-gradient(
-    to right,
-    var(--brand) 0%,
-    var(--blue) 50%,
-    var(--brand) 100%
-  );
-  width: 100%;
-  background-size: 200% auto;
-  background-position: 0 100%;
-  animation: gradient 2s infinite;
-  animation-fill-mode: forwards;
-  animation-timing-function: linear;
-}
-
-@keyframes gradient {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-@keyframes slide {
-  from {
-    background-position: 0 0;
-  }
-  to {
-    background-position: 100% 100%;
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+    --bg: #11140F; --wash-a: #1B2312; --surface: #1A1E17; --sunken: #20251C; --ink: #EDF1E6; --muted: #9AA290;
+    --line: #2A3124; --accent-ink: #06210F;
+    --brand: #A6D84A; --brand-soft: #26331A; --brand-deep: #B9E36E; --brand-ink: #12150F;
+    --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
+    --action: var(--brand); --action-ink: #12150F;
+    --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
+    --protein-ink: var(--protein); --carbs-ink: var(--carbs); --fat-ink: var(--fat);
+    --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: 0 0 0 1px rgb(255 255 255 / .07); --warn-ink: var(--warn);
+    --good-ink: var(--ok); --on-brand-soft: var(--brand-deep);
   }
 }
 
-/* Custom scrollbar styles */
-::-webkit-scrollbar {
-  width: 8px;
+@theme inline {
+  --color-bg: var(--bg); --color-surface: var(--surface); --color-sunken: var(--sunken);
+  --color-ink: var(--ink); --color-subtle: var(--muted); --color-line: var(--line);
+  --color-wash-a: var(--wash-a);
+  /* shadcn semantic names mapped to our tokens */
+  --color-background: var(--bg); --color-foreground: var(--ink);
+  --color-primary: var(--action); --color-primary-foreground: var(--action-ink);
+  --color-secondary: var(--sunken); --color-secondary-foreground: var(--ink);
+  /* shadcn's muted is a fill: never use text-muted (invisible); muted text is text-subtle. */
+  --color-muted: var(--sunken); --color-muted-foreground: var(--muted);
+  --color-popover: var(--surface); --color-popover-foreground: var(--ink);
+  --color-card: var(--surface); --color-card-foreground: var(--ink);
+  --color-border: var(--line); --color-input: var(--line); --color-ring: var(--brand-deep);
+  --color-destructive: var(--bad);
+  --radius: 12px;
+  --breakpoint-md: 900px;
+  --color-accent: var(--accent); --color-accent-ink: var(--accent-ink); --color-accent-soft: var(--accent-soft);
+  --color-brand: var(--brand); --color-brand-soft: var(--brand-soft); --color-brand-deep: var(--brand-deep); --color-brand-ink: var(--brand-ink);
+  --color-action: var(--action); --color-action-ink: var(--action-ink);
+  --color-protein: var(--protein); --color-carbs: var(--carbs); --color-fat: var(--fat); --color-fat-soft: var(--fat-soft);
+  --color-protein-ink: var(--protein-ink); --color-carbs-ink: var(--carbs-ink); --color-fat-ink: var(--fat-ink);
+  --color-on-grade: var(--on-grade); --color-on-grade-light: var(--on-grade-light);
+  --color-good-ink: var(--good-ink); --color-on-brand-soft: var(--on-brand-soft);
+  --color-ok: var(--ok); --color-warn: var(--warn); --color-warn-ink: var(--warn-ink); --color-bad: var(--bad);
+  --color-grade-a: var(--g-a); --color-grade-b: var(--g-b); --color-grade-c: var(--g-c);
+  --color-grade-d: var(--g-d); --color-grade-e: var(--g-e);
+  --color-viewfinder: var(--viewfinder); --color-on-media: var(--on-media); --color-on-media-ink: var(--on-media-ink);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --text-xs: 12px; --text-sm: 13px; --text-base: 15px; --text-lg: 17px; --text-xl: 22px; --text-2xl: 30px; --text-3xl: 40px;
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 24px; --radius-xl: 30px;
+  --shadow-card: var(--shadow-card);
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+/* Scanner motion (spec §3 rule 8): only ever applied under motion-safe: */
+@theme {
+  --animate-laser: laser 2.4s ease-in-out infinite;
+  --animate-dot-pulse: dot-pulse 1.2s ease-in-out infinite alternate;
+  @keyframes laser { 0%, 100% { top: 14%; } 50% { top: 86%; } }
+  @keyframes dot-pulse { from { box-shadow: 0 0 0 5px var(--brand-soft); } to { box-shadow: 0 0 0 9px var(--brand-soft); } }
 }
 
-::-webkit-scrollbar-thumb {
-  background-color: var(--brand); /* Tailwind's bg-red-600 */
-  border-radius: 20px;
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-sans); font-size: 15px; line-height: 1.5; letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
 }
-
-/* For Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--brand) transparent;
+/* --shadow-card is only a hairline ring in dark mode (no drop shadow), but a
+   toast floats above everything and needs a real shadow in both themes. */
+/* Toasts float above the phone nav (72 px bar + 12 px margin + safe area); no nav from 900 px. */
+:root { --toast-bottom: calc(96px + env(safe-area-inset-bottom)); }
+@media (min-width: 900px) { :root { --toast-bottom: 24px; } }
+/* Pages without the phone nav (food search) keep toasts near the bottom safe area. */
+@media (max-width: 899.98px) {
+  :root:has([data-no-phone-nav]) { --toast-bottom: calc(18px + env(safe-area-inset-bottom)); }
+  /* no floating nav to clear on these pages */
+  main:has([data-no-phone-nav]) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 }
-
-/* Optional: Style for the corner where horizontal and vertical scrollbars meet */
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+/* Pages with a sticky bottom action bar (a food, a scan result, the food form, onboarding): toasts sit
+   above the bar at every width. After the no-phone-nav rule, so it wins where both apply. */
+:root:has([data-sticky-actions]) { --toast-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.cn-toast { box-shadow: 0 2px 8px rgb(0 0 0 / .18), 0 8px 24px rgb(0 0 0 / .14) !important; }
+.bg-wash { background: linear-gradient(180deg, var(--wash-a) 0, var(--bg) 45%); }
+.scan-scrim { background: linear-gradient(180deg, color-mix(in srgb, var(--viewfinder) 50%, transparent) 0%, transparent 22%, transparent 60%, color-mix(in srgb, var(--viewfinder) 65%, transparent) 100%); }
+.num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.title { font-weight: 600; letter-spacing: -0.032em; line-height: 1.1; text-wrap: balance; }
+.section-title { font-size: 17px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.3; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
