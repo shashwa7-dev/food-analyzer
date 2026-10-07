@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { createUser, resetDb } from "@/tests/helpers/db";
 import { db } from "@/lib/db/client";
-import { food, profile } from "@/lib/db/schema";
+import { food, profile, scan } from "@/lib/db/schema";
+import type { ScanResult } from "@/lib/engine/result";
+import { NotFoundError } from "@/lib/errors";
 import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
-import { createCustomFood, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
+import { createCustomFood, createCustomFoodFromScan, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
 
 const rules = parseHouseholdCsv("keyword,label,grams\nrice,1 katori,150\n");
 const rec = (sourceRef: string, name: string, per100 = { energyKcal: 130, protein: 2.7, carbs: 28, fat: 0.3 }, source: "indb" | "fndds" = "indb") =>
@@ -185,5 +187,76 @@ describe("findAlternatives", () => {
     expect(await findAlternatives(u, { categories: [], country: "IN", grade: "E" })).toEqual([]);
     // foodDetail uses the same query.
     expect((await foodDetail(u, chips!.id))!.alternatives.map((a) => a.name)).toEqual(["Roasted chana"]);
+  });
+});
+
+describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
+  beforeEach(resetDb);
+
+  function scanResult(overrides: Partial<ScanResult> = {}): ScanResult {
+    return {
+      kind: "meal", name: "Homemade khichdi bowl", brand: null, foodId: null, basis: "per_100g",
+      per100: { energyKcal: 180, protein: 6, carbs: 30, fat: 4 },
+      provenance: { energyKcal: "estimate", protein: "estimate", carbs: "estimate", fat: "estimate" },
+      portions: [{ label: "1 bowl", amount: 1, unit: "serving", grams: 350 }],
+      defaultPortion: 0, grade: "B", gradeValue: 72, components: [{ key: "sugar", label: "Sugar", points: 2, maxPoints: 10, direction: "negative", estimated: true }],
+      reasons: [], flags: [], ingredients: ["rice", "lentils", "ghee"], alternatives: [], hints: [],
+      confidence: "medium", inputKind: "meal",
+      ...overrides,
+    };
+  }
+
+  async function insertScan(userId: string, opts: { status?: "queued" | "processing" | "done" | "failed"; result?: ScanResult | null; deletedAt?: Date | null } = {}) {
+    const [row] = await db.insert(scan).values({
+      userId, status: opts.status ?? "done", imageCount: 0, engineVersion: "test",
+      result: "result" in opts ? opts.result : scanResult(), deletedAt: opts.deletedAt ?? null,
+    }).returning();
+    return row!;
+  }
+
+  it("copies name/brand/per100/basis/portions/provenance and the result's grade snapshot into a private custom food", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { result: scanResult({ brand: "Mom's kitchen" }) });
+    const f = await createCustomFoodFromScan(u, s.id);
+    expect(f.ownerId).toBe(u);
+    expect(f.source).toBe("custom");
+    expect(f.name).toBe("Homemade khichdi bowl");
+    expect(f.brand).toBe("Mom's kitchen");
+    expect(f.basis).toBe("per_100g");
+    expect(f.per100).toEqual({ energyKcal: 180, protein: 6, carbs: 30, fat: 4 });
+    expect(f.portions).toEqual([{ label: "1 bowl", amount: 1, unit: "serving", grams: 350 }]);
+    expect(f.provenance).toEqual({ energyKcal: "estimate", protein: "estimate", carbs: "estimate", fat: "estimate" });
+    // grade is a snapshot of the result, not recomputed
+    expect(f.grade).toBe("B");
+    expect(f.gradeValue).toBe(72);
+    expect(f.gradeComponents).toEqual(scanResult().components);
+  });
+
+  it("is a private custom food: the owner's search finds it, another user's search does not", async () => {
+    const owner = await createUser(); const other = await createUser();
+    const s = await insertScan(owner, { result: scanResult({ name: "Grandma's khichdi special" }) });
+    const saved = await createCustomFoodFromScan(owner, s.id);
+    expect((await searchFoods(owner, "khichdi", "IN")).some((h) => h.id === saved.id)).toBe(true);
+    expect((await searchFoods(other, "khichdi", "IN")).some((h) => h.id === saved.id)).toBe(false);
+    expect(await getFoodForUser(other, saved.id)).toBeNull();
+  });
+
+  it("rejects another user's scan with NotFound", async () => {
+    const a = await createUser(); const b = await createUser();
+    const s = await insertScan(a);
+    await expect(createCustomFoodFromScan(b, s.id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("rejects a deleted scan with NotFound", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { deletedAt: new Date() });
+    await expect(createCustomFoodFromScan(u, s.id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("rejects a scan that isn't done yet, and a malformed scan id", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { status: "queued", result: null });
+    await expect(createCustomFoodFromScan(u, s.id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(createCustomFoodFromScan(u, "not-a-uuid")).rejects.toBeInstanceOf(NotFoundError);
   });
 });

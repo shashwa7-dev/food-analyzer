@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { requireApiUser } from "@/lib/session";
-import { apiError, invalid, json, serverError } from "@/lib/http";
-import { createCustomFood, CustomFoodSchema, searchFoods } from "@/lib/foods/service";
+import { apiError, invalid, json, notFound, serverError } from "@/lib/http";
+import { NotFoundError } from "@/lib/errors";
+import { createCustomFood, createCustomFoodFromScan, CustomFoodSchema, searchFoods } from "@/lib/foods/service";
 import { getProfile } from "@/lib/profile/service";
+
+const FromScanSchema = z.object({ fromScanId: z.uuid() });
 
 export async function GET(req: Request) {
   try {
@@ -22,7 +25,19 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const userId = await requireApiUser(req);
   if (userId instanceof Response) return userId;
-  const body = CustomFoodSchema.safeParse(await req.json().catch(() => null));
+  const raw = await req.json().catch(() => null);
+
+  const fromScan = FromScanSchema.safeParse(raw);
+  if (fromScan.success) {
+    try {
+      return json({ food: await createCustomFoodFromScan(userId, fromScan.data.fromScanId) }, { status: 201 });
+    } catch (e) {
+      if (e instanceof NotFoundError) return notFound();
+      return apiError(500, "SERVER_ERROR", "Something went wrong. Try again.");
+    }
+  }
+
+  const body = CustomFoodSchema.safeParse(raw);
   if (!body.success) return invalid();
   try {
     return json({ food: await createCustomFood(userId, body.data) }, { status: 201 });

@@ -4,12 +4,33 @@ import { upsertFoods } from "@/lib/foods/insert";
 import { parseHouseholdCsv, toFoodDraft } from "@/lib/foods/seed-map";
 import { createCustomFood, deleteCustomFood } from "@/lib/foods/service";
 import { db } from "@/lib/db/client";
-import { food } from "@/lib/db/schema";
+import { food, scan } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import type { ScanResult } from "@/lib/engine/result";
 import { addEntry, deleteEntry, getDay, updateEntry } from "./service";
 import { InvalidError, NotFoundError } from "@/lib/errors";
 
 const today = new Date().toISOString().slice(0, 10);
+
+function scanResult(overrides: Partial<ScanResult> = {}): ScanResult {
+  return {
+    kind: "packaged", name: "Aloo Bhujia", brand: "Shree Rama", foodId: null, basis: "per_100g",
+    per100: { energyKcal: 550, protein: 10, carbs: 50, fat: 35 },
+    provenance: { energyKcal: "label", protein: "label", carbs: "label", fat: "label" },
+    portions: [{ label: "1 pack", amount: 1, unit: "pack", grams: 50 }, { label: "100 g", amount: 100, unit: "g", grams: 100 }],
+    defaultPortion: 0, grade: "D", gradeValue: 40, components: [], reasons: [], flags: [], ingredients: [],
+    alternatives: [], hints: [], confidence: "high", inputKind: "barcode",
+    ...overrides,
+  };
+}
+
+async function insertScan(userId: string, opts: { status?: "queued" | "processing" | "done" | "failed"; result?: ScanResult | null; deletedAt?: Date | null } = {}) {
+  const [row] = await db.insert(scan).values({
+    userId, status: opts.status ?? "done", imageCount: 0, engineVersion: "test",
+    result: "result" in opts ? opts.result : scanResult(), deletedAt: opts.deletedAt ?? null,
+  }).returning();
+  return row!;
+}
 
 async function dal() {
   await upsertFoods([toFoodDraft({ source: "indb", sourceRef: "D1", name: "Dal tadka", basis: "per_100g",
@@ -142,5 +163,82 @@ describe("food log", () => {
     const [row] = await db.select().from(food).where(eq(food.sourceRef, "NG1"));
     const u = await createUser();
     await expect(addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: row!.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  // --- logging from a scan (Task 9) -----------------------------------------------------------
+
+  it("logs a barcode scan backed by a food: portion grams come from the result (not the food's own portions), foodId and the recents bump come from the linked food", async () => {
+    const u = await createUser(); const f = await dal(); // f's own portion is "1 katori" = 150 g
+    const s = await insertScan(u, { result: scanResult({
+      foodId: f.id, name: "Dal tadka (scanned)", brand: null, per100: f.per100,
+      portions: [{ label: "1 bowl", amount: 1, unit: "household", grams: 200 }], defaultPortion: 0,
+    }) });
+    const e = await addEntry(u, { kind: "scan", date: today, meal: "lunch", scanId: s.id, portionIndex: 0, quantity: 1 });
+    expect(e.scanId).toBe(s.id);
+    expect(e.foodId).toBe(f.id);
+    expect(e.portion).toMatchObject({ label: "1 bowl", amount: 1, grams: 200 }); // the result's own portion, not the food's "1 katori" 150 g
+    expect(e.name).toBe("Dal tadka (scanned)"); // snapshot from the result, not f.name
+    expect(e.grade).toBe("D");
+    expect(e.nutrients.energyKcal).toBe(240); // f.per100.energyKcal (120) * 200/100
+    const { recentFoods } = await import("@/lib/foods/service");
+    expect((await recentFoods(u))[0]?.id).toBe(f.id);
+  });
+
+  it("logs a meal scan as a snapshot with no linked food", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { result: scanResult({
+      kind: "meal", inputKind: "meal", foodId: null, name: "Thali", brand: null, grade: "C",
+      per100: { energyKcal: 200, protein: 8, carbs: 25, fat: 7 },
+      portions: [{ label: "1 plate", amount: 1, unit: "serving", grams: 400 }], defaultPortion: 0,
+    }) });
+    const e = await addEntry(u, { kind: "scan", date: today, meal: "dinner", scanId: s.id, portionIndex: 0, quantity: 1 });
+    expect(e.foodId).toBeNull();
+    expect(e.scanId).toBe(s.id);
+    expect(e.name).toBe("Thali");
+    expect(e.grade).toBe("C");
+    expect(e.nutrients.energyKcal).toBe(800);
+  });
+
+  it("logs scan_grams using the result's basis for the unit", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { result: scanResult({ basis: "per_100ml", per100: { energyKcal: 40, protein: 0, carbs: 10, fat: 0 } }) });
+    const e = await addEntry(u, { kind: "scan_grams", date: today, meal: "snack", scanId: s.id, grams: 250 });
+    expect(e.portion).toMatchObject({ label: "ml", amount: 250, unit: "ml", grams: 250 });
+    expect(e.nutrients.energyKcal).toBe(100);
+  });
+
+  it("snapshots instead of linking when the scan's food is no longer visible to this user", async () => {
+    const a = await createUser(); const b = await createUser();
+    const theirs = await createCustomFood(b, { name: "Secret laddoo", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 450, protein: 8, carbs: 55, fat: 22 } });
+    const s = await insertScan(a, { result: scanResult({ foodId: theirs.id, name: "Something", brand: null }) });
+    const e = await addEntry(a, { kind: "scan", date: today, meal: "snack", scanId: s.id, portionIndex: 0, quantity: 1 });
+    expect(e.foodId).toBeNull();
+    expect(e.scanId).toBe(s.id);
+    expect(e.name).toBe("Something");
+  });
+
+  it("rejects a scan portion with no known weight", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { result: scanResult({ portions: [{ label: "1 serving", amount: 1, unit: "serving", grams: null }], defaultPortion: 0 }) });
+    await expect(addEntry(u, { kind: "scan", date: today, meal: "snack", scanId: s.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(InvalidError);
+  });
+
+  it("rejects logging another user's scan with NotFound", async () => {
+    const a = await createUser(); const b = await createUser();
+    const s = await insertScan(a);
+    await expect(addEntry(b, { kind: "scan", date: today, meal: "snack", scanId: s.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("rejects logging a deleted scan with NotFound", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { deletedAt: new Date() });
+    await expect(addEntry(u, { kind: "scan", date: today, meal: "snack", scanId: s.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("rejects logging a scan that isn't done yet", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { status: "queued", result: null });
+    await expect(addEntry(u, { kind: "scan", date: today, meal: "snack", scanId: s.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(addEntry(u, { kind: "scan_grams", date: today, meal: "snack", scanId: s.id, grams: 100 })).rejects.toBeInstanceOf(NotFoundError);
   });
 });

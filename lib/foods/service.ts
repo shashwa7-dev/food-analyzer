@@ -1,8 +1,10 @@
 import { and, arrayOverlaps, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { food, userFoodStats } from "@/lib/db/schema";
+import { food, scan, userFoodStats } from "@/lib/db/schema";
 import { visibleFoodWhere } from "@/lib/authz";
+import type { ScanResult } from "@/lib/engine/result";
+import { NotFoundError } from "@/lib/errors";
 import { classify } from "@/lib/nutrition/classify";
 import { explain } from "@/lib/nutrition/explain";
 import { gradeFood, GRADE_VERSION } from "@/lib/nutrition/grade";
@@ -11,6 +13,7 @@ import { ensureBasePortion, nutrientsFor, scaleNutrients } from "@/lib/nutrition
 import { targetsFor } from "@/lib/nutrition/targets";
 import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
+import { visibleScanWhere } from "@/lib/scans/service";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
 import type { FoodHit, FoodRow } from "./types";
 
@@ -186,6 +189,42 @@ export async function createCustomFood(userId: string, input: CustomFoodInput): 
   const d = customDraft(userId, CustomFoodSchema.parse(input));
   const [row] = await db.insert(food).values({ ...d, searchText: sql`to_tsvector('simple', ${d.searchName})` as unknown as string }).returning();
   return row!;
+}
+
+/**
+ * "Save to my foods" from a scan (Task 9): a private custom food copying name/brand/per100/basis/
+ * portions/provenance straight from the scan's own result — the owner-scoped, done scan with a
+ * result (else 404, same as logging from it).
+ *
+ * The grade/value/components are copied verbatim from the result rather than recomputed through
+ * `classify` + `gradeFood` (as `customDraft` does for a manually-entered food): `ScanResult` doesn't
+ * carry the additives/nova/OFF-categories the original grading used, so recomputing here would silently
+ * produce a *different*, less accurate grade than the one the user already saw on the scan — exactly
+ * the kind of drift the "grade snapshot" rule (Task 9 amendments) rules out. `kind`/`gradeCategory` are
+ * only a coarse best-effort mapping (packaged → packaged/general, dish or meal → dish, both meal and
+ * dish are always graded as "dish" by the engine — see lib/engine/index.ts) kept for future re-grading
+ * and search ranking; they do not affect the grade stored here.
+ */
+export async function createCustomFoodFromScan(userId: string, scanId: string): Promise<FoodRow> {
+  if (!z.uuid().safeParse(scanId).success) throw new NotFoundError();
+  const [row] = await db.select({ status: scan.status, result: scan.result }).from(scan).where(and(eq(scan.id, scanId), visibleScanWhere(userId)));
+  if (!row || row.status !== "done" || !row.result) throw new NotFoundError();
+  const r: ScanResult = row.result;
+
+  const kind = r.kind === "packaged" ? ("packaged" as const) : ("dish" as const);
+  const gradeCategory = r.kind === "packaged" ? ("general" as const) : ("dish" as const);
+  const gradePortionGrams = kind === "dish" ? (r.portions[r.defaultPortion]?.grams ?? 100) : null;
+
+  const draft = {
+    source: "custom" as const, sourceRef: null, ownerId: userId, kind, gradeCategory,
+    name: r.name, brand: r.brand, basis: r.basis, per100: r.per100, provenance: r.provenance,
+    portions: r.portions, defaultPortion: r.defaultPortion, gradePortionGrams, ingredients: r.ingredients,
+    grade: r.grade, gradeValue: r.gradeValue, gradeComponents: r.components, gradeVersion: GRADE_VERSION,
+    countries: [] as string[],
+    ...buildSearchFields({ name: r.name, brand: r.brand }),
+  };
+  const [saved] = await db.insert(food).values({ ...draft, searchText: sql`to_tsvector('simple', ${draft.searchName})` as unknown as string }).returning();
+  return saved!;
 }
 
 export async function updateCustomFood(userId: string, id: string, input: CustomFoodInput): Promise<FoodRow | null> {
