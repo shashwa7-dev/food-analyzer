@@ -18,6 +18,8 @@
     "search:smoke": "tsx --env-file-if-exists=.env.local scripts/search-smoke.ts",
     "scan:try": "tsx --env-file-if-exists=.env.local scripts/scan-try.ts",
     "eval": "tsx --env-file-if-exists=.env.local eval/run.ts",
+    "seed:demo": "tsx --env-file-if-exists=.env.local scripts/seed-demo.ts",
+    "shot": "tsx --env-file-if-exists=.env.local scripts/shot.ts",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
@@ -60,6 +62,7 @@
     "exceljs": "^4.4.0",
     "fflate": "^0.8.3",
     "prettier": "^3.9.9",
+    "puppeteer-core": "^25.12.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",

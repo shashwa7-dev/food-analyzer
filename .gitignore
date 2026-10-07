@@ -43,3 +43,7 @@ next-env.d.ts
 
 # eval results (local-only; see eval/README.md)
 eval/results-*.json
+
+# dev-only demo session cookie and screenshots (pnpm seed:demo, pnpm shot)
+/.superpowers/
+.superpowers/demo-cookie.txt

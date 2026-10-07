@@ -113,6 +113,18 @@ supports EAN-13 (Chrome on Android/macOS), and otherwise lazily loads [`zxing-wa
 configured yet; when one is added, allow that origin in `connect-src` (and `script-src 'wasm-unsafe-eval'`),
 or self-host the wasm via `prepareZXingModule({ overrides: { locateFile } })`.
 
+## Demo data and screenshots (dev only)
+
+Sign-in is Google-only, so headless checks use a seeded demo account instead:
+
+```bash
+pnpm seed:demo                                # demo@eatri8.local ("Aarav Kapoor"), 10 days of diary, 4 scans, 18/20 credits
+pnpm shot /today --w 390                      # → .superpowers/shots/today-390-light.png
+pnpm shot /history --w 1280 --dark --full     # desktop, dark, full page; --out file.png to pick the path
+```
+
+`seed:demo` is idempotent (re-run it any time; it rebuilds the diary relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
+
 ## Data attribution
 
 The food catalogue is built from:
