@@ -247,6 +247,7 @@ async function main() {
     }
   }
   const errors = outcomes.filter((o) => o.error);
+  for (const o of errors) console.log(`[error] ${o.run.scenario.name} @ ${o.run.width}/${o.run.look.label}: ${o.error}`);
   const byRule = new Map<string, number>();
   for (const [key, g] of [...groups].sort(([a], [b]) => a.localeCompare(b))) {
     const [rule, page] = key.split("|");
