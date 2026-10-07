@@ -7,6 +7,7 @@ import { AddToMeal } from "@/components/food/add-to-meal";
 import { FoodOwnerActions } from "@/components/food/food-owner-actions";
 import { FlagList, ReasonList } from "@/components/food/food-verdict";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
+import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
 import { nutrientsFor } from "@/lib/nutrition/portions";
 import Link from "next/link";
 
@@ -16,7 +17,7 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
   const { userId, profile } = await requireUser();
   const detail = await foodDetail(userId, (await params).id);
   if (!detail) notFound();
-  const { food, reasons, flags, alternatives } = detail;
+  const { food, reasons, flags, alternatives, ingredientsKnown } = detail;
   const p = food.portions[food.defaultPortion] ?? food.portions[0]!;
   const n = p.grams ? nutrientsFor(food.per100, p.grams) : food.per100;
   const prov = Object.values(food.provenance)[0] ?? "reference";
@@ -37,6 +38,7 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
             <ReasonList reasons={reasons} />
           </section>
           <FlagList flags={flags} />
+          <IngredientsUnknownNote ingredientsKnown={ingredientsKnown} hasAllergies={profile.allergies.length > 0} />
           <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
             <AddToMeal food={food} date={todayIn(profile.timezone)} defaultMeal={defaultMeal} />
           </section>

@@ -84,7 +84,7 @@ export async function getFoodForUser(userId: string, id: string): Promise<FoodRo
   return row ?? null;
 }
 
-export async function foodDetail(userId: string, id: string): Promise<{ food: FoodRow; reasons: Reason[]; flags: Flag[]; alternatives: FoodHit[] } | null> {
+export async function foodDetail(userId: string, id: string): Promise<{ food: FoodRow; reasons: Reason[]; flags: Flag[]; alternatives: FoodHit[]; ingredientsKnown: boolean } | null> {
   const f = await getFoodForUser(userId, id);
   if (!f) return null;
   const prof = await getProfile(userId);
@@ -100,7 +100,7 @@ export async function foodDetail(userId: string, id: string): Promise<{ food: Fo
         .where(and(visibleFoodWhere(userId), arrayOverlaps(food.categories, f.categories), sql`${prof.country} = ANY(${food.countries})`, sql`${food.grade} < ${f.grade}`, sql`${food.id} <> ${f.id}`))
         .orderBy(food.grade, desc(food.popularity)).limit(5)).map(toHit)
     : [];
-  return { food: f, reasons, flags, alternatives };
+  return { food: f, reasons, flags, alternatives, ingredientsKnown: f.ingredients.length > 0 };
 }
 
 const NutrientsInput = z.object({

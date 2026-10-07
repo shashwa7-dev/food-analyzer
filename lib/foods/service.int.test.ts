@@ -83,7 +83,15 @@ describe("foods service", () => {
     const [hit] = await searchFoods(a, "paneer butter masala", "IN");
     const d = await foodDetail(a, hit!.id);
     expect(d?.flags.some((f) => f.type === "allergen" && f.key === "milk" && f.severity === "contains")).toBe(true);
-    expect(d?.flags.some((f) => f.key === "unknown")).toBe(true);
+    expect(d?.ingredientsKnown).toBe(false);
+  });
+
+  it("returns ingredientsKnown true when the food has an ingredient list", async () => {
+    const a = await createUser();
+    await upsertFoods([{ ...rec("20", "Masala chips"), ingredients: ["potato", "oil", "salt"] }]);
+    const [hit] = await searchFoods(a, "masala chips", "IN");
+    const d = await foodDetail(a, hit!.id);
+    expect(d?.ingredientsKnown).toBe(true);
   });
 
   it("returns recents for the user only", async () => {

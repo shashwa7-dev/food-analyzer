@@ -77,9 +77,6 @@ export function personalise(input: {
     const hit = (input.profile.diet === "vegan" ? dietDairyText : text).match(rule.words);
     if (hit) flags.push({ type: "diet", key: input.profile.diet, severity: "contains", text: `Not ${rule.label}: contains ${hit[0].toLowerCase()}.${suffix}` });
   }
-  if (fromName && (input.profile.allergies.length > 0 || input.profile.diet !== "none")) {
-    flags.push({ type: "allergen", key: "unknown", severity: "note", text: "Ingredients unknown — check before eating." });
-  }
   const t = input.profile.targets, p = input.perPortion;
   const limits: [string, number | undefined, number, string][] = [
     ["sodium", p.sodiumMg, t.sodiumMgMax, "sodium"], ["sugars", p.sugars, t.sugarsMax, "sugar"], ["satFat", p.satFat, t.satFatMax, "saturated fat"],

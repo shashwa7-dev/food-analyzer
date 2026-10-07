@@ -13,13 +13,15 @@ import type { FoodHit } from "@/lib/foods/types";
 import { GradeBadge } from "@/components/grade-badge";
 import { FlagList, ReasonList } from "@/components/food/food-verdict";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
+import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
 import type { Flag, Meal, Nutrients, Portion, Reason } from "@/lib/nutrition/types";
 
 type DetailFood = {
   id: string; name: string; brand: string | null; grade: string | null; source: string;
   per100: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml";
 };
-type Detail = { food: DetailFood; reasons: Reason[]; flags: Flag[] };
+type Detail = { food: DetailFood; reasons: Reason[]; flags: Flag[]; ingredientsKnown: boolean };
+type Me = { profile: { allergies: string[] } };
 
 const TABS = ["search", "scan", "quick"] as const;
 type Tab = (typeof TABS)[number];
@@ -31,6 +33,11 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
   const detail = useQuery({
     queryKey: ["foods", picked?.id],
     queryFn: () => api<Detail>(`/api/v1/foods/${picked!.id}`),
+    enabled: picked !== null,
+  });
+  const me = useQuery({
+    queryKey: ["me"],
+    queryFn: () => api<Me>("/api/v1/me"),
     enabled: picked !== null,
   });
 
@@ -57,6 +64,7 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
             </div>
             <div className="text-sm"><ReasonList reasons={detail.data.reasons} /></div>
             <FlagList flags={detail.data.flags} />
+            <IngredientsUnknownNote ingredientsKnown={detail.data.ingredientsKnown} hasAllergies={(me.data?.profile.allergies.length ?? 0) > 0} />
             <IndbSodiumNote source={detail.data.food.source} />
             <AddToMeal food={detail.data.food} date={date} defaultMeal={meal} onDone={() => onOpenChange(false)} />
           </>

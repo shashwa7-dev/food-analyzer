@@ -90,12 +90,10 @@ describe("personalise", () => {
       const f = personalise({ ...base, ingredients: ["potato", "oil", "flavouring"], name: "Chicken flavoured crisps", profile: prof({ diet: "vegetarian" }) });
       expect(f.some((x) => x.type === "diet")).toBe(false);
     });
-    it("adds an unknown-ingredients note only when the user has allergies or a diet", () => {
-      const note = { type: "allergen", key: "unknown", severity: "note", text: "Ingredients unknown — check before eating." };
-      expect(personalise({ ...base, name: "Plain dosa", profile: prof({ allergies: ["sesame"] }) })).toContainEqual(note);
-      expect(personalise({ ...base, name: "Plain dosa", profile: prof({ diet: "jain" }) })).toContainEqual(note);
+    it("no longer adds an unknown-ingredients note (callers show that separately via foodDetail's ingredientsKnown)", () => {
+      expect(personalise({ ...base, name: "Plain dosa", profile: prof({ allergies: ["sesame"] }) })).toEqual([]);
+      expect(personalise({ ...base, name: "Plain dosa", profile: prof({ diet: "jain" }) })).toEqual([]);
       expect(personalise({ ...base, name: "Plain dosa", profile: prof({}) })).toEqual([]);
-      expect(personalise({ ...base, ingredients: ["rice", "urad dal"], name: "Plain dosa", profile: prof({ allergies: ["sesame"] }) })).toEqual([]);
     });
   });
 });
