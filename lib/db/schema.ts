@@ -65,6 +65,10 @@ export const food = pgTable("food", {
   gradeValue: smallint("grade_value"),
   gradeComponents: jsonb("grade_components").$type<ScoreComponent[]>().notNull().default(sql`'[]'::jsonb`),
   gradeVersion: text("grade_version").notNull(),
+  /** Set on foods saved from a scan (Task 9): the grade is a snapshot of the scan result (ScanResult
+   * carries no additives/NOVA/OFF-categories), so `scripts/regrade.ts` must never recompute it on a
+   * GRADE_VERSION bump — it would silently produce a different, less accurate grade. */
+  gradeFrozen: boolean("grade_frozen").notNull().default(false),
   imageUrl: text("image_url"),
   popularity: integer("popularity").notNull().default(0),
   normName: text("norm_name").notNull(),

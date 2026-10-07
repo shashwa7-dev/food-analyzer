@@ -4,8 +4,7 @@ import { apiError, invalid, json, notFound, serverError } from "@/lib/http";
 import { NotFoundError } from "@/lib/errors";
 import { createCustomFood, createCustomFoodFromScan, CustomFoodSchema, searchFoods } from "@/lib/foods/service";
 import { getProfile } from "@/lib/profile/service";
-
-const FromScanSchema = z.object({ fromScanId: z.uuid() });
+import { extractFromScanId } from "./from-scan";
 
 export async function GET(req: Request) {
   try {
@@ -27,10 +26,11 @@ export async function POST(req: Request) {
   if (userId instanceof Response) return userId;
   const raw = await req.json().catch(() => null);
 
-  const fromScan = FromScanSchema.safeParse(raw);
-  if (fromScan.success) {
+  const fromScan = extractFromScanId(raw);
+  if (fromScan.present) {
+    if (!fromScan.scanId) return notFound();
     try {
-      return json({ food: await createCustomFoodFromScan(userId, fromScan.data.fromScanId) }, { status: 201 });
+      return json({ food: await createCustomFoodFromScan(userId, fromScan.scanId) }, { status: 201 });
     } catch (e) {
       if (e instanceof NotFoundError) return notFound();
       return apiError(500, "SERVER_ERROR", "Something went wrong. Try again.");

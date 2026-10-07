@@ -43,6 +43,13 @@
       "when": 1791364768634,
       "tag": "0005_scan_soft_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791366052981,
+      "tag": "0006_steep_lily_hollister",
+      "breakpoints": true
     }
   ]
 }

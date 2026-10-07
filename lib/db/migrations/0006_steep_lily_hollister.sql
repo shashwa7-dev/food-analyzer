@@ -1,0 +1,1 @@
+ALTER TABLE "food" ADD COLUMN "grade_frozen" boolean DEFAULT false NOT NULL;

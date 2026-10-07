@@ -200,10 +200,16 @@ export async function createCustomFood(userId: string, input: CustomFoodInput): 
  * `classify` + `gradeFood` (as `customDraft` does for a manually-entered food): `ScanResult` doesn't
  * carry the additives/nova/OFF-categories the original grading used, so recomputing here would silently
  * produce a *different*, less accurate grade than the one the user already saw on the scan — exactly
- * the kind of drift the "grade snapshot" rule (Task 9 amendments) rules out. `kind`/`gradeCategory` are
- * only a coarse best-effort mapping (packaged → packaged/general, dish or meal → dish, both meal and
- * dish are always graded as "dish" by the engine — see lib/engine/index.ts) kept for future re-grading
- * and search ranking; they do not affect the grade stored here.
+ * the kind of drift the "grade snapshot" rule (Task 9 amendments) rules out. `gradeFrozen: true` makes
+ * this permanent: `scripts/regrade.ts` skips frozen rows entirely, so a future GRADE_VERSION bump can
+ * never silently replace this snapshot with a coarser recomputed grade.
+ *
+ * `kind`/`gradeCategory` are only a coarse best-effort mapping (packaged → packaged/general, dish or
+ * meal → dish/dish — both are always graded as "dish" by the engine, see lib/engine/index.ts) used for
+ * search ranking only, since `ScanResult` has no `gradeCategory` field to copy (checked `buildResult`'s
+ * return type in lib/engine/result.ts: it's an input to grading, not part of the output). Being
+ * grade-frozen, this mapping's coarseness can never affect the grade shown — it's display/ranking
+ * metadata only.
  */
 export async function createCustomFoodFromScan(userId: string, scanId: string): Promise<FoodRow> {
   if (!z.uuid().safeParse(scanId).success) throw new NotFoundError();
@@ -220,7 +226,7 @@ export async function createCustomFoodFromScan(userId: string, scanId: string): 
     name: r.name, brand: r.brand, basis: r.basis, per100: r.per100, provenance: r.provenance,
     portions: r.portions, defaultPortion: r.defaultPortion, gradePortionGrams, ingredients: r.ingredients,
     grade: r.grade, gradeValue: r.gradeValue, gradeComponents: r.components, gradeVersion: GRADE_VERSION,
-    countries: [] as string[],
+    gradeFrozen: true, countries: [] as string[],
     ...buildSearchFields({ name: r.name, brand: r.brand }),
   };
   const [saved] = await db.insert(food).values({ ...draft, searchText: sql`to_tsvector('simple', ${draft.searchName})` as unknown as string }).returning();
