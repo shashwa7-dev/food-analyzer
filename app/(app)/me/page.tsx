@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/session";
 import { getBalance } from "@/lib/credits/ledger";
 import { initialsOf } from "@/lib/initials";
-import { dayMonth } from "@/lib/progress/copy";
+import { resetDayLabel } from "@/lib/credits/display";
 import { CreditStrip } from "@/components/credits/credit-strip";
 import { SettingsList } from "@/components/me/settings-list";
 import { AccountFooter } from "@/components/me/account-footer";
@@ -15,8 +15,7 @@ const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
 export default async function MePage() {
   const { userId, profile, name, email } = await requireUser();
   const balance = await getBalance(userId);
-  // The allowance resets at 00:00 UTC on the 1st, so the reset day is read in UTC.
-  const resetsLabel = dayMonth(balance.periodResetsAt.toISOString().slice(0, 10));
+  const resetsLabel = resetDayLabel(balance.periodResetsAt, profile.timezone);
 
   return (
     <div className="mx-auto grid w-full max-w-[560px] gap-[18px] md:pt-1.5">

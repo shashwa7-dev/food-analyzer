@@ -57,7 +57,7 @@ export function AccountFooter() {
         <button
           type="button"
           onClick={() => setDeleteOpen(true)}
-          className="-mr-1 inline-flex min-h-11 items-center rounded-full px-1 text-[14px] font-[550] whitespace-nowrap text-grade-e"
+          className="-mr-1 inline-flex min-h-11 items-center rounded-full px-1 text-[14px] font-[550] whitespace-nowrap text-bad"
         >
           Delete account
         </button>

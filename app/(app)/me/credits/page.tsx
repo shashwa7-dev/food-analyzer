@@ -1,6 +1,6 @@
 import { Check, Sparkles } from "lucide-react";
 import { requireUser } from "@/lib/session";
-import { countActivity, getBalance, listActivity, periodBalances } from "@/lib/credits/ledger";
+import { countActivity, getBalance, listActivity, periodChanges } from "@/lib/credits/ledger";
 import { currentPeriod } from "@/lib/credits/logic";
 import { balanceSeries } from "@/lib/credits/activity";
 import { sweepStuck } from "@/lib/scans/service";
@@ -43,7 +43,7 @@ export default async function CreditsPage() {
   const now = new Date();
   const [balance, txns, counts, firstPage, onWaitlist] = await Promise.all([
     getBalance(userId, now),
-    periodBalances(userId, now),
+    periodChanges(userId, now),
     countActivity(userId, now),
     listActivity(userId, "all"),
     isOnWaitlist(userId),
@@ -55,13 +55,10 @@ export default async function CreditsPage() {
   const periodEnd = addDays(balance.periodResetsAt.toISOString().slice(0, 10), -1);
   const localToday = todayIn(profile.timezone, now);
   const today = localToday < periodStart ? periodStart : localToday > periodEnd ? periodEnd : localToday;
-  const grant = txns.find((t) => t.type === "grant");
-  const changes = txns.filter((t) => t.type !== "grant" && t.type !== "expire");
-  const series = balanceSeries(changes, periodStart, today, profile.timezone, grant?.balanceAfter ?? balance.allowance);
-  // Today ends at the live balance: rows written in one transaction share a timestamp, so the
-  // ledger alone can't always say which came last.
-  const last = series.at(-1);
-  if (last && today === localToday) last.balance = balance.credits;
+  // Closing balances work back from the live one through this period's scans and refunds. The grant
+  // (and the old period's expiry beside it) is left out: it's written lazily on the month's first
+  // visit, but the allowance belongs to the whole month, so the days before it read the full allowance.
+  const series = balanceSeries(txns.filter((t) => t.type !== "grant" && t.type !== "expire"), periodStart, today, profile.timezone, balance.credits);
   const points: { date: string; balance: number | null; event: boolean }[] = [];
   for (let d = periodStart; d <= periodEnd; d = addDays(d, 1)) {
     const p = series.find((s) => s.date === d);

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/session";
 import { getBalance } from "@/lib/credits/ledger";
+import { resetDayLabel } from "@/lib/credits/display";
 import { countVisibleScans } from "@/lib/scans/service";
 import { AppNav } from "@/components/app-nav";
 import { NavTracker } from "@/components/nav/nav-tracker";
@@ -15,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const path = (await headers()).get("x-pathname") ?? "";
   if (!profile.onboardedAt && !path.startsWith("/onboarding")) redirect("/onboarding");
   const [balance, historyCount] = await Promise.all([getBalance(userId), countVisibleScans(userId)]);
-  const resetsLabel = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: profile.timezone }).format(balance.periodResetsAt);
+  const resetsLabel = resetDayLabel(balance.periodResetsAt, profile.timezone);
   return (
     <div className="bg-wash min-h-dvh md:grid md:grid-cols-[252px_minmax(0,1fr)]">
       <AppNav

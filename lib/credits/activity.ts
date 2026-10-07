@@ -46,30 +46,35 @@ export function groupActivity(items: ActivityItem[], tz: string, now: Date): { l
 }
 
 /**
- * The balance at the end of each local day from `periodStart` to `today` (inclusive), for a step
- * chart. `event` marks days with a ledger change. Transactions must arrive oldest first when they
- * share a timestamp (the sort is stable). The allowance period is a UTC month, so west of UTC its
- * first minutes fall on the previous local day: those changes fold into the starting balance.
+ * The balance at the close of each local day from `periodStart` to `today` (inclusive), for a step
+ * chart. It works backwards from `endBalance` (the live balance at the close of `today`): each
+ * earlier day's close is the next day's close minus that next day's ledger changes. Only per-day sums
+ * are used, so rows that share a timestamp (one transaction) can't be misordered. `event` marks days
+ * with a change. Changes after `today` are ignored; changes before `periodStart` only shape days that
+ * aren't shown.
  */
 export function balanceSeries(
-  txns: { at: string; balanceAfter: number }[],
+  txns: { at: string; amount: number }[],
   periodStart: string,
   today: string,
   tz: string,
-  startBalance: number,
+  endBalance: number,
 ): { date: string; balance: number; event: boolean }[] {
-  const lastByDay = new Map<string, number>();
-  let bal = startBalance;
-  for (const t of [...txns].sort((a, b) => a.at.localeCompare(b.at))) {
+  const sumByDay = new Map<string, number>();
+  const marked = new Set<string>();
+  for (const t of txns) {
     const day = todayIn(tz, new Date(t.at));
-    if (day < periodStart) bal = t.balanceAfter;
-    else lastByDay.set(day, t.balanceAfter);
+    sumByDay.set(day, (sumByDay.get(day) ?? 0) + t.amount);
+    marked.add(day);
   }
+  const days: string[] = [];
+  for (let d = periodStart; d <= today; d = addDays(d, 1)) days.push(d);
   const out: { date: string; balance: number; event: boolean }[] = [];
-  for (let d = periodStart; d <= today; d = addDays(d, 1)) {
-    const ev = lastByDay.get(d);
-    if (ev !== undefined) bal = ev;
-    out.push({ date: d, balance: bal, event: ev !== undefined });
+  let close = endBalance;
+  for (let i = days.length - 1; i >= 0; i--) {
+    const d = days[i]!;
+    out.push({ date: d, balance: close, event: marked.has(d) });
+    close -= sumByDay.get(d) ?? 0;
   }
-  return out;
+  return out.reverse();
 }

@@ -274,14 +274,13 @@ export async function countActivity(userId: string, now: Date = new Date()): Pro
 }
 
 /**
- * Every balance change this period, oldest first, for the balance chart. A reset writes the old
- * period's expiry and the new grant in one transaction (same timestamp), and the month's first debit
- * can share it too, so ties order expire → grant → the rest.
+ * Every ledger change this period, oldest first, for the balance chart. The chart sums `amount` per
+ * day backwards from the live balance, so rows sharing a timestamp need no particular order.
  */
-export async function periodBalances(userId: string, now: Date = new Date()): Promise<{ at: string; balanceAfter: number; type: string }[]> {
+export async function periodChanges(userId: string, now: Date = new Date()): Promise<{ at: string; amount: number; type: string }[]> {
   const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const rows = await db.select({ at: creditTxn.createdAt, balanceAfter: creditTxn.balanceAfter, type: creditTxn.type }).from(creditTxn)
+  const rows = await db.select({ at: creditTxn.createdAt, amount: creditTxn.amount, type: creditTxn.type }).from(creditTxn)
     .where(and(eq(creditTxn.userId, userId), gte(creditTxn.createdAt, since)))
-    .orderBy(creditTxn.createdAt, sql`CASE ${creditTxn.type} WHEN 'expire' THEN 0 WHEN 'grant' THEN 1 ELSE 2 END`, creditTxn.id);
-  return rows.map((r) => ({ at: r.at.toISOString(), balanceAfter: r.balanceAfter, type: r.type }));
+    .orderBy(creditTxn.createdAt, creditTxn.id);
+  return rows.map((r) => ({ at: r.at.toISOString(), amount: r.amount, type: r.type }));
 }

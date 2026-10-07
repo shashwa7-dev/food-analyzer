@@ -242,6 +242,22 @@ async function seedScans(userId: string) {
     const milk = await ins({ ...done(r.milk, 90), engineVersion: ENGINE_VERSION, barcode: "8901262010016", charged: false });
     const peanuts = await ins({ ...done(r.peanuts, 20), ...ai, imageCount: 2 });
     await debitForScan(tx, userId, peanuts);
+
+    // The ledger rows were all written now, in this one transaction. Backdate each to its scan (the
+    // grant just before the first one, the refund when the failed scan finished) so the credits chart
+    // and activity day groups show real history. Never before this period's start (the 1st, UTC).
+    const periodStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+    const at = (d: Date) => new Date(Math.max(d.getTime(), periodStart.getTime()));
+    const thaliAt = ago(60 * 26);
+    await tx.update(creditTxn).set({ createdAt: at(new Date(thaliAt.getTime() - 60_000)) }).where(and(eq(creditTxn.userId, userId), eq(creditTxn.type, "grant")));
+    for (const [scanId, debitAt, refundAt] of [
+      [thali, thaliAt, null],
+      [failed, ago(60 * 5), ago(60 * 5 - 0.2)],
+      [peanuts, ago(20), null],
+    ] as const) {
+      await tx.update(creditTxn).set({ createdAt: at(debitAt) }).where(and(eq(creditTxn.scanId, scanId), eq(creditTxn.type, "debit")));
+      if (refundAt) await tx.update(creditTxn).set({ createdAt: at(refundAt) }).where(and(eq(creditTxn.scanId, scanId), eq(creditTxn.type, "refund")));
+    }
     return { peanuts, milk, thali, failed, grades: { peanuts: r.peanuts.grade, milk: r.milk.grade, thali: r.thali.grade } };
   });
 }

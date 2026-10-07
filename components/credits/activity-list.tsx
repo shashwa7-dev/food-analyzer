@@ -46,7 +46,7 @@ function AmountPill({ it }: { it: ActivityItem }) {
     <span
       className={cn(
         "num shrink-0 rounded-full px-2.5 py-[5px] text-[13.5px] font-[650] whitespace-nowrap",
-        free ? "bg-brand-soft text-brand-deep" : it.amount > 0 ? "bg-grade-a/15 text-grade-a" : "bg-sunken text-ink",
+        free ? "bg-brand-soft text-on-brand-soft" : it.amount > 0 ? "bg-grade-a/15 text-good-ink" : "bg-sunken text-ink",
       )}
     >
       <span aria-hidden>{label}</span>

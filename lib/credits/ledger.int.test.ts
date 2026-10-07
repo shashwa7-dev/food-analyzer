@@ -4,7 +4,7 @@ import { createUser, resetDb, testDb } from "@/tests/helpers/db";
 import { creditTxn, profile, scan } from "@/lib/db/schema";
 import { InvalidError } from "@/lib/errors";
 import {
-  NoCreditsError, ScanNotFoundError, countActivity, debitForScan, ensureCurrentPeriod, getBalance, listActivity, periodBalances, refundScan,
+  NoCreditsError, ScanNotFoundError, countActivity, debitForScan, ensureCurrentPeriod, getBalance, listActivity, periodChanges, refundScan,
 } from "./ledger";
 
 const NOW = new Date("2026-10-05T00:00:00Z");
@@ -368,14 +368,16 @@ describe("credits/ledger", () => {
       expect(await countActivity(u, new Date())).toEqual({ used: 2, free: 1, refunded: 1 });
     });
 
-    it("lists this period's balance changes oldest first, the grant before a debit in its own transaction", async () => {
+    it("lists this period's ledger changes with their amounts, and nothing from an earlier period", async () => {
       const u = await createUser();
+      await testDb().update(profile).set({ allowancePeriod: "2026-09", credits: 7 }).where(eq(profile.userId, u));
+      await testDb().insert(creditTxn).values({ userId: u, amount: -1, type: "debit", idempotencyKey: `old:${u}`, balanceAfter: 7, createdAt: new Date(Date.now() - 40 * 86_400_000) });
       const first = await insertScan(u);
-      await testDb().transaction((tx) => debitForScan(tx, u, first)); // grants, then debits, in one transaction
+      await testDb().transaction((tx) => debitForScan(tx, u, first)); // expires, grants, then debits, in one transaction
 
-      const b = await periodBalances(u);
-      expect(b.map((r) => [r.type, r.balanceAfter])).toEqual([["grant", 20], ["debit", 19]]);
-      expect(b[0]!.at).toBe(b[1]!.at);
+      const c = await periodChanges(u);
+      expect(c.map((r) => [r.type, r.amount]).sort()).toEqual([["debit", -1], ["expire", -7], ["grant", 20]]);
+      expect(c.reduce((s, r) => s + r.amount, 0)).toBe(12);
     });
   });
 });

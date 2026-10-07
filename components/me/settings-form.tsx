@@ -2,7 +2,7 @@
 // The Me page's settings, one section per sheet (spec §6.13): Goal (with the daily targets), Diet,
 // Allergies and Country. Every section saves through the same server action (saveProfile), then
 // refreshes the page so the settings list shows the stored values.
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
@@ -13,6 +13,7 @@ import { allergensForDiet, ALLERGEN_KEYS, type AllergenKey } from "@/lib/nutriti
 import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
 import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
 import { saveProfile } from "@/app/(app)/me/actions";
+import { parseTarget } from "@/lib/profile/parse-target";
 
 export const COUNTRIES: [string, string][] = [
   ["IN", "India"], ["US", "United States"], ["GB", "United Kingdom"],
@@ -118,20 +119,27 @@ function SubHead({ children }: { children: ReactNode }) {
   return <h3 className="m-0 px-1 text-[12px] font-[650] tracking-[0.06em] text-subtle uppercase">{children}</h3>;
 }
 
-function TargetField({ label, unit, value, onChange }: { label: string; unit: string; value: string; onChange: (v: string) => void }) {
+function TargetField({ label, unit, value, error, onChange }: { label: string; unit: string; value: string; error: boolean; onChange: (v: string) => void }) {
+  const errorId = useId();
   return (
     <label className="flex min-w-0 flex-col gap-1.5">
       <span className="truncate px-1 text-[13px] font-medium text-subtle">{label}</span>
-      <span className="flex h-[52px] items-center gap-2 rounded-2xl border border-line bg-surface px-3.5 focus-within:ring-2 focus-within:ring-brand-deep">
+      <span className={cn(
+        "flex h-[52px] items-center gap-2 rounded-2xl border bg-surface px-3.5 focus-within:ring-2",
+        error ? "border-bad focus-within:ring-bad" : "border-line focus-within:ring-brand-deep",
+      )}>
         <input
           inputMode="decimal"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           aria-label={`${label} (${unit})`}
+          aria-invalid={error || undefined}
+          aria-describedby={error ? errorId : undefined}
           className="num h-full w-full min-w-0 bg-transparent text-base font-semibold text-ink outline-none!"
         />
         <span className="shrink-0 text-[13px] text-subtle">{unit}</span>
       </span>
+      {error && <span id={errorId} className="px-1 text-[12.5px] font-medium text-bad">Enter a number</span>}
     </label>
   );
 }
@@ -143,6 +151,7 @@ export function GoalSection({ goal, targets, onDone }: { goal: Goal; targets: Pa
   const [fields, setFields] = useState(() => toTextRecord(targetsFor(goal, targets)));
   const [edited, setEdited] = useState<Set<FieldKey>>(() => new Set());
   const [showAll, setShowAll] = useState(false);
+  const [invalid, setInvalid] = useState<Set<FieldKey>>(() => new Set());
   const initial = toTextRecord(targetsFor(goal, targets));
   const dirty = draftGoal !== goal || ALL_FIELDS.some((f) => fields[f.key] !== initial[f.key]);
 
@@ -159,16 +168,28 @@ export function GoalSection({ goal, targets, onDone }: { goal: Goal; targets: Pa
   function setField(key: FieldKey, v: string) {
     setFields((cur) => ({ ...cur, [key]: v }));
     setEdited((cur) => new Set(cur).add(key));
+    setInvalid((cur) => {
+      if (!cur.has(key)) return cur;
+      const next = new Set(cur);
+      next.delete(key);
+      return next;
+    });
   }
   function submit() {
     const preset = PRESETS[draftGoal];
     const out: Partial<DailyTargets> = {};
+    const bad = new Set<FieldKey>();
     for (const f of ALL_FIELDS) {
-      const raw = fields[f.key];
-      if (raw === "") continue;
-      const v = Number(raw);
-      if (!Number.isFinite(v)) continue;
-      if (v !== preset[f.key]) (out as Record<string, number>)[f.key] = v;
+      const v = parseTarget(fields[f.key]);
+      if (v === null) continue;
+      if (Number.isNaN(v)) bad.add(f.key);
+      else if (v !== preset[f.key]) (out as Record<string, number>)[f.key] = v;
+    }
+    if (bad.size) {
+      setInvalid(bad);
+      // An error in a hidden field must be visible.
+      if (MORE_FIELDS.some((f) => bad.has(f.key))) setShowAll(true);
+      return;
     }
     void save({ goal: draftGoal, targets: Object.keys(out).length ? out : null });
   }
@@ -178,8 +199,8 @@ export function GoalSection({ goal, targets, onDone }: { goal: Goal; targets: Pa
       <OptionList label="Goal" options={GOALS.map(([key, title, desc]) => ({ key, title, desc }))} value={draftGoal} onPick={pickGoal} />
       <SubHead>Daily targets</SubHead>
       <div className="grid shrink-0 grid-cols-2 gap-2.5">
-        {PRIMARY_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} onChange={(v) => setField(f.key, v)} />)}
-        {showAll && MORE_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} onChange={(v) => setField(f.key, v)} />)}
+        {PRIMARY_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} onChange={(v) => setField(f.key, v)} />)}
+        {showAll && MORE_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} onChange={(v) => setField(f.key, v)} />)}
       </div>
       <button
         type="button"
