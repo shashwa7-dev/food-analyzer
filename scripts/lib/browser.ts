@@ -12,7 +12,12 @@ export const HIDE_DEV_UI = "nextjs-portal, [data-nextjs-toast], [data-next-badge
 // The scanner needs a camera: Chrome's fake device plus auto-accepted permission.
 export const FAKE_CAMERA_FLAGS = ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"];
 
-export const baseUrl = () => new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000");
+/** The local dev server the scripts drive (BETTER_AUTH_URL); anything but localhost is refused, so the demo cookie never leaves the machine. */
+export function baseUrl(): URL {
+  const url = new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000");
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) throw new Error(`The UI scripts only run against a local server, not ${url.origin}.`);
+  return url;
+}
 
 export function assertDev(what: string) {
   if (process.env.NODE_ENV === "production") throw new Error(`${what} is dev only.`);
