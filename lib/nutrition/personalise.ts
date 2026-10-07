@@ -28,6 +28,20 @@ const DIET_RULES: Record<Exclude<Diet, "none">, { words: RegExp; label: string }
   vegan: { words: /\b(milk|ghee|butter|paneer|cream|curd|dahi|cheese|whey|casein|yogurt|yoghurt|buttermilk|chaas|lassi|honey|eggs?|chicken|mutton|fish|gelatin|e120|milk solids)\b/i, label: "vegan" },
   jain: { words: /\b(onions?|garlic|potato(es)?|aloo|carrots?|beetroot|radish|ginger|chicken|mutton|fish|shellfish|crab|lobster|eggs?|honey|gelatin)\b/i, label: "Jain" },
 };
+// Allergens a diet already excludes by definition — no point asking about them.
+const DIET_HIDDEN_ALLERGENS: Record<Diet, readonly AllergenKey[]> = {
+  none: [],
+  vegetarian: ["fish", "shellfish", "egg"],
+  jain: ["fish", "shellfish", "egg"],
+  eggetarian: ["fish", "shellfish"],
+  vegan: ["fish", "shellfish", "egg", "milk"],
+};
+
+export function allergensForDiet(diet: Diet): AllergenKey[] {
+  const hidden = new Set<AllergenKey>(DIET_HIDDEN_ALLERGENS[diet]);
+  return ALLERGEN_KEYS.filter((key) => !hidden.has(key));
+}
+
 const CHECK = " Check the pack to confirm.";
 const pct = (v: number, of: number) => Math.round((v / of) * 100);
 

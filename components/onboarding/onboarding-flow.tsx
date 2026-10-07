@@ -5,28 +5,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PRESETS } from "@/lib/nutrition/targets";
-import { ALLERGEN_KEYS, type AllergenKey } from "@/lib/nutrition/personalise";
+import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
 import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
+import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
 import { saveProfile } from "@/app/(app)/me/actions";
 
-const GOALS: [Goal, string, string][] = [
-  ["general", "Eat better", "Balanced targets, honest grades"],
-  ["weight_loss", "Lose weight", "Lower calorie target"],
-  ["muscle", "Build muscle", "Higher protein target"],
-  ["low_sugar", "Cut sugar", "Sugar limit 25 g"],
-  ["low_sodium", "Cut salt", "Sodium limit 1,500 mg"],
-];
-const DIETS: [Diet, string][] = [
-  ["none", "No restriction"],
-  ["vegetarian", "Vegetarian"],
-  ["eggetarian", "Eggetarian"],
-  ["vegan", "Vegan"],
-  ["jain", "Jain"],
-];
-const ALLERGEN_LABELS: Record<AllergenKey, string> = {
-  peanut: "Peanut", tree_nut: "Tree nuts", milk: "Milk", egg: "Egg", gluten: "Gluten",
-  soy: "Soy", sesame: "Sesame", fish: "Fish", shellfish: "Shellfish", mustard: "Mustard",
-};
 const PRIMARY_FIELDS = [
   { key: "energyKcal", label: "Calories (kcal)", min: 800, max: 6000 },
   { key: "protein", label: "Protein (g)", min: 10, max: 400 },
@@ -108,6 +91,12 @@ export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
     router.replace("/today");
   }
 
+  function pickDiet(key: Diet) {
+    setDiet(key);
+    const allowed = new Set(allergensForDiet(key));
+    setAllergies((prev) => new Set(Array.from(prev).filter((a) => allowed.has(a))));
+  }
+
   function continueStep() {
     if (step === 2) ensureFieldsReady();
     if (step < 3) setStep((s) => s + 1);
@@ -149,7 +138,7 @@ export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
               key={key}
               type="button"
               aria-pressed={diet === key}
-              onClick={() => setDiet(key)}
+              onClick={() => pickDiet(key)}
               className="min-h-11 rounded-md border border-line bg-surface px-3.5 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg"
             >
               {label}
@@ -161,7 +150,7 @@ export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
       {step === 2 && (
         <fieldset className="flex flex-wrap gap-2">
           <legend className="sr-only">Allergies</legend>
-          {ALLERGEN_KEYS.map((key) => (
+          {allergensForDiet(diet).map((key) => (
             <button
               key={key}
               type="button"

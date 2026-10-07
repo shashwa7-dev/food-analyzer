@@ -9,30 +9,11 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
 import { PRESETS, targetsFor } from "@/lib/nutrition/targets";
-import { ALLERGEN_KEYS, type AllergenKey } from "@/lib/nutrition/personalise";
+import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
 import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
+import { GOALS, GOAL_LABEL, DIETS, DIET_LABEL, ALLERGEN_LABELS } from "@/lib/profile/options";
 import { saveProfile, deleteAccountAction } from "@/app/(app)/me/actions";
 
-const GOALS: [Goal, string][] = [
-  ["general", "Eat better"],
-  ["weight_loss", "Lose weight"],
-  ["muscle", "Build muscle"],
-  ["low_sugar", "Cut sugar"],
-  ["low_sodium", "Cut salt"],
-];
-const GOAL_LABEL: Record<Goal, string> = Object.fromEntries(GOALS.map(([k, l]) => [k, l])) as Record<Goal, string>;
-const DIETS: [Diet, string][] = [
-  ["none", "No restriction"],
-  ["vegetarian", "Vegetarian"],
-  ["eggetarian", "Eggetarian"],
-  ["vegan", "Vegan"],
-  ["jain", "Jain"],
-];
-const DIET_LABEL: Record<Diet, string> = Object.fromEntries(DIETS.map(([k, l]) => [k, l])) as Record<Diet, string>;
-const ALLERGEN_LABELS: Record<AllergenKey, string> = {
-  peanut: "Peanut", tree_nut: "Tree nuts", milk: "Milk", egg: "Egg", gluten: "Gluten",
-  soy: "Soy", sesame: "Sesame", fish: "Fish", shellfish: "Shellfish", mustard: "Mustard",
-};
 const COUNTRIES: [string, string][] = [
   ["IN", "India"], ["US", "United States"], ["GB", "United Kingdom"],
   ["AE", "UAE"], ["CA", "Canada"], ["AU", "Australia"], ["SG", "Singapore"],
@@ -135,6 +116,9 @@ export function SettingsForm({ initial }: { initial: SettingsInitial }) {
   async function pickDiet(key: Diet) {
     if (!(await save({ diet: key }))) return;
     setDiet(key);
+    const allowed = new Set(allergensForDiet(key));
+    setAllergies((prev) => new Set(Array.from(prev).filter((a) => allowed.has(a))));
+    setDraftAllergies((prev) => new Set(Array.from(prev).filter((a) => allowed.has(a))));
     setOpen(null);
   }
   async function pickCountry(key: string) {
@@ -206,7 +190,7 @@ export function SettingsForm({ initial }: { initial: SettingsInitial }) {
         >
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap gap-2">
-              {ALLERGEN_KEYS.map((key) => (
+              {allergensForDiet(diet).map((key) => (
                 <button
                   key={key}
                   type="button"

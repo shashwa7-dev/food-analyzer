@@ -15,6 +15,19 @@ describe("profile updates", () => {
     expect(p).toMatchObject({ goal: "low_sodium", diet: "vegetarian", allergies: ["peanut"] });
     expect(p!.onboardedAt).not.toBeNull();
   });
+  it("drops allergies the saved diet already excludes", async () => {
+    const u = await createUser();
+    await updateProfile(u, { diet: "vegetarian", allergies: ["fish", "peanut"] });
+    const [p] = await testDb().select().from(profile).where(eq(profile.userId, u));
+    expect(p!.allergies).toEqual(["peanut"]);
+  });
+  it("drops now-hidden allergies when only the diet changes later", async () => {
+    const u = await createUser();
+    await updateProfile(u, { diet: "none", allergies: ["fish", "peanut"] });
+    await updateProfile(u, { diet: "vegan" });
+    const [p] = await testDb().select().from(profile).where(eq(profile.userId, u));
+    expect(p!.allergies).toEqual(["peanut"]);
+  });
   it("rejects unknown allergens and bad targets", async () => {
     const u = await createUser();
     await expect(updateProfile(u, { allergies: ["glitter"] as never })).rejects.toThrow();

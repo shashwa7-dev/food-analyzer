@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { personalise } from "./personalise";
+import { personalise, allergensForDiet, ALLERGEN_KEYS } from "./personalise";
 import { PRESETS } from "./targets";
 
 const prof = (o: Partial<{ allergies: string[]; diet: "none" | "vegetarian" | "eggetarian" | "vegan" | "jain"; goal: "general" | "low_sodium" }>) =>
@@ -97,5 +97,21 @@ describe("personalise", () => {
       expect(personalise({ ...base, name: "Plain dosa", profile: prof({}) })).toEqual([]);
       expect(personalise({ ...base, ingredients: ["rice", "urad dal"], name: "Plain dosa", profile: prof({ allergies: ["sesame"] }) })).toEqual([]);
     });
+  });
+});
+
+describe("allergensForDiet", () => {
+  it("hides fish, shellfish and egg for vegetarian and jain", () => {
+    expect(allergensForDiet("vegetarian")).toEqual(ALLERGEN_KEYS.filter((k) => !["fish", "shellfish", "egg"].includes(k)));
+    expect(allergensForDiet("jain")).toEqual(ALLERGEN_KEYS.filter((k) => !["fish", "shellfish", "egg"].includes(k)));
+  });
+  it("hides fish and shellfish for eggetarian", () => {
+    expect(allergensForDiet("eggetarian")).toEqual(ALLERGEN_KEYS.filter((k) => !["fish", "shellfish"].includes(k)));
+  });
+  it("hides fish, shellfish, egg and milk for vegan", () => {
+    expect(allergensForDiet("vegan")).toEqual(ALLERGEN_KEYS.filter((k) => !["fish", "shellfish", "egg", "milk"].includes(k)));
+  });
+  it("shows all keys for none", () => {
+    expect(allergensForDiet("none")).toEqual(ALLERGEN_KEYS);
   });
 });
