@@ -15,11 +15,10 @@ import { dayLabels } from "@/lib/today/headline";
 const monthKey = (d: Date) => formatLocalDate(d).slice(0, 7);
 const WEEKDAY = ["S", "M", "T", "W", "T", "F", "S"];
 
-function useLoggedDates(month: string, enabled: boolean) {
+function useLoggedDates(month: string) {
   return useQuery({
     queryKey: ["log", "dates", month],
     queryFn: () => api<{ dates: string[] }>(`/api/v1/log/dates?month=${month}`),
-    enabled,
     staleTime: 60_000,
   });
 }
@@ -33,7 +32,7 @@ function DatePickerBody({ date, today, onDone }: { date: string; today: string; 
   const router = useRouter();
   const [picked, setPicked] = useState(date);
   const [month, setMonth] = useState(() => parseLocalDate(date));
-  const logged = useLoggedDates(monthKey(month), true);
+  const logged = useLoggedDates(monthKey(month));
   const loggedSet = new Set(logged.data?.dates ?? []);
   const oldest = addDays(today, -365);
 

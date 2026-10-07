@@ -1,5 +1,6 @@
 import { CalorieCard } from "@/components/today/calorie-card";
 import { MacroTiles } from "@/components/today/macro-tiles";
+import { LimitChips } from "@/components/today/limit-chips";
 import type { TargetProgress } from "@/lib/nutrition/totals";
 
 function find(progress: TargetProgress[], key: TargetProgress["key"]): TargetProgress {
@@ -10,13 +11,14 @@ function find(progress: TargetProgress[], key: TargetProgress["key"]): TargetPro
 
 const amount = (p: TargetProgress) => ({ eaten: p.total, target: p.target });
 
-/** The day's calorie card and macro tiles, from `dayTotals().progress`. */
+/** The day's calorie card, macro tiles and (when close to a limit) limit chips, from `dayTotals().progress`. */
 export function DaySummary({ progress }: { progress: TargetProgress[] }) {
   const kcal = find(progress, "energyKcal");
   return (
     <div className="flex flex-col gap-3">
       <CalorieCard eaten={kcal.total} target={kcal.target} />
       <MacroTiles protein={amount(find(progress, "protein"))} carbs={amount(find(progress, "carbs"))} fat={amount(find(progress, "fat"))} />
+      <LimitChips progress={progress} />
     </div>
   );
 }

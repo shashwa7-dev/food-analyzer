@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { invalidateLogQueries } from "@/lib/log/invalidate";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { logEntryBody, stepQuantity, type LogTarget } from "@/lib/log/quantity";
@@ -42,6 +43,7 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone }: {
     onSuccess: () => {
       toast.success(`Added ${food.name} to ${meal}.`);
       void qc.invalidateQueries({ queryKey: ["foods", "recent"] });
+      invalidateLogQueries(qc);
       router.refresh();
       onDone?.();
     },

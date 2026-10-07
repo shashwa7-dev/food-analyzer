@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trash2, Undo2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -15,12 +15,14 @@ import { api, ApiError } from "@/lib/api-client";
 import { isFreeGramsPortion, portionMeta } from "@/lib/log/format";
 import { stepQuantity } from "@/lib/log/quantity";
 import { MEALS, type Meal } from "@/lib/nutrition/types";
+import { invalidateLogQueries } from "@/lib/log/invalidate";
 import { undoBody, undoNeedsPortions, undoTarget } from "@/lib/log/undo";
 import type { EntryRow } from "@/lib/log/service";
 import type { Portion } from "@/lib/nutrition/types";
 
 function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => void }) {
   const router = useRouter();
+  const qc = useQueryClient();
   const [quantity, setQuantity] = useState(entry.portion.amount);
   const [gramsText, setGramsText] = useState(String(entry.portion.grams ?? ""));
   const [meal, setMeal] = useState<Meal>(entry.meal);
@@ -47,6 +49,7 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
   const dirty = Object.keys(patch).length > 0 && gramsValid;
   const done = (message: string) => {
     toast.success(message);
+    invalidateLogQueries(qc);
     router.refresh();
     onClose();
   };
@@ -59,10 +62,20 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
     mutationFn: () => api(`/api/v1/log/${entry.id}`, { method: "DELETE" }),
     onSuccess: () => {
       setConfirming(false);
+      invalidateLogQueries(qc);
       router.refresh();
       onClose();
+      // One restore per toast, however fast Undo is tapped twice.
+      let restored = false;
       toast.success("Entry deleted", {
-        action: { label: <><Undo2 className="size-4" aria-hidden />Undo</>, onClick: () => void restoreEntry(entry, () => router.refresh()) },
+        action: {
+          label: <><Undo2 className="size-4" aria-hidden />Undo</>,
+          onClick: () => {
+            if (restored) return;
+            restored = true;
+            void restoreEntry(entry, qc, () => router.refresh());
+          },
+        },
       });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn't delete that. Try again."),
@@ -144,7 +157,7 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
  * The delete toast's Undo: logs the entry again through POST /api/v1/log from its food or scan
  * (same portion and amount), or as a quick add with its own nutrients when that source is gone.
  */
-async function restoreEntry(entry: EntryRow, refresh: () => void) {
+async function restoreEntry(entry: EntryRow, qc: QueryClient, refresh: () => void) {
   try {
     let portions: Portion[] | null = null;
     const target = undoTarget(entry);
@@ -155,6 +168,7 @@ async function restoreEntry(entry: EntryRow, refresh: () => void) {
     }
     await api("/api/v1/log", { method: "POST", body: JSON.stringify(undoBody(entry, portions)) });
     toast.success("Entry restored");
+    invalidateLogQueries(qc);
     refresh();
   } catch (e) {
     toast.error(e instanceof ApiError ? e.message : "Couldn't restore that entry. Try again.");

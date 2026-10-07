@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { invalidateLogQueries } from "@/lib/log/invalidate";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import type { Meal } from "@/lib/nutrition/types";
@@ -60,6 +61,7 @@ export function QuickAddForm({ date, meal, onDone }: { date: string; meal: Meal;
     onSuccess: (loggedName) => {
       toast.success(`Added ${loggedName} to ${meal}.`);
       void qc.invalidateQueries({ queryKey: ["foods", "recent"] });
+      invalidateLogQueries(qc);
       router.refresh();
       onDone?.();
     },

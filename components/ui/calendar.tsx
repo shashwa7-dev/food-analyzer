@@ -103,7 +103,7 @@ function Calendar({
           defaultClassNames.week_number
         ),
         day: cn(
-          "group/day relative h-[42px] w-full flex-1 rounded-(--cell-radius) p-0 text-center select-none [&:last-child[data-selected=true]_button]:rounded-r-(--cell-radius)",
+          "group/day relative h-11 w-full flex-1 rounded-(--cell-radius) p-0 text-center select-none [&:last-child[data-selected=true]_button]:rounded-r-(--cell-radius)",
           props.showWeekNumber
             ? "[&:nth-child(2)[data-selected=true]_button]:rounded-l-(--cell-radius)"
             : "[&:first-child[data-selected=true]_button]:rounded-l-(--cell-radius)",
@@ -209,7 +209,7 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "relative isolate z-10 flex size-auto h-[42px] w-full min-w-0 flex-col items-center justify-center rounded-(--cell-radius) border-0 text-[15px] leading-none font-[550] hover:bg-sunken disabled:opacity-100 group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-2 group-data-[focused=true]/day:ring-ring data-[selected-single=true]:bg-action data-[selected-single=true]:hover:bg-action data-[selected-single=true]:font-semibold data-[selected-single=true]:text-action-ink data-[range-end=true]:bg-action data-[range-end=true]:text-action-ink data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-sunken data-[range-start=true]:bg-action data-[range-start=true]:text-action-ink",
+        "relative isolate z-10 flex size-auto h-11 w-full min-w-0 flex-col items-center justify-center rounded-(--cell-radius) border-0 text-[15px] leading-none font-[550] hover:bg-sunken disabled:opacity-100 group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-2 group-data-[focused=true]/day:ring-ring data-[selected-single=true]:bg-action data-[selected-single=true]:hover:bg-action data-[selected-single=true]:font-semibold data-[selected-single=true]:text-action-ink data-[range-end=true]:bg-action data-[range-end=true]:text-action-ink data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-sunken data-[range-start=true]:bg-action data-[range-start=true]:text-action-ink",
         defaultClassNames.day,
         className
       )}

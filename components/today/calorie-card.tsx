@@ -1,15 +1,18 @@
 import { Flame } from "lucide-react";
+import { toneFor } from "@/lib/today/tone";
+import { cn } from "@/lib/utils";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-IN");
 
 /**
  * The brand-soft "Eaten" card (spec §6.1): eaten kcal, the target, and a ring of % of goal. The
  * ring stops at 100% while the centre shows the true percentage, so an over-target day reads
- * "121%" on a full ring.
+ * "121%" on a full ring — in the bad colour, with the % label, once the target is passed.
  */
 export function CalorieCard({ eaten, target }: { eaten: number; target: number }) {
   const pct = target > 0 ? Math.round((eaten / target) * 100) : 0;
   const drawn = target > 0 ? Math.min((eaten / target) * 100, 100) : 0;
+  const over = toneFor(eaten, target) === "over";
   return (
     <section
       aria-label="Calories eaten"
@@ -26,7 +29,7 @@ export function CalorieCard({ eaten, target }: { eaten: number; target: number }
         </div>
         <div className="num mt-1.5 whitespace-nowrap text-[13px] text-subtle">of {fmt(target)} target</div>
       </div>
-      <div className="relative size-[112px] shrink-0 text-brand-deep" role="img" aria-label={`${pct}% of your calorie goal`}>
+      <div className={cn("relative size-[112px] shrink-0", over ? "text-bad" : "text-brand-deep")} role="img" aria-label={`${pct}% of your calorie goal`}>
         <svg viewBox="0 0 112 112" width="112" height="112" className="block -rotate-90" aria-hidden>
           <circle cx="56" cy="56" r="47" fill="none" stroke="currentColor" strokeOpacity={0.16} strokeWidth="11" />
           {drawn > 0 && (
@@ -38,7 +41,7 @@ export function CalorieCard({ eaten, target }: { eaten: number; target: number }
         </svg>
         <div className="absolute inset-0 grid place-items-center text-center leading-[1.1]" aria-hidden>
           <div>
-            <b className="num block text-xl font-bold tracking-[-0.03em] text-ink">{pct}%</b>
+            <b className={cn("num block text-xl font-bold tracking-[-0.03em]", over ? "text-bad" : "text-ink")}>{pct}%</b>
             <span className="text-[11px] text-subtle">of goal</span>
           </div>
         </div>

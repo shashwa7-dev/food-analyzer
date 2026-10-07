@@ -4,6 +4,8 @@ import { getDay } from "@/lib/log/service";
 import type { Meal } from "@/lib/nutrition/types";
 import { initialsOf } from "@/lib/initials";
 import { dayLabels, headlineFor } from "@/lib/today/headline";
+import { toneFor } from "@/lib/today/tone";
+import { cn } from "@/lib/utils";
 import { DaySummary } from "@/components/today/day-summary";
 import { MealSection } from "@/components/today/meal-section";
 import { DateSwitcher } from "@/components/today/date-switcher";
@@ -37,7 +39,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       </header>
       <h1 className="mt-0.5 text-[34px] font-[650] leading-[1.05] tracking-[-0.04em] text-balance text-ink md:col-span-2 md:text-[40px]">
         {headline.lead && <>{headline.lead} </>}
-        <em className="num whitespace-nowrap not-italic text-brand-deep">{headline.value}</em> {headline.tail}
+        <em className={cn("num whitespace-nowrap not-italic", toneFor(kcal.total, kcal.target) === "over" ? "text-bad" : "text-brand-deep")}>{headline.value}</em> {headline.tail}
       </h1>
       <DaySummary progress={day.progress} />
       <div className="flex flex-col gap-3">

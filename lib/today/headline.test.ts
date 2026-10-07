@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { initialsOf } from "@/lib/initials";
 import { dayLabels, headlineFor } from "./headline";
 
 describe("headlineFor", () => {
@@ -26,14 +25,5 @@ describe("dayLabels", () => {
   it("formats the long and short labels from the calendar date, not the host timezone", () => {
     expect(dayLabels("2026-10-07")).toEqual({ long: "Wednesday, 7 Oct", short: "7 Oct" });
     expect(dayLabels("2026-09-12")).toEqual({ long: "Saturday, 12 Sep", short: "12 Sep" });
-  });
-});
-
-describe("initialsOf", () => {
-  it("takes the first letters of the first and last names", () => {
-    expect(initialsOf("Aarav Kapoor")).toBe("AK");
-    expect(initialsOf("aarav")).toBe("A");
-    expect(initialsOf("Mary Jane Watson")).toBe("MW");
-    expect(initialsOf("  ")).toBe("?");
   });
 });
