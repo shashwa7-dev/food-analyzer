@@ -11,6 +11,7 @@ import { categoriesFromGuess, tipFor } from "./tips";
 import { validateFacts } from "./validate";
 import { classify } from "@/lib/nutrition/classify";
 import { dishScore } from "@/lib/nutrition/grade/dish";
+import { dropImplausible } from "@/lib/nutrition/plausible";
 import { ensureBasePortion, nutrientsFor, scaleNutrients } from "@/lib/nutrition/portions";
 import { NUTRIENT_KEYS, type DailyTargets, type Diet, type Goal, type Grade, type GradeResult, type NutrientKey, type Nutrients, type Portion, type Provenance } from "@/lib/nutrition/types";
 import { normalise } from "@/lib/foods/normalise";
@@ -25,7 +26,10 @@ export type FoodLike = Pick<
   | "id" | "name" | "brand" | "kind" | "gradeCategory" | "basis" | "per100" | "provenance" | "portions" | "defaultPortion"
   | "gradePortionGrams" | "ingredients" | "allergens" | "mayContain" | "additives" | "categories" | "nova" | "grade"
   | "gradeValue" | "gradeComponents" | "barcode"
->;
+> & {
+  /** Per-100 values dropped as implausible when the row was read (lib/foods/sane.ts). */
+  dropped?: NutrientKey[];
+};
 
 export interface ExtractOutput {
   data: Extraction;
@@ -201,7 +205,7 @@ async function resultFromFood(
     basis: f.basis, per100: f.per100, provenance: f.provenance, portions: f.portions, defaultPortion: f.defaultPortion,
     gradeCategory: f.gradeCategory, gradePortionGrams: f.gradePortionGrams,
     ingredients: f.ingredients, allergens: f.allergens, mayContain: f.mayContain, additives: f.additives, nova: f.nova,
-    alternatives: [], hints, confidence, profile, precomputedGrade: storedGrade(f),
+    alternatives: [], hints, confidence, profile, precomputedGrade: storedGrade(f), dropped: f.dropped,
   });
   return withAlternatives(result, f.categories, f.id, deps, profile.country);
 }
@@ -214,6 +218,15 @@ function packagedPortions(conv: { basis: "per_100g" | "per_100ml"; servingGrams:
   if (packSize && packSize.value > 0) list.push({ label: "1 pack", amount: 1, unit: "pack", grams: Math.round(packSize.value) });
   const portions = ensureBasePortion(conv.basis, [...list, ...extra]);
   return { portions, defaultPortion: defaultPortionIndex(portions) };
+}
+
+/** Drops implausible optional per-100 values (lib/nutrition/plausible.ts) and their provenance. */
+function plausibleFacts(f: { per100: Nutrients; provenance: Partial<Record<NutrientKey, Provenance>> }): typeof f & { dropped: NutrientKey[] } {
+  const { per100, dropped } = dropImplausible(f.per100);
+  if (dropped.length === 0) return { ...f, dropped };
+  const provenance = { ...f.provenance };
+  for (const k of dropped) delete provenance[k];
+  return { per100, provenance, dropped };
 }
 
 /** Like toPer100, but for a panel missing some of energy/protein/carbs/fat: converts what's there (a DB match may fill the rest). */
@@ -341,10 +354,13 @@ async function labelScan(
   let db = servingUnknown ? null : barcodeFood;
   if (!complete && !db && x.product?.name) db = await matchByName(x.product, deps, profile.country);
 
-  const merged = mergeFacts(conv?.per100 ?? null, db ? { per100: db.per100, provenance: db.provenance } : null);
-  if (!merged) throw unreadable();
+  const facts = mergeFacts(conv?.per100 ?? null, db ? { per100: db.per100, provenance: db.provenance } : null);
+  if (!facts) throw unreadable();
 
-  const validation = conv ? validateFacts(merged.per100, { energyKj: conv.energyKj, saltG: conv.saltG }) : { ok: true, failed: [] };
+  // Validated as read (an out-of-range value fails "range": low confidence, retake hint); shown without
+  // implausible optional values, which become unknown rather than a wrong number.
+  const validation = conv ? validateFacts(facts.per100, { energyKj: conv.energyKj, saltG: conv.saltG }) : { ok: true, failed: [] };
+  const merged = plausibleFacts(facts);
   const hints: string[] = [];
   if (!validation.ok) hints.push(HINT_RETAKE);
   if (servingUnknown) hints.push(HINT_NO_SERVING);
@@ -374,7 +390,7 @@ async function labelScan(
     // Per-serving values of unknown weight are never passed off as per-100 (no grams logging, no grade).
     ...(servingUnknown ? { per100: null, perServing: merged.per100 } : { per100: merged.per100 }),
     portions, defaultPortion, gradeCategory, gradePortionGrams: null, ingredients, allergens, mayContain, additives,
-    nova: db?.nova ?? null, alternatives: [], hints, confidence, profile, ...(servingUnknown && { servingUnknown }),
+    nova: db?.nova ?? null, alternatives: [], hints, confidence, profile, ...(servingUnknown && { servingUnknown }), dropped: merged.dropped,
   });
   const result = await withAlternatives(built, categories, db?.id ?? null, deps, profile.country);
 
@@ -391,8 +407,10 @@ async function frontScan(x: Extraction, profile: Profile, deps: EngineDeps): Pro
   const match = x.product?.name ? await matchByName(x.product, deps, profile.country) : null;
   if (match) return { result: await resultFromFood(match, "front", "medium", [HINT_BACK], profile, deps), crowdCandidate: null };
 
-  const est = toPer100(x.facts);
-  if (!est) throw unknownProduct();
+  const read = toPer100(x.facts);
+  if (!read) throw unknownProduct();
+  const { per100: plausible, dropped } = dropImplausible(read.per100);
+  const est = { ...read, per100: plausible };
   const provenance: Partial<Record<NutrientKey, Provenance>> = Object.fromEntries(
     NUTRIENT_KEYS.filter((k) => est.per100[k] !== undefined).map((k) => [k, "estimate" as const]),
   );
@@ -406,7 +424,7 @@ async function frontScan(x: Extraction, profile: Profile, deps: EngineDeps): Pro
     portions, defaultPortion, gradeCategory, gradePortionGrams: null, ingredients: x.ingredients ?? [],
     allergens: toOffAllergenTags(x.allergensDeclared ?? []), mayContain: toOffAllergenTags(x.mayContain ?? []),
     additives: toOffAdditiveTags(x.additives ?? []), nova: null, alternatives: [],
-    hints: est.servingUnknown ? [HINT_BACK, HINT_NO_SERVING] : [HINT_BACK], confidence: "low", profile,
+    hints: est.servingUnknown ? [HINT_BACK, HINT_NO_SERVING] : [HINT_BACK], confidence: "low", profile, dropped,
     ...(est.servingUnknown && { servingUnknown: true }),
   });
   return { result: await withAlternatives(built, categories, null, deps, profile.country), crowdCandidate: null };

@@ -448,6 +448,27 @@ describe("runAi — a barcode the model read off the photo", () => {
     expect(out.crowdCandidate?.barcode).toBe(NAMKEEN_CODE);
   });
 
+  it("label with an implausible per-100 value (sodium past pure salt): flagged for retake, shown as unknown, never crowd-sourced", async () => {
+    // 5,000 mg sodium in a 10 g serving scales to 50,000 mg per 100 g.
+    const bad = fx({ ...labelNamkeenJson, barcodeText: null, facts: { basis: "per_serving", servingSize: { value: 10, unit: "g" }, energyKcal: 40, protein: 1, carbs: 8, fat: 0.5, sugars: 1, sodiumMg: 5000 } });
+    const out = await runAi(input(), deps({ extract: extractReturning(bad) }), DEADLINE, null);
+    expect(out.result.per100).toMatchObject({ energyKcal: 400, protein: 10, carbs: 80, fat: 5, sugars: 10 });
+    expect(out.result.per100!.sodiumMg).toBeUndefined();
+    expect(out.result.provenance.sodiumMg).toBeUndefined();
+    expect(JSON.stringify(out.result.flags)).not.toMatch(/sodium/i);
+    expect(out.result.reasons.map((r) => r.text)).toContain("Sodium left out: the source's figure wasn't plausible, so this grade doesn't count it.");
+    expect(out.result.confidence).toBe("low");
+    expect(out.crowdCandidate).toBeNull();
+  });
+
+  it("front of pack with an implausible estimate: the value is dropped", async () => {
+    const bad = fx({ ...frontOnlyJson, facts: { basis: "per_100g", energyKcal: 400, protein: 10, carbs: 5, fat: 30, sugars: 40 } });
+    const out = await runAi(input(), deps({ extract: extractReturning(bad) }), DEADLINE, null);
+    expect(out.result.per100).toMatchObject({ energyKcal: 400, carbs: 5 });
+    expect(out.result.per100!.sugars).toBeUndefined();
+    expect(out.result.provenance.sugars).toBeUndefined();
+  });
+
   it("label + OFF timed out or down: the crowd candidate never carries the barcode", async () => {
     const d = deps({ extract: extractReturning(labelNamkeen), lookupOffByBarcode: vi.fn(async () => ({ status: "unavailable" as const })) });
     const out = await runAi(input(), d, DEADLINE, null);

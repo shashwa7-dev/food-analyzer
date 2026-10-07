@@ -1,8 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db, type Db, type Tx } from "@/lib/db/client";
 import { food } from "@/lib/db/schema";
+import { plausibleFood } from "./sane";
 import type { FoodDraft } from "./seed-map";
 import type { FoodRow } from "./types";
+import type { SaneFoodRow } from "./sane";
 
 // Shared between the bulk seed upsert (many rows) and upsertFood (a single OFF-cache hit) so both paths
 // update exactly the same columns on conflict.
@@ -71,7 +73,7 @@ export async function retryOnBarcodeRace<T>(run: () => Promise<T>): Promise<T> {
  * never shadow OFF's product for that code. A dropped row's users keep it: their recents/frequent stats
  * and diary entries are re-pointed at the twin first (review N3).
  */
-export async function cacheOffFood(draft: FoodDraft): Promise<FoodRow> {
+export async function cacheOffFood(draft: FoodDraft): Promise<SaneFoodRow> {
   return retryOnBarcodeRace(() => db.transaction(async (tx) => {
     if (draft.barcode) {
       // At most one row holds the barcode, and the crowd dedupe index allows at most one twin.
@@ -84,7 +86,7 @@ export async function cacheOffFood(draft: FoodDraft): Promise<FoodRow> {
       await tx.update(food).set({ barcode: null, updatedAt: new Date() }).where(and(eq(food.barcode, draft.barcode), eq(food.source, "crowd")));
     }
     return upsertFood(draft, tx);
-  }));
+  })).then(plausibleFood); // an existing row the upsert kept may predate the plausibility bounds
 }
 
 /**

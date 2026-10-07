@@ -32,9 +32,14 @@ describe("validateFacts", () => {
     expect(validateFacts(n).failed).toContain("range");
   });
 
-  it("fails range when energy exceeds 900 kcal per 100", () => {
+  it("fails range when energy exceeds 910 kcal per 100 (the shared bound)", () => {
     const n: Nutrients = { energyKcal: 950, protein: 5, carbs: 30, fat: 6 };
     expect(validateFacts(n).failed).toContain("range");
+  });
+
+  it("fails range when sodium exceeds 40,000 mg per 100 (more than pure salt)", () => {
+    expect(validateFacts({ ...consistent, sodiumMg: 50_000 }).failed).toContain("range");
+    expect(validateFacts({ ...consistent, sodiumMg: 39_000 }).failed).not.toContain("range");
   });
 
   it("fails kj when printed kJ mismatches the kcal conversion by more than 5%", () => {

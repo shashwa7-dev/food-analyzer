@@ -15,12 +15,17 @@ import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients,
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
 import { foodIconKey } from "./icon";
+import { plausibleFood, type SaneFoodRow } from "./sane";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
 import type { FoodHit, FoodRow } from "./types";
 
 export type { FoodHit, FoodRow };
 
-export function toHit(f: Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade" | "source" | "portions" | "defaultPortion" | "per100" | "basis" | "barcode" | "gradeCategory" | "categories">): FoodHit {
+type HitRow = Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade" | "source" | "portions" | "defaultPortion" | "per100" | "basis" | "barcode" | "gradeCategory" | "categories"
+  | "gradePortionGrams" | "additives" | "nova" | "gradeFrozen">;
+
+export function toHit(row: HitRow): FoodHit {
+  const f = plausibleFood(row); // the grade badge matches the food page when a stored value is dropped
   const index = f.portions[f.defaultPortion] ? f.defaultPortion : 0;
   const p = f.portions[index]!;
   return { id: f.id, name: f.name, brand: f.brand, kind: f.kind, grade: f.grade, source: f.source,
@@ -31,6 +36,8 @@ export function toHit(f: Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade
 const HIT_COLUMNS = {
   id: food.id, name: food.name, brand: food.brand, kind: food.kind, grade: food.grade, source: food.source, portions: food.portions,
   defaultPortion: food.defaultPortion, per100: food.per100, basis: food.basis, barcode: food.barcode, gradeCategory: food.gradeCategory, categories: food.categories,
+  // for plausibleFood's regrade when a stored value is implausible
+  gradePortionGrams: food.gradePortionGrams, additives: food.additives, nova: food.nova, gradeFrozen: food.gradeFrozen,
 };
 
 const QUALIFIER = "(cooked|boiled|plain|nfs|raw)";
@@ -80,17 +87,18 @@ export async function searchFoods(userId: string, q: string, country: string, li
 }
 
 /** searchFoods' ranking and visibility, returning full rows — the scan engine's name matching (EngineDeps.searchFoods). */
-export async function searchFoodRows(userId: string, name: string, country: string, limit = 10): Promise<FoodRow[]> {
+export async function searchFoodRows(userId: string, name: string, country: string, limit = 10): Promise<SaneFoodRow[]> {
   const raw = normalise(name);
   const canon = canonicalQuery(name);
   if (raw.length < 2) return [];
   return db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.3`);
-    return tx.select(getTableColumns(food)).from(food)
+    const rows = await tx.select(getTableColumns(food)).from(food)
       .leftJoin(userFoodStats, and(eq(userFoodStats.foodId, food.id), eq(userFoodStats.userId, userId)))
       .where(searchWhere(userId, raw, canon))
       .orderBy(...searchOrder(userId, raw, canon, country))
       .limit(limit);
+    return rows.map(plausibleFood);
   });
 }
 
@@ -110,19 +118,19 @@ export async function myFoods(userId: string): Promise<FoodHit[]> {
   return rows.map(toHit);
 }
 
-export async function getFoodForUser(userId: string, id: string): Promise<FoodRow | null> {
+export async function getFoodForUser(userId: string, id: string): Promise<SaneFoodRow | null> {
   if (!z.uuid().safeParse(id).success) return null;
   const [row] = await db.select().from(food).where(and(eq(food.id, id), visibleFoodWhere(userId)));
-  return row ?? null;
+  return row ? plausibleFood(row) : null;
 }
 
 // Looks up a curated (OFF/INDB/FNDDS) food by barcode, for the barcode-scan path — not scoped by
 // userId: custom foods are excluded (owner-private, not barcode-verified), and so are crowd foods: they
 // come from one user's label photo, so they are never served as a free high-confidence barcode answer
 // (a barcode scan of one goes to Open Food Facts, then the charged AI path).
-export async function findFoodByBarcode(barcode: string): Promise<FoodRow | null> {
+export async function findFoodByBarcode(barcode: string): Promise<SaneFoodRow | null> {
   const [row] = await db.select().from(food).where(and(eq(food.barcode, barcode), isNull(food.deletedAt), sql`${food.source} NOT IN ('custom', 'crowd')`));
-  return row ?? null;
+  return row ? plausibleFood(row) : null;
 }
 
 /**
@@ -142,7 +150,7 @@ export async function findAlternatives(
   return rows.map(toHit);
 }
 
-export async function foodDetail(userId: string, id: string): Promise<{ food: FoodRow; reasons: Reason[]; flags: Flag[]; alternatives: FoodHit[]; ingredientsKnown: boolean } | null> {
+export async function foodDetail(userId: string, id: string): Promise<{ food: SaneFoodRow; reasons: Reason[]; flags: Flag[]; alternatives: FoodHit[]; ingredientsKnown: boolean } | null> {
   const f = await getFoodForUser(userId, id);
   if (!f) return null;
   const prof = await getProfile(userId);
@@ -150,7 +158,7 @@ export async function foodDetail(userId: string, id: string): Promise<{ food: Fo
   const portion = f.portions[f.defaultPortion] ?? f.portions[0]!;
   const perPortion = portion.grams ? nutrientsFor(f.per100, portion.grams) : f.per100;
   const g: GradeResult = { grade: f.grade as Grade | null, value: f.gradeValue, components: f.gradeComponents };
-  const reasons = explain({ source: f.source, name: f.name, grade: g, per100: f.per100, basis: f.basis, perPortion, portionLabel: portion.label, targets });
+  const reasons = explain({ source: f.source, name: f.name, grade: g, per100: f.per100, dropped: f.dropped, basis: f.basis, perPortion, portionLabel: portion.label, targets });
   const flags = personalise({ name: f.name, allergens: f.allergens, mayContain: f.mayContain, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
     profile: { allergies: prof.allergies, diet: prof.diet, goal: prof.goal, targets } });
   const alternatives = f.kind === "packaged" && f.grade && f.grade > "B" && f.categories.length

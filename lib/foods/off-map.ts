@@ -1,3 +1,4 @@
+import { dropImplausible } from "@/lib/nutrition/plausible";
 import type { Nutrients, Portion } from "@/lib/nutrition/types";
 import type { SourceRecord } from "./seed-map";
 
@@ -43,9 +44,11 @@ export function toSourceRecordOFF(p: OffRow): SourceRecord | null {
   const kcal = num(nm["energy-kcal_100g"]) ?? (num(nm["energy_100g"]) !== undefined ? num(nm["energy_100g"])! / 4.184 : undefined);
   const protein = num(nm.proteins_100g), carbs = num(nm.carbohydrates_100g), fat = num(nm.fat_100g);
   const name = (p.product_name ?? "").trim();
-  if (!name || kcal === undefined || protein === undefined || carbs === undefined || fat === undefined || kcal > 900) return null;
+  if (!name || kcal === undefined || protein === undefined || carbs === undefined || fat === undefined) return null;
   const sodiumG = num(nm.sodium_100g) ?? (num(nm.salt_100g) !== undefined ? num(nm.salt_100g)! / 2.5 : undefined);
-  const per100 = clean({ energyKcal: kcal, protein, carbs, fat, sugars: num(nm.sugars_100g), satFat: num(nm["saturated-fat_100g"]), fibre: num(nm.fiber_100g), sodiumMg: sodiumG !== undefined ? sodiumG * 1000 : undefined });
+  // Implausible values (unit errors in OFF's data) become unknown; implausible energy or macros reject the product.
+  const { per100, badCore } = dropImplausible(clean({ energyKcal: kcal, protein, carbs, fat, sugars: num(nm.sugars_100g), satFat: num(nm["saturated-fat_100g"]), fibre: num(nm.fiber_100g), sodiumMg: sodiumG !== undefined ? sodiumG * 1000 : undefined }));
+  if (badCore.length > 0) return null;
   const portions: Portion[] = [];
   const serving = num(p.serving_quantity), pack = num(p.product_quantity);
   if (serving && serving > 0 && serving < 5000) portions.push({ label: "1 serving", amount: 1, unit: "serving", grams: Math.round(serving) });

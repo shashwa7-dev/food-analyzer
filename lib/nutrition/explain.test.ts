@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { explain, INDB_SODIUM_REASON } from "./explain";
+import { droppedReason, explain, INDB_SODIUM_REASON } from "./explain";
+import type { GradeResult } from "./types";
 import { nutriScore } from "./grade/packaged";
 import { PRESETS } from "./targets";
 
@@ -35,5 +36,28 @@ describe("explain", () => {
   it("returns an honest note for ungraded foods", () => {
     expect(explain({ grade: { grade: null, value: null, components: [] }, per100: { energyKcal: 900, protein: 0, carbs: 0, fat: 100 }, basis: "per_100g", targets: PRESETS.general }))
       .toEqual([{ tone: "warn", text: "Cooking ingredient — not graded on its own." }]);
+  });
+});
+
+describe("droppedReason (the regrade note)", () => {
+  const comp = (key: string) => ({ key, label: key, points: 0, maxPoints: 10, direction: "negative" as const, estimated: true });
+  const graded = (...keys: string[]): GradeResult => ({ grade: "B", value: 2, components: keys.map(comp) });
+
+  it("names a dropped value the grade would have counted", () => {
+    expect(droppedReason(graded("salt", "sugars"), ["sodiumMg"])).toEqual({ tone: "warn", text: "Sodium left out: the source's figure wasn't plausible, so this grade doesn't count it." });
+    expect(droppedReason(graded("sodiumDensity"), ["sodiumMg"])?.text).toMatch(/^Sodium left out/); // dish scoring
+    expect(droppedReason(graded("salt", "sugars", "satFat"), ["sugars", "satFat", "sodiumMg"])?.text).toMatch(/^Sugar, saturated fat and sodium left out/);
+  });
+
+  it("says nothing when nothing was dropped, or the grade doesn't use the dropped value", () => {
+    expect(droppedReason(graded("salt"), undefined)).toBeNull();
+    expect(droppedReason(graded("salt"), [])).toBeNull();
+    expect(droppedReason(graded("energy"), ["sodiumMg"])).toBeNull();
+    expect(droppedReason({ grade: null, value: null, components: [] }, ["sodiumMg"])).toBeNull();
+  });
+
+  it("explain appends it after the grade's own reasons", () => {
+    const r = explain({ grade: graded("salt"), per100: { energyKcal: 129, protein: 4, carbs: 12, fat: 7 }, basis: "per_100g", targets: PRESETS.general, dropped: ["sodiumMg"] });
+    expect(r.map((x) => x.text)).toEqual(["Nothing stands out as too high.", "Sodium left out: the source's figure wasn't plausible, so this grade doesn't count it."]);
   });
 });

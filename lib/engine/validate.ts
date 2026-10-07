@@ -1,7 +1,6 @@
+import { outOfRangeKeys } from "@/lib/nutrition/plausible";
 import type { Nutrients } from "@/lib/nutrition/types";
 
-const MAX_MACRO_G = 100;
-const MAX_ENERGY_KCAL = 900;
 const ENERGY_TOLERANCE_PCT = 0.15;
 const ENERGY_TOLERANCE_ABS_KCAL = 20;
 const ENERGY_ABS_THRESHOLD_KCAL = 100;
@@ -32,9 +31,8 @@ export function validateFacts(per100: Nutrients, extra?: { energyKj?: number; sa
   if (per100.sugars !== undefined && per100.sugars > per100.carbs) failed.push("sugars");
   if (per100.satFat !== undefined && per100.satFat > per100.fat) failed.push("satFat");
 
-  const macros: (number | undefined)[] = [per100.protein, per100.carbs, per100.fat, per100.sugars, per100.addedSugars, per100.satFat, per100.transFat, per100.fibre];
-  const macroOutOfRange = macros.some((v) => typeof v === "number" && v > MAX_MACRO_G);
-  if (macroOutOfRange || per100.energyKcal > MAX_ENERGY_KCAL) failed.push("range");
+  // The shared per-100 bounds (lib/nutrition/plausible.ts): energy ≤ 900 kcal, each macro ≤ 100 g, sodium ≤ 40,000 mg.
+  if (outOfRangeKeys(per100).length > 0) failed.push("range");
 
   if (extra?.energyKj !== undefined) {
     const expectedKj = per100.energyKcal * KJ_PER_KCAL;

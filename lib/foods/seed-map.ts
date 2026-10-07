@@ -1,6 +1,7 @@
 import type { food } from "@/lib/db/schema";
 import { classify } from "@/lib/nutrition/classify";
 import { gradeFood, GRADE_VERSION } from "@/lib/nutrition/grade";
+import { dropImplausible } from "@/lib/nutrition/plausible";
 import { ensureBasePortion } from "@/lib/nutrition/portions";
 import { NUTRIENT_KEYS, type Nutrients, type Portion, type Provenance } from "@/lib/nutrition/types";
 import { aliasesFor, buildSearchFields, normalise, stapleAliasesFor } from "./normalise";
@@ -70,7 +71,10 @@ function householdFor(name: string, rules: HouseholdRule[]): Portion[] {
   return rule ? [{ label: rule.label, amount: 1, unit: "household", grams: rule.grams }] : [];
 }
 
-export function toFoodDraft(rec: SourceRecord, rules: HouseholdRule[]): FoodDraft {
+export function toFoodDraft(source: SourceRecord, rules: HouseholdRule[]): FoodDraft {
+  // Every source (INDB, FNDDS, OFF) passes the plausibility bounds before grading: an implausible
+  // optional value is stored as unknown. (OFF records were already checked in toSourceRecordOFF.)
+  const rec: SourceRecord = { ...source, per100: dropImplausible(source.per100).per100 };
   const { kind, gradeCategory, fvlPercent } = classify({ source: rec.source, name: rec.name, categories: rec.categories, wweia: rec.wweia, per100: rec.per100 });
   const sourcePortions = rec.portions.filter((p) => !BARE_UNIT_LABEL.test(p.label));
   const portions = ensureBasePortion(rec.basis, [...sourcePortions, ...(rec.source === "indb" ? householdFor(rec.name, rules) : [])]);

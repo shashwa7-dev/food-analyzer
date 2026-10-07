@@ -91,6 +91,8 @@ export function buildResult(args: {
   confidence: "high" | "medium" | "low";
   profile: { allergies: string[]; diet: Diet; goal: Goal; targets: DailyTargets };
   servingUnknown?: boolean;
+  /** Per-100 values dropped as implausible, for the regrade note in the reasons. */
+  dropped?: NutrientKey[];
   /** Use this grade instead of recomputing: a catalogue food's stored grade (grades shown are the stored neutral grade), or a meal's dishScore on its exact total. */
   precomputedGrade?: GradeResult;
 }): ScanResult {
@@ -111,7 +113,7 @@ export function buildResult(args: {
   const perPortion = per100 ? nutrientsFor(per100, portionGrams) : perServing!;
 
   const reasons: Reason[] = per100
-    ? explain({ name: args.name, grade, per100, basis: args.basis, perPortion, portionLabel: portion.label, targets: args.profile.targets })
+    ? explain({ name: args.name, grade, per100, basis: args.basis, dropped: args.dropped, perPortion, portionLabel: portion.label, targets: args.profile.targets })
     : [{ tone: "warn", text: NOT_GRADED }];
 
   // Model keys become OFF tags; tags we don't map (en:celery, ...) are kept so a saved food carries them too.

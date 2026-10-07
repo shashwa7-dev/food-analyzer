@@ -20,8 +20,9 @@ export interface ConvertedFacts {
  * are returned as-is (servingGrams: null, servingUnknown: true). The engine then keeps them as
  * the result's `perServing` (per100 null): ungraded, logged by servings only, never by grams.
  *
- * Out-of-range per-100 values (macro > 100 g, energy > 900 kcal) are NOT clamped here —
- * they're returned as computed; validateFacts flags them separately as "range".
+ * Out-of-range per-100 values (past lib/nutrition/plausible.ts PER100_MAX) are NOT clamped here —
+ * they're returned as computed; validateFacts flags them as "range", and the engine drops implausible
+ * optional values from the result it shows.
  */
 export function toPer100(facts: Extraction["facts"]): ConvertedFacts | null {
   if (!facts) return null;

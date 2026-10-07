@@ -7,6 +7,7 @@ import { buildResult, type ScanResult } from "@/lib/engine/result";
 import { updateProfile } from "@/lib/profile/service";
 import { targetsFor } from "@/lib/nutrition/targets";
 import { NotFoundError } from "@/lib/errors";
+import { gradeFood } from "@/lib/nutrition/grade";
 import { foodIconKey } from "./icon";
 import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
@@ -356,5 +357,32 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     const savedFlags = pick((await foodDetail(u, saved.id))!.flags);
     expect(savedFlags).toEqual([["peanut", "contains"], ["tree_nut", "may_contain"]]);
     expect(savedFlags).toEqual(pick((await foodDetail(u, curated.id))!.flags));
+  });
+
+  it("a stored row with an absurd per-100 value (pre-bounds OFF data) displays without it, regraded, everywhere it's read", async () => {
+    const u = await createUser();
+    // Ashoka Dal Makhani as stored before the bounds existed: sodium 350,428 mg/100 g (a unit error), graded E on it.
+    const per100 = { energyKcal: 129.286, protein: 4.286, carbs: 12.143, fat: 6.786, sugars: 0, satFat: 1.286, sodiumMg: 350_428.558 };
+    const draft = toFoodDraft({ source: "off", sourceRef: "8906000000001", barcode: "8906000000001", name: "Ashoka Dal Makhani", basis: "per_100g",
+      per100: { ...per100, sodiumMg: 500 }, portions: [{ label: "1 pack", amount: 1, unit: "pack", grams: 280 }], categories: ["en:meals"], countries: ["IN"] }, rules);
+    const g = gradeFood({ gradeCategory: draft.gradeCategory, per100 });
+    const stored = await upsertFood({ ...draft, per100, provenance: { ...draft.provenance, sodiumMg: "community" }, grade: g.grade, gradeValue: g.value, gradeComponents: g.components });
+    expect(stored.per100.sodiumMg).toBe(350_428.558); // the row itself is left as stored (no data rewrite)
+    expect(stored.grade).toBe("E");
+
+    const d = (await foodDetail(u, stored.id))!;
+    expect(d.food.per100.sodiumMg).toBeUndefined();
+    expect(d.food.provenance.sodiumMg).toBeUndefined();
+    expect(d.food.grade).not.toBe("E");
+    expect(d.flags.map((f) => f.text).join(" ")).not.toMatch(/sodium/i); // no "24530% of your daily sodium limit"
+    expect(d.reasons.map((r) => r.text).join(" ")).not.toMatch(/high salt|high sodium/i);
+    // The regrade note: the grade no longer counts salt, and the page says so.
+    expect(d.reasons).toContainEqual({ tone: "warn", text: "Sodium left out: the source's figure wasn't plausible, so this grade doesn't count it." });
+
+    const hit = (await searchFoods(u, "dal makhani", "IN")).find((h) => h.id === stored.id)!;
+    expect(hit.grade).toBe(d.food.grade);
+    expect((await findFoodByBarcode("8906000000001"))!.per100.sodiumMg).toBeUndefined();
+    expect((await searchFoodRows(u, "dal makhani", "IN")).find((r) => r.id === stored.id)!.per100.sodiumMg).toBeUndefined();
+    expect((await getFoodForUser(u, stored.id))!.per100.sodiumMg).toBeUndefined();
   });
 });
