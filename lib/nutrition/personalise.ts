@@ -18,7 +18,7 @@ const ALLERGEN_WORDS: Record<AllergenKey, RegExp> = {
 // "Peanut butter", "cocoa butter", "coconut milk" etc. are not dairy.
 const NON_DAIRY = /\b(peanut|cocoa|apple|nut|almond|cashew|shea|coconut|soy|soya|oat|rice) (butter|milk)\b/gi;
 const dairyText = (s: string) => s.replace(NON_DAIRY, "");
-const OFF_TAG: Record<string, AllergenKey> = {
+export const OFF_TAG: Record<string, AllergenKey> = {
   "en:peanuts": "peanut", "en:nuts": "tree_nut", "en:milk": "milk", "en:eggs": "egg", "en:gluten": "gluten",
   "en:soybeans": "soy", "en:sesame-seeds": "sesame", "en:fish": "fish", "en:crustaceans": "shellfish", "en:mustard": "mustard",
 };

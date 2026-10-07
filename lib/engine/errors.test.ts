@@ -1,0 +1,17 @@
+import { describe, expect, it } from "vitest";
+import { EngineError } from "./errors";
+
+describe("EngineError", () => {
+  it("carries a code and is a real Error instance", () => {
+    const err = new EngineError("TIMEOUT");
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(EngineError);
+    expect(err.code).toBe("TIMEOUT");
+  });
+  it("accepts a custom message, defaulting to the code", () => {
+    const withMessage = new EngineError("NOT_FOOD", "Not food, apparently");
+    expect(withMessage.message).toBe("Not food, apparently");
+    const withoutMessage = new EngineError("MODEL_ERROR");
+    expect(withoutMessage.message).toBeTruthy();
+  });
+});
