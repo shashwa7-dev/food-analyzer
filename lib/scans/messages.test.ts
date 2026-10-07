@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REFUNDED_MESSAGE, SCAN_ERROR_CODES, SCAN_MESSAGES, scanErrorMessage } from "./messages";
+import { REFUNDED_MESSAGE, SCAN_ACTIONS, SCAN_ERROR_CODES, SCAN_MESSAGES, scanErrorAction, scanErrorMessage } from "./messages";
 
 describe("scan messages", () => {
   it("has one non-empty sentence per error code", () => {
@@ -13,5 +13,15 @@ describe("scan messages", () => {
   });
   it("falls back to MODEL_ERROR's sentence for an unknown code", () => {
     expect(scanErrorMessage("WHATEVER")).toBe(SCAN_MESSAGES.MODEL_ERROR);
+  });
+  it("maps every code to its recovery action", () => {
+    expect(Object.keys(SCAN_ACTIONS).sort()).toEqual([...SCAN_ERROR_CODES].sort());
+    expect(scanErrorAction("NO_CREDITS")?.kind).toBe("credits");
+    expect(scanErrorAction("BARCODE_NOT_FOUND")?.kind).toBe("photo");
+    expect(scanErrorAction("SERVICE_BUSY")?.kind).toBe("retry");
+    expect(scanErrorAction("RATE_LIMITED")).toBeNull();
+    expect(scanErrorAction("DAILY_LIMIT")).toBeNull();
+    expect(scanErrorAction("TIMEOUT")?.kind).toBe("rescan");
+    expect(scanErrorAction("WHATEVER")).toEqual(SCAN_ACTIONS.MODEL_ERROR);
   });
 });

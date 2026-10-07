@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ScanLine } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
@@ -66,7 +67,7 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
             <FlagList flags={detail.data.flags} />
             <IngredientsUnknownNote ingredientsKnown={detail.data.ingredientsKnown} hasAllergies={(me.data?.profile.allergies.length ?? 0) > 0} />
             <IndbSodiumNote source={detail.data.food.source} />
-            <AddToMeal food={detail.data.food} date={date} defaultMeal={meal} onDone={() => onOpenChange(false)} />
+            <AddToMeal food={detail.data.food} target={{ kind: "food", foodId: detail.data.food.id }} date={date} defaultMeal={meal} onDone={() => onOpenChange(false)} />
           </>
         )}
       </div>
@@ -91,7 +92,19 @@ function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: stri
       </div>
       {tab === "search" && <FoodSearch autoFocus onPick={setPicked} />}
       {tab === "quick" && <QuickAddForm date={date} meal={meal} onDone={() => onOpenChange(false)} />}
-      {tab === "scan" && <p className="py-10 text-center text-sm text-subtle">Coming soon.</p>}
+      {tab === "scan" && (
+        <div className="flex flex-col gap-3.5 pt-1">
+          <p className="text-sm">Barcode, label, front of pack or your plate. One button does all of it.</p>
+          <Link
+            href={`/scan?${new URLSearchParams({ meal, date })}`}
+            onClick={() => onOpenChange(false)}
+            className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-4 font-semibold text-accent-ink"
+          >
+            <ScanLine className="size-5" aria-hidden /> Open camera
+          </Link>
+          <p className="text-sm text-subtle">Barcode scans are free. A photo uses 1 AI scan.</p>
+        </div>
+      )}
     </div>
   );
 }

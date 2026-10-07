@@ -8,6 +8,8 @@
   --ok: #1F8A4C; --warn: #B86E00; --bad: #C43A16;
   --g-a: #038141; --g-b: #85BB2F; --g-c: #FECB02; --g-d: #EE8100; --g-e: #E63E11;
   --shadow-card: 0 1px 2px rgb(15 21 18 / .06), 0 4px 16px rgb(15 21 18 / .05);
+  /* camera viewfinder: always dark, with white marks on top, in both themes */
+  --viewfinder: #141613; --on-media: #FFFFFF; --on-media-ink: #111111;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -36,6 +38,7 @@
   --color-ok: var(--ok); --color-warn: var(--warn); --color-bad: var(--bad);
   --color-grade-a: var(--g-a); --color-grade-b: var(--g-b); --color-grade-c: var(--g-c);
   --color-grade-d: var(--g-d); --color-grade-e: var(--g-e);
+  --color-viewfinder: var(--viewfinder); --color-on-media: var(--on-media); --color-on-media-ink: var(--on-media-ink);
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --text-xs: 12px; --text-sm: 13px; --text-base: 15px; --text-lg: 17px; --text-xl: 22px; --text-2xl: 30px; --text-3xl: 40px;
   --radius-sm: 8px; --radius-md: 12px; --radius-lg: 18px;

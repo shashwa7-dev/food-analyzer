@@ -47,6 +47,10 @@ export interface ScanView {
   status: ScanStatus;
   inputKind: ScanRow["inputKind"];
   barcode: string | null;
+  /** Photos sent with the scan (never stored — just the count, for "Read from 2 photos"). */
+  imageCount: number;
+  /** A credit was taken for this scan (AI path); false for free barcode scans. */
+  charged: boolean;
   result: ScanResult | null;
   errorCode: string | null;
   errorMessage: string | null;
@@ -74,7 +78,8 @@ const isRunning = (s: ScanStatus) => (RUNNING as readonly string[]).includes(s);
 function toView(row: ScanRow): ScanView {
   const refunded = row.status === "failed" && row.charged;
   return {
-    id: row.id, status: row.status, inputKind: row.inputKind, barcode: row.barcode, result: row.result ?? null,
+    id: row.id, status: row.status, inputKind: row.inputKind, barcode: row.barcode, imageCount: row.imageCount, charged: row.charged,
+    result: row.result ?? null,
     errorCode: row.errorCode,
     errorMessage: row.errorCode ? scanErrorMessage(row.errorCode, { specific: row.errorMessage, refunded }) : null,
     refunded, createdAt: row.createdAt.toISOString(),

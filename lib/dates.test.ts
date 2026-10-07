@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, DateSchema, formatLocalDate, isAllowedLogDate, parseLocalDate, todayIn } from "./dates";
+import { addDays, DateSchema, defaultMealIn, formatLocalDate, isAllowedLogDate, parseLocalDate, todayIn } from "./dates";
 
 describe("todayIn", () => {
   it("uses the user's timezone, not UTC (00:30 IST is still the previous UTC day)", () => {
@@ -41,5 +41,15 @@ describe("parseLocalDate / formatLocalDate", () => {
   it("parses using local getters, not UTC ones", () => {
     const d = parseLocalDate("2026-10-07");
     expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 9, 7]);
+  });
+});
+
+describe("defaultMealIn", () => {
+  it("picks the meal from the user's local hour", () => {
+    expect(defaultMealIn("Asia/Kolkata", new Date("2026-10-07T02:30:00Z"))).toBe("breakfast"); // 08:00 IST
+    expect(defaultMealIn("Asia/Kolkata", new Date("2026-10-07T07:30:00Z"))).toBe("lunch"); // 13:00
+    expect(defaultMealIn("Asia/Kolkata", new Date("2026-10-07T12:00:00Z"))).toBe("snack"); // 17:30
+    expect(defaultMealIn("Asia/Kolkata", new Date("2026-10-07T15:30:00Z"))).toBe("dinner"); // 21:00
+    expect(defaultMealIn("UTC", new Date("2026-10-07T00:10:00Z"))).toBe("breakfast"); // midnight, never "24"
   });
 });

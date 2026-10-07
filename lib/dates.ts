@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Meal } from "@/lib/nutrition/types";
 
 export function todayIn(tz: string, now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
@@ -8,6 +9,12 @@ function parse(date: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const d = new Date(`${date}T00:00:00Z`);
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== date ? null : d;
+}
+
+/** The meal a log most likely belongs to at this local hour (breakfast < 11, lunch < 16, snack < 19, else dinner). */
+export function defaultMealIn(tz: string, now: Date = new Date()): Meal {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: tz }).format(now)) % 24;
+  return hour < 11 ? "breakfast" : hour < 16 ? "lunch" : hour < 19 ? "snack" : "dinner";
 }
 
 export function addDays(date: string, n: number): string {

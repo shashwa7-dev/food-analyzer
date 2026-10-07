@@ -71,6 +71,15 @@ Not needed for M1; will be required once scanning ships:
 - `GOOGLE_GENERATIVE_AI_API_KEY` — Google AI Studio key for the scanning/extraction engine
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` — Cloudflare R2 bucket + token for scan thumbnail storage
 
+### Barcode decoding on /scan
+
+The scan screen decodes EAN-13 / EAN-8 / UPC-A barcodes with the browser's `BarcodeDetector` where it
+supports EAN-13 (Chrome on Android/macOS), and otherwise lazily loads [`zxing-wasm`](https://github.com/Sec-ant/zxing-wasm)
+(only on `/scan`). For M2 the zxing wasm binary is fetched from zxing-wasm's default CDN
+(`fastly.jsdelivr.net/npm/zxing-wasm@<version>/dist/reader/zxing_reader.wasm`). No Content-Security-Policy is
+configured yet; when one is added, allow that origin in `connect-src` (and `script-src 'wasm-unsafe-eval'`),
+or self-host the wasm via `prepareZXingModule({ overrides: { locateFile } })`.
+
 ## Data attribution
 
 The food catalogue is built from:

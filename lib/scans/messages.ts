@@ -41,3 +41,35 @@ export function scanErrorMessage(code: string, opts: { specific?: string | null;
   const base = opts.specific || (isScanErrorCode(code) ? SCAN_MESSAGES[code] : SCAN_MESSAGES.MODEL_ERROR);
   return opts.refunded ? `${base} ${REFUNDED_MESSAGE}` : base;
 }
+
+/**
+ * The one recovery action the scan UI offers next to a code's sentence. `credits` links to the
+ * credits page, `photo` goes back to the camera keeping the barcode, `retry` re-sends the same
+ * photos, `rescan` starts over; null means the sentence alone says what to do (wait, come back tomorrow).
+ */
+export type ScanAction = { kind: "credits" | "photo" | "retry" | "rescan"; label: string };
+
+const CREDITS: ScanAction = { kind: "credits", label: "See your AI scans" };
+const PHOTO: ScanAction = { kind: "photo", label: "Take a photo of the label" };
+const RETRY: ScanAction = { kind: "retry", label: "Try again" };
+const RESCAN: ScanAction = { kind: "rescan", label: "Scan again" };
+
+export const SCAN_ACTIONS: Record<ScanErrorCode, ScanAction | null> = {
+  NO_CREDITS: CREDITS,
+  RATE_LIMITED: null,
+  DAILY_LIMIT: null,
+  SERVICE_BUSY: RETRY,
+  BARCODE_NOT_FOUND: PHOTO,
+  UNREADABLE_IMAGE: RESCAN,
+  NOT_FOOD: RESCAN,
+  MODEL_ERROR: RESCAN,
+  TIMEOUT: RESCAN,
+  INVALID_INPUT: RESCAN,
+  TOO_LARGE: RESCAN,
+  CONFLICT: RESCAN,
+};
+
+/** The action for a code from the API or a stored scan; an unknown code gets MODEL_ERROR's. */
+export function scanErrorAction(code: string): ScanAction | null {
+  return isScanErrorCode(code) ? SCAN_ACTIONS[code] : SCAN_ACTIONS.MODEL_ERROR;
+}

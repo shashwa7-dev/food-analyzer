@@ -5,12 +5,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { stepQuantity } from "@/lib/log/quantity";
+import { logEntryBody, stepQuantity, type LogTarget } from "@/lib/log/quantity";
 import { MEALS, type Meal, type Nutrients, type Portion } from "@/lib/nutrition/types";
 
-export function AddToMeal({ food, date, defaultMeal, onDone }: {
-  food: { id: string; name: string; per100: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml" };
-  date: string; defaultMeal: Meal; onDone?: () => void;
+export type LoggableFood = { name: string; per100: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml" };
+
+/**
+ * Portion chips, quantity stepper / custom grams and meal chips, then POST /log. `target` says what
+ * the entry is made from — a food (kinds food/grams) or a scan's own result (kinds scan/scan_grams);
+ * `food` supplies what's shown (name, portions, per-100 nutrients) in both cases.
+ */
+export function AddToMeal({ food, target, date, defaultMeal, onDone }: {
+  food: LoggableFood; target: LogTarget; date: string; defaultMeal: Meal; onDone?: () => void;
 }) {
   const router = useRouter();
   const qc = useQueryClient();
@@ -29,9 +35,7 @@ export function AddToMeal({ food, date, defaultMeal, onDone }: {
   const add = useMutation({
     mutationFn: () => api("/api/v1/log", {
       method: "POST",
-      body: JSON.stringify(custom
-        ? { kind: "grams", date, meal, foodId: food.id, grams: customGrams }
-        : { kind: "food", date, meal, foodId: food.id, portionIndex, quantity }),
+      body: JSON.stringify(logEntryBody(target, custom ? { date, meal, grams: customGrams } : { date, meal, portionIndex, quantity })),
     }),
     onSuccess: () => {
       toast.success(`Added ${food.name} to ${meal}.`);

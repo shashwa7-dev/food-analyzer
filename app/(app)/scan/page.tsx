@@ -1,13 +1,16 @@
-import Link from "next/link";
+import { ScanFlow } from "@/components/scan/scan-flow";
+import { DateSchema } from "@/lib/dates";
+import { normaliseBarcode } from "@/lib/engine/barcode";
+import { MEALS, type Meal } from "@/lib/nutrition/types";
 
-export default function ScanPage() {
-  return (
-    <div className="rounded-[18px] border border-line bg-surface p-5 shadow-card">
-      <h1 className="section-title">Scan</h1>
-      <p className="mt-2 text-subtle">Scanning arrives in the next update. Search or quick add works today.</p>
-      <Link href="/foods" className="mt-4 inline-flex min-h-11 items-center font-semibold text-accent">
-        Go to Foods
-      </Link>
-    </div>
-  );
+type Params = { meal?: string; date?: string; barcode?: string };
+
+// ?meal=&date= come from the Add food sheet (carried through to the result's Add to meal);
+// ?barcode= comes back from a "We don't know this barcode" result, so the label photo is sent with it.
+export default async function ScanPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const sp = await searchParams;
+  const meal = (MEALS as readonly string[]).includes(sp.meal ?? "") ? (sp.meal as Meal) : null;
+  const date = sp.date && DateSchema.safeParse(sp.date).success ? sp.date : null;
+  const barcode = sp.barcode ? normaliseBarcode(sp.barcode) : null;
+  return <ScanFlow meal={meal} date={date} initialBarcode={barcode} />;
 }
