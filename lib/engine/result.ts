@@ -21,6 +21,10 @@ export interface ScanResult {
   reasons: Reason[];
   flags: Flag[];
   ingredients: string[];
+  /** Declared allergens, may-contain traces and additives as OFF tags (en:milk, en:e330). Missing on scans stored before M2's fix wave. */
+  allergens?: string[];
+  mayContain?: string[];
+  additives?: string[];
   items?: { name: string; grams: number; foodId?: string; nutrients: Nutrients; provenance: Provenance }[];
   alternatives: FoodHit[];
   hints: string[];
@@ -46,6 +50,9 @@ export function toOffAllergenTags(keys: string[]): string[] {
   }
   return [...out];
 }
+
+const isOffTag = (t: string) => /^[a-z]{2}:/.test(t);
+const union = (...lists: string[][]): string[] => [...new Set(lists.flat())];
 
 const FALLBACK_PORTION: Portion = { label: "100 g", amount: 100, unit: "g", grams: 100 };
 
@@ -99,11 +106,14 @@ export function buildResult(args: {
     targets: args.profile.targets,
   });
 
+  // Model keys become OFF tags; tags we don't map (en:celery, ...) are kept so a saved food carries them too.
+  const allergens = union(toOffAllergenTags(args.allergens), args.allergens.filter(isOffTag));
+  const mayContain = union(toOffAllergenTags(args.mayContain), args.mayContain.filter(isOffTag));
   const flags = personalise({
     name: args.name,
-    allergens: toOffAllergenTags(args.allergens),
+    allergens,
     ingredients: args.ingredients,
-    mayContain: toOffAllergenTags(args.mayContain),
+    mayContain,
     perPortion,
     portionLabel: portion.label,
     profile: args.profile,
@@ -128,6 +138,9 @@ export function buildResult(args: {
     reasons,
     flags,
     ingredients: args.ingredients,
+    allergens,
+    mayContain,
+    additives: args.additives,
     items: args.items,
     alternatives: args.alternatives,
     hints: args.hints,

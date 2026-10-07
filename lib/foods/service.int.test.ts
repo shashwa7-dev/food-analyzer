@@ -3,7 +3,9 @@ import { and, eq } from "drizzle-orm";
 import { createUser, resetDb } from "@/tests/helpers/db";
 import { db } from "@/lib/db/client";
 import { food, profile, scan } from "@/lib/db/schema";
-import type { ScanResult } from "@/lib/engine/result";
+import { buildResult, type ScanResult } from "@/lib/engine/result";
+import { updateProfile } from "@/lib/profile/service";
+import { targetsFor } from "@/lib/nutrition/targets";
 import { NotFoundError } from "@/lib/errors";
 import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
@@ -302,5 +304,32 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     const again = await createCustomFoodFromScan(u, s.id);
     expect(again.food.id).toBe(saved.id);
     expect(again.food.name).toBe("My khichdi");
+  });
+  it("carries the label's declared allergens and may-contain traces, so personal flags work as on curated foods", async () => {
+    const u = await createUser();
+    await updateProfile(u, { allergies: ["peanut", "tree_nut"] });
+    const profileArgs = { allergies: ["peanut", "tree_nut"], diet: "none" as const, goal: "general" as const, targets: targetsFor("general") };
+    // A namkeen label: "Contains: peanut" / "May contain: tree nuts"; the (garbled) ingredient line names neither.
+    const facts = {
+      name: "Navratan mix", brand: "Haldiram's", foodId: null, kind: "packaged" as const, inputKind: "label" as const, basis: "per_100g" as const,
+      per100: { energyKcal: 550, protein: 12, carbs: 45, fat: 36, sodiumMg: 700 }, provenance: { energyKcal: "label" as const },
+      portions: [{ label: "100 g", amount: 100, unit: "g" as const, grams: 100 }], defaultPortion: 0, gradeCategory: "general" as const, gradePortionGrams: null,
+      ingredients: ["gram flour", "edible vegetable oil", "salt"], nova: null, alternatives: [], hints: [], confidence: "high" as const, profile: profileArgs,
+    };
+    const result = buildResult({ ...facts, allergens: ["peanut"], mayContain: ["tree_nut"], additives: ["en:e330"] });
+    expect(result.flags.map((f) => [f.key, f.severity])).toEqual(expect.arrayContaining([["peanut", "contains"], ["tree_nut", "may_contain"]]));
+    const s = await insertScan(u, { result });
+
+    const { food: saved } = await createCustomFoodFromScan(u, s.id);
+    expect(saved.allergens).toEqual(["en:peanuts"]);
+    expect(saved.mayContain).toEqual(["en:nuts"]);
+    expect(saved.additives).toEqual(["en:e330"]);
+
+    // The saved food's page flags exactly what a curated food with the same OFF tags flags.
+    const curated = await upsertFood({ ...rec("200", "Navratan mix, curated"), kind: "packaged", ingredients: facts.ingredients, allergens: ["en:peanuts"], mayContain: ["en:nuts"] });
+    const pick = (flags: { type: string; key: string; severity: string }[]) => flags.filter((f) => f.type === "allergen").map((f) => [f.key, f.severity]);
+    const savedFlags = pick((await foodDetail(u, saved.id))!.flags);
+    expect(savedFlags).toEqual([["peanut", "contains"], ["tree_nut", "may_contain"]]);
+    expect(savedFlags).toEqual(pick((await foodDetail(u, curated.id))!.flags));
   });
 });

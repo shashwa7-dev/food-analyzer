@@ -40,6 +40,12 @@ describe("toOffAllergenTags", () => {
 });
 
 describe("buildResult", () => {
+  it("stores allergens, may-contain and additives as OFF tags (unmapped OFF tags kept), so Save to my foods can copy them", () => {
+    const r = buildResult(baseArgs({ allergens: ["peanut", "en:celery"], mayContain: ["tree_nut", "glitter"], additives: ["en:e330"] }));
+    expect(r.allergens).toEqual(["en:peanuts", "en:celery"]);
+    expect(r.mayContain).toEqual(["en:nuts"]);
+    expect(r.additives).toEqual(["en:e330"]);
+  });
   it("computes grade, reasons, flags and echoes the per100/provenance through", () => {
     const result = buildResult(baseArgs());
     expect(result.per100).toEqual(per100);

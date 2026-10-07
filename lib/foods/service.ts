@@ -198,7 +198,7 @@ export async function createCustomFood(userId: string, input: CustomFoodInput): 
  *
  * The grade/value/components are copied verbatim from the result rather than recomputed through
  * `classify` + `gradeFood` (as `customDraft` does for a manually-entered food): `ScanResult` doesn't
- * carry the additives/nova/OFF-categories the original grading used, so recomputing here would silently
+ * carry the nova/OFF-categories the original grading used, so recomputing here would silently
  * produce a *different*, less accurate grade than the one the user already saw on the scan — exactly
  * the kind of drift the "grade snapshot" rule (Task 9 amendments) rules out. `gradeFrozen: true` makes
  * this permanent: `scripts/regrade.ts` skips frozen rows entirely, so a future GRADE_VERSION bump can
@@ -225,6 +225,8 @@ export async function createCustomFoodFromScan(userId: string, scanId: string): 
     source: "custom" as const, sourceRef: scanId, ownerId: userId, kind, gradeCategory,
     name: r.name, brand: r.brand, basis: r.basis, per100: r.per100, provenance: r.provenance,
     portions: r.portions, defaultPortion: r.defaultPortion, gradePortionGrams, ingredients: r.ingredients,
+    // Personal flags on the saved food read these exactly as on curated foods (personalise).
+    allergens: r.allergens ?? [], mayContain: r.mayContain ?? [], additives: r.additives ?? [],
     grade: r.grade, gradeValue: r.gradeValue, gradeComponents: r.components, gradeVersion: GRADE_VERSION,
     gradeFrozen: true, countries: [] as string[],
     ...buildSearchFields({ name: r.name, brand: r.brand }),
