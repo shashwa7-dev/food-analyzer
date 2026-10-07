@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runInNewContext } from "node:vm";
-import { DARK_QUERY, THEME_COLOR, THEME_SCRIPT, nextTheme, parseTheme, themeCookie } from "./theme";
+import { DARK_QUERY, THEME_COLOR, THEME_SCRIPT, parseTheme, themeCookie } from "./theme";
 
 describe("parseTheme", () => {
   it("keeps the three valid choices", () => {
@@ -15,14 +15,6 @@ describe("parseTheme", () => {
   });
   it("defaults anything invalid to dark", () => {
     for (const v of ["Dark", "LIGHT", " light", "auto", "sepia", "dark;", "constructor", "__proto__"]) expect(parseTheme(v)).toBe("dark");
-  });
-});
-
-describe("nextTheme", () => {
-  it("cycles Dark → Light → System → Dark", () => {
-    expect(nextTheme("dark")).toBe("light");
-    expect(nextTheme("light")).toBe("system");
-    expect(nextTheme("system")).toBe("dark");
   });
 });
 

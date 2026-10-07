@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, History, LineChart, ScanLine, Search, Settings, User } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { SidebarCredits } from "@/components/nav/sidebar-credits";
-import { ThemeCycleButton } from "@/components/theme/theme-cycle-button";
 import { initialsOf } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 
@@ -87,8 +86,8 @@ export function AppNav({
           })}
         </div>
         <SidebarCredits credits={credits} allowance={allowance} resetsLabel={resetsLabel} />
-        {/* Profile row: the link to Me (with its gear) and, beside it, the theme cycle button. */}
-        <div className="flex items-center gap-1">
+        {/* Profile row: the link to Me (Appearance and other settings live there). */}
+        <div className="flex items-center">
           <Link href="/me" className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full p-1.5 pr-2 hover:bg-sunken">
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-on-brand-soft">{initialsOf(name)}</span>
             <span className="min-w-0 flex-1">
@@ -97,7 +96,6 @@ export function AppNav({
             </span>
             <Settings className="size-5 shrink-0 text-subtle" aria-hidden />
           </Link>
-          <ThemeCycleButton />
         </div>
       </nav>
 

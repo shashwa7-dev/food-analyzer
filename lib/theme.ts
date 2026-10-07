@@ -21,11 +21,6 @@ export function parseTheme(value: string | null | undefined): Theme {
   return (THEMES as readonly string[]).includes(value ?? "") ? (value as Theme) : DEFAULT_THEME;
 }
 
-/** The sidebar button's cycle: Dark → Light → System → Dark. */
-export function nextTheme(theme: Theme): Theme {
-  return THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]!;
-}
-
 /** The `document.cookie` assignment that stores a choice for a year, site-wide. */
 export function themeCookie(theme: Theme): string {
   return `${THEME_COOKIE}=${theme}; Max-Age=${ONE_YEAR_S}; Path=/; SameSite=Lax`;
