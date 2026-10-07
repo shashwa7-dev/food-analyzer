@@ -1,7 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createUser, resetDb, testDb } from "@/tests/helpers/db";
 import { creditTxn, food, profile, scan } from "@/lib/db/schema";
+import { user } from "@/lib/db/auth-schema";
 import { getBalance } from "@/lib/credits/ledger";
 import { EngineError } from "@/lib/engine/errors";
 import type { ExtractOutput } from "@/lib/engine";
@@ -14,7 +15,7 @@ import unreadableJson from "@/lib/engine/__fixtures__/unreadable.json";
 import frontOnlyJson from "@/lib/engine/__fixtures__/front-only.json";
 import { realDeps } from "./deps";
 import { NOT_CONFIGURED_MESSAGE, REFUNDED_MESSAGE, SCAN_MESSAGES } from "./messages";
-import { completeScan, createScan, deleteScan, getScan, listScans, type CreateScanInput, type ScanDeps, type Schedule } from "./service";
+import { completeScan, createScan, deleteScan, getScan, listScans, visibleScanWhere, type CreateScanInput, type ScanDeps, type Schedule } from "./service";
 
 // --- fixtures ---------------------------------------------------------------------------------------
 
@@ -473,10 +474,13 @@ describe("deleteScan and ownership", () => {
     const id = body(r).scanId;
     expect(await credits(u)).toBe(19);
     expect(await deleteScan(u, id, clock)).toBe(true);
-    expect(await scansOf(u)).toHaveLength(0);
+    let [s] = await scansOf(u);
+    expect(s).toMatchObject({ status: "failed", charged: true }); // soft-deleted, still counted
+    expect(s!.deletedAt).not.toBeNull();
     expect(await credits(u)).toBe(20);
     await j.runAll();
-    expect(await scansOf(u)).toHaveLength(0);
+    [s] = await scansOf(u);
+    expect(s).toMatchObject({ status: "failed", result: null });
     const refunds = (await txns(u)).filter((t) => t.type === "refund");
     expect(refunds).toHaveLength(1);
     expect(refunds[0]!.idempotencyKey).toBe(`refund:${id}`);
@@ -535,5 +539,101 @@ describe("listScans", () => {
     expect((await listScans(u, { q: "100%" }, clock)).scans).toHaveLength(1); // LIKE wildcards are literal
     expect((await listScans(u, { q: "_" }, clock)).scans).toHaveLength(1);
     expect(p1.scans[0]).toMatchObject({ status: "done", inputKind: "label", confidence: "high", grade: "E", errorCode: null });
+  });
+});
+
+describe("soft delete keeps deleted scans in every guard", () => {
+  it("create → NOT_FOOD (refunded) → delete, 26 times: the 26th is 429 DAILY_LIMIT", async () => {
+    const u = await createUser();
+    const notFood = sanitiseExtraction({ images: [{ index: 0, kind: "not_food", quality: [] }] });
+    const d = deps(u, { extract: extracting(notFood) });
+    const j = jobs();
+    for (let i = 0; i < 25; i++) {
+      const r = await createScan(u, aiInput(), d, j.schedule);
+      expect(r.status).toBe(202);
+      await j.runAll();
+      expect(await getScan(u, body(r).scanId, clock)).toMatchObject({ status: "failed", errorCode: "NOT_FOOD", refunded: true });
+      expect(await deleteScan(u, body(r).scanId, clock)).toBe(true);
+      advance(61_000);
+    }
+    const r = await createScan(u, aiInput(), d, j.schedule);
+    expect(r.status).toBe(429);
+    expect(body(r).error!.code).toBe("DAILY_LIMIT");
+    expect(await credits(u)).toBe(20);
+    expect((await listScans(u, {}, clock)).scans).toHaveLength(0);
+    // daily_ai_cost still sees all 25 model calls.
+    const [cost] = (await testDb().execute(sql`SELECT ai_scans::int AS n FROM daily_ai_cost`)).rows as { n: number }[];
+    expect(cost!.n).toBe(25);
+  });
+
+  it("6 create → delete rounds inside 60 s: the 6th is 429 RATE_LIMITED", async () => {
+    const u = await createUser();
+    const d = deps(u, { extract: extracting(labelNamkeen) });
+    for (let i = 0; i < 5; i++) {
+      const r = await createScan(u, aiInput(), d, jobs().schedule);
+      expect(r.status).toBe(202);
+      expect(await deleteScan(u, body(r).scanId, clock)).toBe(true);
+      advance(1000);
+    }
+    const sixth = await createScan(u, aiInput(), d, jobs().schedule);
+    expect(sixth.status).toBe(429);
+    expect(body(sixth).error!.code).toBe("RATE_LIMITED");
+    expect(await credits(u)).toBe(20);
+  });
+
+  it("a scan deleted while processing still counts toward the daily cap", async () => {
+    const u = await createUser();
+    const earlier = new Date(T0 - 2 * 3600_000);
+    await testDb().insert(scan).values(Array.from({ length: 24 }, () => ({ userId: u, status: "done" as const, imageCount: 1, engineVersion: "e", charged: true, createdAt: earlier })));
+    let release!: () => void;
+    const gate = new Promise<void>((res) => { release = res; });
+    const extract = vi.fn(async () => { await gate; return out(labelNamkeen); });
+    const j = jobs();
+    const r = await createScan(u, aiInput(), deps(u, { extract }), j.schedule);
+    const running = j.runAll();
+    await vi.waitFor(() => expect(extract).toHaveBeenCalled());
+    expect(await deleteScan(u, body(r).scanId, clock)).toBe(true);
+    release();
+    await running;
+    const [s] = await testDb().select().from(scan).where(eq(scan.id, body(r).scanId));
+    expect(s).toMatchObject({ status: "failed", charged: true });
+    expect(s!.deletedAt).not.toBeNull();
+    advance(61_000);
+    const next = await createScan(u, aiInput(), deps(u, { extract: extracting(labelNamkeen) }), jobs().schedule);
+    expect(next.status).toBe(429);
+    expect(body(next).error!.code).toBe("DAILY_LIMIT");
+  });
+
+  it("a deleted scan is 404 on get, absent from the list, and can't be deleted again", async () => {
+    const u = await createUser();
+    const j = jobs();
+    const r = await createScan(u, aiInput(), deps(u, { extract: extracting(labelNamkeen) }), j.schedule);
+    await j.runAll();
+    expect(await deleteScan(u, body(r).scanId, clock)).toBe(true);
+    expect(await getScan(u, body(r).scanId, clock)).toBeNull();
+    expect((await listScans(u, {}, clock)).scans).toHaveLength(0);
+    expect(await deleteScan(u, body(r).scanId, clock)).toBe(false);
+    expect(await testDb().select().from(scan).where(visibleScanWhere(u))).toHaveLength(0);
+    expect(await credits(u)).toBe(19); // a done scan is not refunded on delete
+  });
+
+  it("replaying an Idempotency-Key after its scan was deleted → 409 CONFLICT, no new scan, no charge", async () => {
+    const u = await createUser();
+    const d = deps(u, { extract: extracting(labelNamkeen) });
+    const r = await createScan(u, aiInput({ clientRequestId: "press-del-0001" }), d, jobs().schedule);
+    await deleteScan(u, body(r).scanId, clock);
+    const replay = await createScan(u, aiInput({ clientRequestId: "press-del-0001" }), d, jobs().schedule);
+    expect(replay.status).toBe(409);
+    expect(body(replay).error).toEqual({ code: "CONFLICT", message: "That scan was deleted." });
+    expect(await scansOf(u)).toHaveLength(1);
+    expect(await credits(u)).toBe(20);
+  });
+
+  it("account deletion still removes the user's scans", async () => {
+    const u = await createUser();
+    const r = await createScan(u, aiInput(), deps(u, { extract: extracting(labelNamkeen) }), jobs().schedule);
+    await deleteScan(u, body(r).scanId, clock);
+    await testDb().delete(user).where(eq(user.id, u));
+    expect(await testDb().select().from(scan).where(eq(scan.userId, u))).toHaveLength(0);
   });
 });

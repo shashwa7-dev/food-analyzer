@@ -3,7 +3,7 @@
 
 export const SCAN_ERROR_CODES = [
   "NO_CREDITS", "RATE_LIMITED", "DAILY_LIMIT", "SERVICE_BUSY", "BARCODE_NOT_FOUND", "UNREADABLE_IMAGE",
-  "NOT_FOOD", "MODEL_ERROR", "TIMEOUT", "INVALID_INPUT", "TOO_LARGE",
+  "NOT_FOOD", "MODEL_ERROR", "TIMEOUT", "INVALID_INPUT", "TOO_LARGE", "CONFLICT",
 ] as const;
 export type ScanErrorCode = (typeof SCAN_ERROR_CODES)[number];
 
@@ -18,7 +18,9 @@ export const SCAN_MESSAGES: Record<ScanErrorCode, string> = {
   MODEL_ERROR: "The scan couldn't be completed. Please try again.",
   TIMEOUT: "The scan took too long and timed out. Please try again.",
   INVALID_INPUT: "Add 1 to 3 photos (JPEG, PNG or WebP) or a valid barcode.",
-  TOO_LARGE: "Those photos are too large. Each photo must be under 1.2 MB.",
+  TOO_LARGE: "Those photos are too large — keep each under 1.2 MB and send at most 3.",
+  /** Idempotency-Key replay of a scan the user has since deleted. */
+  CONFLICT: "That scan was deleted.",
 };
 
 /** SERVICE_BUSY variant when GOOGLE_GENERATIVE_AI_API_KEY is not configured. */

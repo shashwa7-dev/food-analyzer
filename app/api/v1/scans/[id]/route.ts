@@ -10,7 +10,8 @@ export async function GET(req: Request, { params }: Ctx) {
     if (userId instanceof Response) return userId;
     const view = await getScan(userId, (await params).id);
     return view ? json(view) : notFound();
-  } catch {
+  } catch (e) {
+    console.error("GET /api/v1/scans/:id failed", e);
     return serverError();
   }
 }
@@ -20,7 +21,8 @@ export async function DELETE(req: Request, { params }: Ctx) {
     const userId = await requireApiUser(req);
     if (userId instanceof Response) return userId;
     return (await deleteScan(userId, (await params).id)) ? new Response(null, { status: 204 }) : notFound();
-  } catch {
+  } catch (e) {
+    console.error("DELETE /api/v1/scans/:id failed", e);
     return serverError();
   }
 }

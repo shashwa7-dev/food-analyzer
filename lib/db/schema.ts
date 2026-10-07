@@ -109,6 +109,8 @@ export const scan = pgTable("scan", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   startedAt: timestamp("started_at", { withTimezone: true }),
   doneAt: timestamp("done_at", { withTimezone: true }),
+  /** Soft delete: hidden from the user, but still counted by rate limits, daily caps and daily_ai_cost. */
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (t) => [
   index("scan_user_created_idx").on(t.userId, t.createdAt),
   index("scan_created_idx").on(t.createdAt),

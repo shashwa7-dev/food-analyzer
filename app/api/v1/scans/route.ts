@@ -46,6 +46,7 @@ export async function GET(req: Request) {
     return json(await listScans(userId, q.data));
   } catch (e) {
     if (e instanceof InvalidError) return invalid();
+    console.error("GET /api/v1/scans failed", e);
     return serverError();
   }
 }

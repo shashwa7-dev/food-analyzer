@@ -2,7 +2,7 @@
 // same transaction that creates the scan, the model call finished in a background job, and every
 // terminal write conditional on the scan still running — so a sweep, a delete and a late job can
 // race freely and the user is charged at most once and refunded at most once.
-import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Db, type Tx } from "@/lib/db/client";
 import { scan } from "@/lib/db/schema";
@@ -57,7 +57,16 @@ export interface ScanView {
 
 export type CreateScanResult =
   | { status: 200 | 202; body: ScanView & { scanId: string } }
-  | { status: 402 | 429 | 503; body: { error: { code: ScanErrorCode; message: string } } };
+  | { status: 402 | 409 | 429 | 503; body: { error: { code: ScanErrorCode; message: string } } };
+
+/**
+ * The user's own, not-deleted scans — every user-facing scan read (get, list, delete, and logging /
+ * saving from a scan in later tasks) must go through this. Guards (rate limit, daily caps,
+ * daily_ai_cost) deliberately do NOT: a deleted scan still counts.
+ */
+export function visibleScanWhere(userId: string): SQL {
+  return and(eq(scan.userId, userId), isNull(scan.deletedAt))!;
+}
 
 const isUuid = (id: string) => z.uuid().safeParse(id).success;
 const isRunning = (s: ScanStatus) => (RUNNING as readonly string[]).includes(s);
@@ -73,10 +82,11 @@ function toView(row: ScanRow): ScanView {
 }
 
 function ok(row: ScanRow): CreateScanResult {
+  if (row.deletedAt) return fail(409, "CONFLICT"); // Idempotency-Key replay of a scan the user deleted
   return { status: isRunning(row.status) ? 202 : 200, body: { scanId: row.id, ...toView(row) } };
 }
 
-function fail(status: 402 | 429 | 503, code: ScanErrorCode, message = SCAN_MESSAGES[code]): CreateScanResult {
+function fail(status: 402 | 409 | 429 | 503, code: ScanErrorCode, message = SCAN_MESSAGES[code]): CreateScanResult {
   return { status, body: { error: { code, message } } };
 }
 
@@ -84,6 +94,7 @@ async function lockProfile(tx: Tx, userId: string) {
   await tx.execute(sql`SELECT 1 FROM profile WHERE user_id = ${userId} FOR UPDATE`);
 }
 
+/** Includes soft-deleted scans, so a replay after delete is answered (409) instead of creating a new charged scan. */
 async function findByClientRequestId(ex: Db | Tx, userId: string, key: string): Promise<ScanRow | null> {
   const [row] = await ex.select().from(scan).where(and(eq(scan.userId, userId), eq(scan.clientRequestId, key)));
   return row ?? null;
@@ -177,7 +188,7 @@ export async function createScan(userId: string, input: CreateScanInput, deps: S
         userId, status: "done", inputKind: "barcode", barcode: input.barcode, imageCount: input.images.length,
         foodId: done ? outcome.foodId : null, result: done ? outcome.result : null, confidence: done ? outcome.result.confidence : null,
         errorCode: done ? null : "BARCODE_NOT_FOUND", engineVersion: ENGINE_VERSION, clientRequestId: key, charged: false,
-        createdAt: new Date(now), startedAt: new Date(now), doneAt: new Date(now),
+        createdAt: new Date(now), startedAt: new Date(now), doneAt: new Date(now), // explicit (ms) — see the list cursor
       }).returning();
       return { kind: "row", row: row!, created: true };
     });
@@ -198,7 +209,7 @@ export async function createScan(userId: string, input: CreateScanInput, deps: S
 
       const [row] = await tx.insert(scan).values({
         userId, status: "queued", barcode: input.barcode, imageCount: input.images.length, engineVersion: ENGINE_VERSION,
-        clientRequestId: key, createdAt: new Date(now),
+        clientRequestId: key, createdAt: new Date(now), // explicit (ms) — see the list cursor
       }).returning();
       await debitForScan(tx, userId, row!.id, new Date(now)); // NoCreditsError rolls the scan row back too
       return { kind: "row", row: { ...row!, charged: true }, created: true };
@@ -315,7 +326,7 @@ export async function completeScan(
 /** GET /scans/:id — owner-scoped (foreign or malformed id → null), sweeping this scan if stuck. */
 export async function getScan(userId: string, id: string, now: number = Date.now()): Promise<ScanView | null> {
   if (!isUuid(id)) return null;
-  const read = async () => (await db.select().from(scan).where(and(eq(scan.id, id), eq(scan.userId, userId))))[0] ?? null;
+  const read = async () => (await db.select().from(scan).where(and(eq(scan.id, id), visibleScanWhere(userId))))[0] ?? null;
   let row = await read();
   if (!row) return null;
   if (isRunning(row.status) && row.createdAt.getTime() < now - STUCK_AFTER_MS) {
@@ -326,15 +337,19 @@ export async function getScan(userId: string, id: string, now: number = Date.now
   return toView(row);
 }
 
-/** DELETE /scans/:id — a running scan is first failed (+ refunded) in the same transaction, so the job's later write is a no-op. */
+/**
+ * DELETE /scans/:id — a soft delete: the row stays (deleted_at set) so the rate limit, daily caps and
+ * daily_ai_cost keep counting it; otherwise create → fail (refunded) → delete would be an unlimited
+ * loop of paid model calls. A running scan is first failed (+ refunded) in the same transaction, so
+ * the job's later write is a no-op. Account deletion still cascades the rows away.
+ */
 export async function deleteScan(userId: string, id: string, now: number = Date.now()): Promise<boolean> {
   if (!isUuid(id)) return false;
   return db.transaction(async (tx) => {
-    const [row] = await tx.select({ status: scan.status }).from(scan).where(and(eq(scan.id, id), eq(scan.userId, userId))).for("update");
+    const [row] = await tx.select({ status: scan.status }).from(scan).where(and(eq(scan.id, id), visibleScanWhere(userId))).for("update");
     if (!row) return false;
-    // The code is never visible (the row is deleted below); it only drives the refund.
     if (isRunning(row.status)) await failScanTx(tx, userId, id, "MODEL_ERROR", now);
-    await tx.delete(scan).where(and(eq(scan.id, id), eq(scan.userId, userId)));
+    await tx.update(scan).set({ deletedAt: new Date(now) }).where(and(eq(scan.id, id), eq(scan.userId, userId)));
     return true;
   });
 }
@@ -364,7 +379,9 @@ export interface ScanListItem {
 const PAGE_SIZE = 20;
 
 // Opaque keyset cursor "<createdAt ISO>~<id>" (a bare ISO timestamp is accepted too), so scans sharing
-// a millisecond are never skipped or repeated between pages.
+// a millisecond are never skipped or repeated between pages. ISO round-trips only milliseconds: this
+// relies on every scan insert setting createdAt explicitly from a JS Date (never the DB's microsecond
+// now() default) — keep it that way.
 const encodeCursor = (createdAt: Date, id: string) => `${createdAt.toISOString()}~${id}`;
 function decodeCursor(cursor: string): { at: Date; id: string | null } {
   const [iso, id] = cursor.split("~");
@@ -390,7 +407,7 @@ export async function listScans(userId: string, query: ListScansQuery, now: numb
     grade: sql<string | null>`${scan.result}->>'grade'`, kind: sql<string | null>`${scan.result}->>'kind'`,
   }).from(scan)
     .where(and(
-      eq(scan.userId, userId),
+      visibleScanWhere(userId),
       c ? (c.id ? sql`(${scan.createdAt}, ${scan.id}) < (${c.at}, ${c.id})` : lt(scan.createdAt, c.at)) : undefined,
       grade ? sql`${scan.result}->>'grade' = ${grade}` : undefined,
       text ? sql`${name} ILIKE ${`%${escapeLike(text)}%`}` : undefined,
