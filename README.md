@@ -86,7 +86,7 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 - Each plan gets a monthly allowance of AI-assisted (photo) scans: Basic 20/month, Pro 200/month (`lib/credits/plans.ts`). The allowance resets lazily — on the first read or spend after the UTC month rolls over, not on a schedule (`lib/credits/ledger.ts`).
 - A barcode scan (code found in our catalogue or Open Food Facts) costs 0 credits — only AI-assisted scans are charged, 1 credit each.
 - A charged scan that fails is refunded automatically, atomically with the failure write (`failScanTx` in `lib/scans/service.ts`).
-- Deleting the account keeps a tombstone — an HMAC of the normalised email with this month's used scans and today's count, no plain PII (`lib/credits/tombstone.ts`) — so signing up again with the same email starts from the same usage. Tombstones from earlier months are pruned on the next account deletion (`pruneTombstones`).
+- Deleting the account keeps a tombstone — an HMAC of the normalised email with this month's used scans and today's count, no plain PII (`lib/credits/tombstone.ts`) — so signing up again with the same email starts from the same usage. A tombstone is kept only for its month: once that month ends it is deleted (`pruneTombstones`), on the next account deletion or sign-up.
 - Independent of credits, each user is capped at 25 AI-assisted scans per UTC day (`DAILY_AI_SCANS_PER_USER` in `lib/rate-limit.ts`); refunded scans still count toward it, so a refund can't be looped for free scans.
 
 ### Before launch

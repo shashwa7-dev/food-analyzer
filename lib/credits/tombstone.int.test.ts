@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetDb, testDb } from "@/tests/helpers/db";
+import { resetDb, testDb, waitUntilBlocked } from "@/tests/helpers/db";
 import { user } from "@/lib/db/auth-schema";
 import { creditTombstone, creditTxn, profile, scan } from "@/lib/db/schema";
 import { deleteAccount } from "@/lib/profile/service";
@@ -112,6 +112,21 @@ describe("tombstone retention (review N5)", () => {
     expect((await testDb().select().from(creditTombstone)).map((t) => t.emailHash)).toEqual(["now"]);
   });
 
+  it("a new user's first grant prunes stale rows (sign-up), keeping this period's", async () => {
+    await testDb().insert(creditTombstone).values([tomb("old", "2026-09", "2026-09-30"), tomb("now", "2026-10", "2026-10-01")]);
+    const a = await signUp("u_new", "fresh@example.com");
+    expect((await getBalance(a, NOW)).credits).toBe(20); // the grant itself is unaffected
+    expect((await testDb().select().from(creditTombstone)).map((t) => t.emailHash)).toEqual(["now"]);
+  });
+
+  it("only the first grant prunes: a returning user's reads don't", async () => {
+    const a = await signUp("u_a", "returning@example.com");
+    await getBalance(a, NOW);
+    await testDb().insert(creditTombstone).values(tomb("old", "2026-09", "2026-09-30"));
+    await getBalance(a, NOW);
+    expect(await testDb().select().from(creditTombstone)).toHaveLength(1);
+  });
+
   it("deleteAccount prunes stale rows after writing its own", async () => {
     await testDb().insert(creditTombstone).values(tomb("old", "2026-09", "2026-09-30"));
     const a = await signUp("u_a", "prune@example.com");
@@ -149,15 +164,13 @@ describe("deleteAccount lock order (review N4)", () => {
     await scanLocked;
 
     const deletion = deleteAccount(a, NOW);
-    const deadline = Date.now() + 5000;
-    for (;;) {
-      const { rows } = await testDb().execute(sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`);
-      if ((rows[0] as { n: number }).n > 0) break;
-      if (Date.now() > deadline) throw new Error("deleteAccount never waited on the scan lock");
-      await new Promise((r) => setTimeout(r, 20));
+    deletion.catch(() => {}); // awaited below; this only keeps a timed-out poll from leaving an unhandled rejection
+    try {
+      await waitUntilBlocked("SELECT id FROM scan"); // deleteAccount's first statement, waiting on the job's scan lock
+    } finally {
+      release(); // always release the job, so a timeout fails the test instead of hanging the suite
+      await job;
     }
-    release();
-    await job;
     await deletion;
 
     expect(profileLockedByJob).toBe(true);

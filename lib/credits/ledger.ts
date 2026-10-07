@@ -4,7 +4,7 @@ import { db, type Tx } from "@/lib/db/client";
 import { creditTxn, profile, scan } from "@/lib/db/schema";
 import type { PlanKey } from "./plans";
 import { allowanceFor, currentPeriod, nextPeriodStart } from "./logic";
-import { carriedUsage } from "./tombstone";
+import { carriedUsage, pruneTombstones } from "./tombstone";
 import type { ActivityFilter, ActivityItem } from "./activity";
 import { InvalidError } from "@/lib/errors";
 import { inputKindLabel } from "@/lib/scans/history";
@@ -23,7 +23,8 @@ export class ScanNotFoundError extends Error {
   }
 }
 
-type PeriodResult = { credits: number; period: string; plan: PlanKey; allowance: number };
+/** firstGrant: this call made the user's first grant ever (allowancePeriod was null), e.g. a sign-up. */
+type PeriodResult = { credits: number; period: string; plan: PlanKey; allowance: number; firstGrant: boolean };
 
 /**
  * Lazily rolls the caller's balance into the current UTC month, expiring any leftover
@@ -49,7 +50,7 @@ export async function ensureCurrentPeriodTx(tx: Tx, userId: string, now: Date = 
 
   const allowance = allowanceFor(row.plan);
   const shouldReset = row.allowancePeriod === null || period > row.allowancePeriod;
-  if (!shouldReset) return { credits: row.credits, period, plan: row.plan, allowance };
+  if (!shouldReset) return { credits: row.credits, period, plan: row.plan, allowance, firstGrant: false };
 
   if (row.allowancePeriod && row.credits > 0) {
     await tx.insert(creditTxn).values({
@@ -69,16 +70,34 @@ export async function ensureCurrentPeriodTx(tx: Tx, userId: string, now: Date = 
     ...(carried?.dayScans ? { carriedDay: carried.day, carriedDayScans: carried.dayScans } : {}),
   }).where(eq(profile.userId, userId));
 
-  return { credits: granted, period, plan: row.plan, allowance };
+  return { credits: granted, period, plan: row.plan, allowance, firstGrant: row.allowancePeriod === null };
+}
+
+/**
+ * ensureCurrentPeriodTx in its own transaction. After a first grant (a sign-up) commits, stale
+ * tombstones are pruned best-effort (review N5 follow-up): a failure there can never touch the grant,
+ * which is already committed. Pruning also runs after account deletion (lib/profile/service.ts).
+ */
+async function periodInOwnTx(userId: string, now: Date): Promise<PeriodResult> {
+  const r = await db.transaction((tx) => ensureCurrentPeriodTx(tx, userId, now));
+  if (r.firstGrant) {
+    try {
+      await pruneTombstones(now);
+    } catch (err) {
+      console.error("pruneTombstones failed", err);
+    }
+  }
+  return r;
 }
 
 /** Convenience wrapper for callers that don't already have an open transaction. */
 export async function ensureCurrentPeriod(userId: string, now: Date = new Date()): Promise<{ credits: number; period: string }> {
-  return db.transaction((tx) => ensureCurrentPeriodTx(tx, userId, now));
+  const { credits, period } = await periodInOwnTx(userId, now);
+  return { credits, period };
 }
 
 export async function getBalance(userId: string, now: Date = new Date()): Promise<{ credits: number; allowance: number; periodResetsAt: Date }> {
-  const { credits, allowance } = await db.transaction((tx) => ensureCurrentPeriodTx(tx, userId, now));
+  const { credits, allowance } = await periodInOwnTx(userId, now);
   return { credits, allowance, periodResetsAt: nextPeriodStart(now) };
 }
 

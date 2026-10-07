@@ -14,3 +14,18 @@ export async function createUser(id = `u_${Math.random().toString(36).slice(2, 1
   await db.insert(profile).values({ userId: id });
   return id;
 }
+
+/**
+ * Resolves once another session is waiting on a lock while running a query that starts with
+ * `queryPrefix` (case-insensitive); throws after `timeoutMs` (under vitest's 5 s test timeout, so this error and the caller's finally win). For deterministic lock-race tests.
+ */
+export async function waitUntilBlocked(queryPrefix: string, timeoutMs = 3000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const { rows } = await db.execute(sql`SELECT count(*)::int AS n FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE ${`${queryPrefix}%`}`);
+    if ((rows[0] as { n: number }).n > 0) return;
+    if (Date.now() > deadline) throw new Error(`no session blocked on a lock running "${queryPrefix}…" within ${timeoutMs} ms`);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}

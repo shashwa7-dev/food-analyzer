@@ -87,7 +87,10 @@ export async function cacheOffFood(draft: FoodDraft): Promise<FoodRow> {
   }));
 }
 
-/** Moves every user's stats (summing uses, latest last_used_at) and log entries from one crowd food to its twin, then deletes it. */
+/**
+ * Moves every user's stats (summing uses, latest last_used_at) and log entries from one crowd food to
+ * its twin, adds its popularity to the twin's (search ranking), then deletes it.
+ */
 async function mergeCrowdFoodInto(tx: Tx, oldId: string, twinId: string): Promise<void> {
   await tx.execute(sql`
     INSERT INTO user_food_stats (user_id, food_id, uses, last_used_at)
@@ -97,5 +100,6 @@ async function mergeCrowdFoodInto(tx: Tx, oldId: string, twinId: string): Promis
       last_used_at = GREATEST(user_food_stats.last_used_at, excluded.last_used_at)`);
   await tx.execute(sql`DELETE FROM user_food_stats WHERE food_id = ${oldId}`);
   await tx.execute(sql`UPDATE food_log SET food_id = ${twinId}, updated_at = now() WHERE food_id = ${oldId}`);
+  await tx.execute(sql`UPDATE food t SET popularity = t.popularity + o.popularity, updated_at = now() FROM food o WHERE t.id = ${twinId} AND o.id = ${oldId}`);
   await tx.execute(sql`DELETE FROM food WHERE id = ${oldId}`);
 }

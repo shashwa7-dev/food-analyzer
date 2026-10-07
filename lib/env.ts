@@ -56,6 +56,11 @@ export function proGatesEnforced(raw: Record<string, string | undefined> = proce
   return r.data;
 }
 
+// Checked when this module loads (review N5): a too-short CREDIT_TOMBSTONE_PEPPER fails at boot, not at
+// the first account deletion or sign-up. Only this var: the rest of env() is validated on first use,
+// so `next build` and the tests keep working without the auth/Google vars.
+if (!pepper.safeParse(process.env.CREDIT_TOMBSTONE_PEPPER).success) throw new Error("Invalid environment variables: CREDIT_TOMBSTONE_PEPPER");
+
 let pepperFallbackWarned = false;
 
 /**

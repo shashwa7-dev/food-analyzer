@@ -74,6 +74,13 @@ describe("tombstonePepper (review N5)", () => {
     expect((await load())({ BETTER_AUTH_SECRET: SECRET, NODE_ENV: "development" })).toBe(SECRET);
     expect(warn).not.toHaveBeenCalled();
   });
+  it("a too-short CREDIT_TOMBSTONE_PEPPER fails when the module loads", async () => {
+    vi.stubEnv("CREDIT_TOMBSTONE_PEPPER", "short");
+    await expect(import("./env")).rejects.toThrow(/CREDIT_TOMBSTONE_PEPPER/);
+    vi.unstubAllEnvs();
+    vi.resetModules();
+    await expect(import("./env")).resolves.toBeDefined();
+  });
   it("rejects a short pepper and a missing fallback", async () => {
     const pepper = await load();
     expect(() => pepper({ CREDIT_TOMBSTONE_PEPPER: "short", BETTER_AUTH_SECRET: SECRET })).toThrow(/CREDIT_TOMBSTONE_PEPPER/);

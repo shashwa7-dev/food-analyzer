@@ -1,6 +1,6 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createUser, resetDb, testDb } from "@/tests/helpers/db";
+import { createUser, resetDb, testDb, waitUntilBlocked } from "@/tests/helpers/db";
 import { food, foodLog, userFoodStats } from "@/lib/db/schema";
 import type { CrowdCandidate } from "@/lib/engine";
 import { crowdDraft, upsertCrowdFood } from "@/lib/scans/crowd";
@@ -39,15 +39,13 @@ describe("cacheOffFood: a barcoded crowd row committed mid-insert (review N2)", 
 
     // B: an OFF hit for the same code. Its release UPDATE can't see A's row; its INSERT waits on the barcode index.
     const b = cacheOffFood(offDraft());
-    const deadline = Date.now() + 5000;
-    for (;;) {
-      const { rows } = await testDb().execute(sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE 'insert into "food"%'`);
-      if ((rows[0] as { n: number }).n > 0) break;
-      if (Date.now() > deadline) throw new Error("B never blocked on A's barcode");
-      await new Promise((r) => setTimeout(r, 20));
+    b.catch(() => {}); // awaited below; this only keeps a timed-out poll from leaving an unhandled rejection
+    try {
+      await waitUntilBlocked('insert into "food"');
+    } finally {
+      commitA(); // always release A, so a timeout fails the test instead of hanging the suite
+      await a;
     }
-    commitA();
-    await a;
 
     const off = await b; // without the retry this rejects with 23505 on food_barcode_uq
     expect(off.source).toBe("off");
@@ -80,5 +78,15 @@ describe("cacheOffFood: dropping a barcoded crowd row in favour of its twin (rev
     expect(stats.find((s) => s.userId === onlyOld)).toMatchObject({ uses: 1, lastUsedAt: earlier });
     const [entryAfter] = await testDb().select().from(foodLog).where(eq(foodLog.id, logged!.id));
     expect(entryAfter!.foodId).toBe(twin);
+  });
+
+  it("adds the dropped row's popularity to the twin's", async () => {
+    const twin = (await crowdRow(null))!;
+    const old = (await crowdRow(CODE))!;
+    await testDb().update(food).set({ popularity: 3 }).where(eq(food.id, twin));
+    await testDb().update(food).set({ popularity: 4 }).where(eq(food.id, old));
+    await cacheOffFood(offDraft());
+    const [t] = await testDb().select({ popularity: food.popularity }).from(food).where(eq(food.id, twin));
+    expect(t!.popularity).toBe(7);
   });
 });
