@@ -6,6 +6,9 @@ import { ALLERGEN_KEYS, type AllergenKey } from "@/lib/nutrition/personalise";
 import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
 import { ALLERGEN_LABELS, DIET_LABEL, GOAL_LABEL } from "@/lib/profile/options";
 import { SettingSheet } from "@/components/me/setting-sheet";
+import { THEME_ICON, ThemeTiles } from "@/components/theme/theme-options";
+import { useTheme } from "@/components/theme/theme-provider";
+import { THEME_LABEL } from "@/lib/theme";
 import { AllergiesSection, CountrySection, DietSection, GoalSection, countryName } from "@/components/me/settings-form";
 
 export interface SettingsValues {
@@ -18,20 +21,24 @@ export interface SettingsValues {
   customTargets: boolean;
 }
 
-type Section = "goal" | "diet" | "allergies" | "country";
+type Section = "goal" | "diet" | "allergies" | "country" | "appearance";
 
 const META: Record<Section, { icon: LucideIcon; label: string; hint: string }> = {
   goal: { icon: Target, label: "Goal", hint: "Your goal sets your daily targets" },
   diet: { icon: Leaf, label: "Diet", hint: "Foods that don't fit get flagged" },
   allergies: { icon: AlertTriangle, label: "Allergies", hint: "Pick any that apply to you" },
   country: { icon: Globe, label: "Country", hint: "Where you shop for food" },
+  // The icon follows the choice (Moon, Sun or Monitor); see `iconOf` below.
+  appearance: { icon: THEME_ICON.dark, label: "Appearance", hint: "Dark, light, or match your device" },
 };
 
 /**
- * The Me page's four settings in one card (mock-c1 `.xlist`): a plain muted icon, the label, the
- * current value (truncated) and a chevron. Each row opens its section of the settings form in a sheet.
+ * The Me page's five settings in one card (mock-c1 `.xlist`): a plain muted icon, the label, the
+ * current value (truncated) and a chevron. Each row opens its section of the settings form in a sheet;
+ * Appearance's sheet is three tiles that apply on tap (no Save) and close it.
  */
 export function SettingsList({ values }: { values: SettingsValues }) {
+  const { theme, setTheme } = useTheme();
   const [section, setSection] = useState<Section>("goal");
   const [open, setOpen] = useState(false);
   // A fresh section (and its drafts) every time a sheet opens.
@@ -44,7 +51,9 @@ export function SettingsList({ values }: { values: SettingsValues }) {
     diet: DIET_LABEL[values.diet],
     allergies: allergies.length ? allergies.map((a) => ALLERGEN_LABELS[a]).join(", ") : "None",
     country: countryName(values.country),
+    appearance: THEME_LABEL[theme],
   };
+  const iconOf = (s: Section): LucideIcon => (s === "appearance" ? THEME_ICON[theme] : META[s].icon);
 
   const show = (s: Section) => {
     setSection(s);
@@ -58,7 +67,8 @@ export function SettingsList({ values }: { values: SettingsValues }) {
     <>
       <div className="overflow-hidden rounded-[20px] bg-surface shadow-card">
         {(Object.keys(META) as Section[]).map((s) => {
-          const { icon: Icon, label } = META[s];
+          const { label } = META[s];
+          const Icon = iconOf(s);
           return (
             <button
               key={s}
@@ -78,11 +88,12 @@ export function SettingsList({ values }: { values: SettingsValues }) {
         })}
       </div>
 
-      <SettingSheet open={open} onOpenChange={setOpen} icon={meta.icon} title={meta.label} hint={meta.hint}>
+      <SettingSheet open={open} onOpenChange={setOpen} icon={iconOf(section)} title={meta.label} hint={meta.hint}>
         {section === "goal" && <GoalSection key={session} goal={values.goal} targets={values.targets} customTargets={values.customTargets} onDone={close} />}
         {section === "diet" && <DietSection key={session} diet={values.diet} onDone={close} />}
         {section === "allergies" && <AllergiesSection key={session} diet={values.diet} allergies={values.allergies} onDone={close} />}
         {section === "country" && <CountrySection key={session} country={values.country} onDone={close} />}
+        {section === "appearance" && <ThemeTiles theme={theme} onPick={(t) => { setTheme(t); close(); }} />}
       </SettingSheet>
     </>
   );

@@ -10,7 +10,7 @@ import { AccountFooter } from "@/components/me/account-footer";
 const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
 
 /**
- * Me (spec §6.13, mock "Me (simplified)"): who you are, scans left, four settings, sign out. One
+ * Me (spec §6.13, mock "Me (simplified)"): who you are, scans left, five settings, sign out. One
  * column, centred at 560 px on desktop.
  */
 export default async function MePage() {

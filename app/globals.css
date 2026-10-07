@@ -2,7 +2,16 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Tailwind's dark: variant follows the appearance setting, matching the dark palette blocks below. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) { @slot; }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) { @slot; }
+  }
+}
+
 :root {
+  color-scheme: light;
   --bg: #FAFBF6; --wash-a: #EEF4DA; --surface: #FFFFFF; --sunken: #F1F3EC; --ink: #12150F; --muted: #646B5E;
   --line: #E4E8DC; --accent-ink: #FFFFFF;
   --brand: #A6D84A; --brand-soft: #E3F2C2; --brand-deep: #4D7A12; --brand-ink: #12150F;
@@ -17,8 +26,23 @@
   /* camera viewfinder: always dark, with white marks on top, in both themes */
   --viewfinder: #141613; --on-media: #FFFFFF; --on-media-ink: #111111;
 }
+/* Appearance (lib/theme.ts): <html data-theme="dark|light|system">, from the eatri8-theme cookie on the
+   server render; Dark when unset. Light is the bare :root above. The dark palette is applied by two
+   blocks: CSS can't share one declaration list between a plain rule and a rule inside @media.
+   The two blocks MUST stay identical (app/globals-css.test.ts checks this). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11140F; --wash-a: #1B2312; --surface: #1A1E17; --sunken: #20251C; --ink: #EDF1E6; --muted: #9AA290;
+  --line: #2A3124; --accent-ink: #06210F;
+  --brand: #A6D84A; --brand-soft: #26331A; --brand-deep: #B9E36E; --brand-ink: #12150F;
+  --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
+  --action: var(--brand); --action-ink: #12150F;
+  --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
+  --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: none;
+  --good-ink: var(--ok); --on-brand-soft: var(--brand-deep);
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme="system"] {
     color-scheme: dark;
     --bg: #11140F; --wash-a: #1B2312; --surface: #1A1E17; --sunken: #20251C; --ink: #EDF1E6; --muted: #9AA290;
     --line: #2A3124; --accent-ink: #06210F;

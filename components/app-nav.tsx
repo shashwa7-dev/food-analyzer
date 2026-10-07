@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, History, LineChart, ScanLine, Search, Settings, User } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { SidebarCredits } from "@/components/nav/sidebar-credits";
+import { ThemeCycleButton } from "@/components/theme/theme-cycle-button";
 import { Button } from "@/components/ui/button";
 import { initialsOf } from "@/lib/initials";
 import { cn } from "@/lib/utils";
@@ -83,14 +84,18 @@ export function AppNav({
           })}
         </div>
         <SidebarCredits credits={credits} allowance={allowance} resetsLabel={resetsLabel} />
-        <Link href="/me" className="flex items-center gap-2.5 rounded-2xl p-2 hover:bg-sunken">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-brand-deep">{initialsOf(name)}</span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold text-ink">{name}</span>
-            <span className="block text-xs text-subtle">{planLabel} plan</span>
-          </span>
-          <Settings className="size-5 shrink-0 text-subtle" aria-hidden />
-        </Link>
+        {/* Profile row: the link to Me (with its gear) and, beside it, the theme cycle button. */}
+        <div className="flex items-center gap-1">
+          <Link href="/me" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl p-2 hover:bg-sunken">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-brand-deep">{initialsOf(name)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-ink">{name}</span>
+              <span className="block truncate text-xs whitespace-nowrap text-subtle">{planLabel} plan</span>
+            </span>
+            <Settings className="size-5 shrink-0 text-subtle" aria-hidden />
+          </Link>
+          <ThemeCycleButton />
+        </div>
       </nav>
 
       {/* Phone bottom nav (spec §5) */}
