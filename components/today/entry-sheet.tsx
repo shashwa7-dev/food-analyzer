@@ -4,17 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, Undo2 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GradeBadge } from "@/components/grade-badge";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { api, ApiError } from "@/lib/api-client";
 import { isFreeGramsPortion, portionMeta } from "@/lib/log/format";
 import { stepQuantity } from "@/lib/log/quantity";
 import { MEALS, type Meal } from "@/lib/nutrition/types";
+import { undoBody, undoNeedsPortions, undoTarget } from "@/lib/log/undo";
 import type { EntryRow } from "@/lib/log/service";
+import type { Portion } from "@/lib/nutrition/types";
 
 function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => void }) {
   const router = useRouter();
@@ -54,7 +57,14 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
   });
   const del = useMutation({
     mutationFn: () => api(`/api/v1/log/${entry.id}`, { method: "DELETE" }),
-    onSuccess: () => done(`Removed ${entry.name}.`),
+    onSuccess: () => {
+      setConfirming(false);
+      router.refresh();
+      onClose();
+      toast.success("Entry deleted", {
+        action: { label: <><Undo2 className="size-4" aria-hidden />Undo</>, onClick: () => void restoreEntry(entry, () => router.refresh()) },
+      });
+    },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn't delete that. Try again."),
   });
   const busy = save.isPending || del.isPending;
@@ -112,23 +122,43 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
       <Button className="h-12 w-full" disabled={!dirty || busy} onClick={() => save.mutate()}>
         {save.isPending ? "Saving…" : <>Save · <span className="num">{kcal}</span> kcal</>}
       </Button>
-      {confirming ? (
-        <div className="flex flex-col gap-3 rounded-md border border-bad p-3.5" role="alert">
-          <p className="text-sm">Delete this entry? This can’t be undone.</p>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" className="h-11 flex-1" disabled={busy} onClick={() => setConfirming(false)}>Cancel</Button>
-            <Button type="button" variant="destructive" className="h-11 flex-1" disabled={busy} onClick={() => del.mutate()}>
-              {del.isPending ? "Deleting…" : "Delete"}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <Button type="button" variant="outline" className="h-11 w-full gap-1.5 text-bad" disabled={busy} onClick={() => setConfirming(true)}>
-          <Trash2 className="size-4" aria-hidden /> Delete entry
-        </Button>
-      )}
+      <Button type="button" variant="outline" className="h-11 w-full gap-1.5 text-bad" disabled={busy} onClick={() => setConfirming(true)}>
+        <Trash2 className="size-4" aria-hidden /> Delete entry
+      </Button>
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        icon={<Trash2 aria-hidden />}
+        title="Delete this entry?"
+        body={`It comes off ${entry.meal === "snack" ? "snacks" : entry.meal} and out of the day’s totals. You can undo it right after.`}
+        confirmLabel="Delete"
+        pendingLabel="Deleting…"
+        onConfirm={() => del.mutate()}
+        pending={del.isPending}
+      />
     </div>
   );
+}
+
+/**
+ * The delete toast's Undo: logs the entry again through POST /api/v1/log from its food or scan
+ * (same portion and amount), or as a quick add with its own nutrients when that source is gone.
+ */
+async function restoreEntry(entry: EntryRow, refresh: () => void) {
+  try {
+    let portions: Portion[] | null = null;
+    const target = undoTarget(entry);
+    if (target && undoNeedsPortions(entry)) {
+      portions = target.kind === "scan"
+        ? (await api<{ result: { portions: Portion[] } | null }>(`/api/v1/scans/${target.scanId}`).catch(() => null))?.result?.portions ?? null
+        : (await api<{ food: { portions: Portion[] } }>(`/api/v1/foods/${target.foodId}`).catch(() => null))?.food.portions ?? null;
+    }
+    await api("/api/v1/log", { method: "POST", body: JSON.stringify(undoBody(entry, portions)) });
+    toast.success("Entry restored");
+    refresh();
+  } catch (e) {
+    toast.error(e instanceof ApiError ? e.message : "Couldn't restore that entry. Try again.");
+  }
 }
 
 export function EntrySheet({ entry, open, onOpenChange }: { entry: EntryRow; open: boolean; onOpenChange: (open: boolean) => void }) {

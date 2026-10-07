@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, History, LineChart, ScanLine, Search, Settings, User } from "lucide-react";
 import { SidebarCredits } from "@/components/nav/sidebar-credits";
 import { Button } from "@/components/ui/button";
+import { initialsOf } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 
 type NavIcon = typeof CalendarDays;
@@ -23,14 +24,6 @@ const DESKTOP_ITEMS: NavItem[] = [
   { href: "/foods", label: "Foods", icon: Search },
   { href: "/history", label: "History", icon: History, showCount: true },
 ];
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  const first = parts[0]!.charAt(0);
-  const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : "";
-  return (first + last).toUpperCase();
-}
 
 export function AppNav({
   credits,
@@ -87,7 +80,7 @@ export function AppNav({
         </div>
         <SidebarCredits credits={credits} allowance={allowance} resetsLabel={resetsLabel} />
         <Link href="/me" className="flex items-center gap-2.5 rounded-2xl p-2 hover:bg-sunken">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-brand-deep">{initials(name)}</span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-brand-deep">{initialsOf(name)}</span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-ink">{name}</span>
             <span className="block text-xs text-subtle">{planLabel} plan</span>

@@ -7,8 +7,9 @@ import { db } from "@/lib/db/client";
 import { food, scan } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { ScanResult } from "@/lib/engine/result";
-import { addEntry, deleteEntry, getDay, updateEntry } from "./service";
+import { addEntry, deleteEntry, getDay, loggedDates, updateEntry } from "./service";
 import { InvalidError, NotFoundError } from "@/lib/errors";
+import { addDays } from "@/lib/dates";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -240,5 +241,27 @@ describe("food log", () => {
     const s = await insertScan(u, { status: "queued", result: null });
     await expect(addEntry(u, { kind: "scan", date: today, meal: "snack", scanId: s.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(NotFoundError);
     await expect(addEntry(u, { kind: "scan_grams", date: today, meal: "snack", scanId: s.id, grams: 100 })).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  // --- logged dates for the date picker (C1 Task 3) --------------------------------------------
+
+  it("lists distinct logged dates in a month, owner-scoped", async () => {
+    const a = await createUser(); const b = await createUser();
+    const chai = { energyKcal: 105, protein: 3, carbs: 15, fat: 3.3 };
+    // A month about two months back, so every day in it is inside the allowed 365-day window.
+    const month = addDays(today, -60).slice(0, 7);
+    const before = addDays(`${month}-01`, -1).slice(0, 7);
+    const quick = (u: string, date: string) => addEntry(u, { kind: "quick", date, meal: "snack", name: "Chai", nutrients: chai });
+    await quick(a, `${month}-05`); await quick(a, `${month}-03`); await quick(a, `${month}-03`);
+    await quick(b, `${month}-04`);
+    expect(await loggedDates(a, month)).toEqual([`${month}-03`, `${month}-05`]);
+    expect(await loggedDates(a, before)).toEqual([]);
+    expect(await loggedDates(b, month)).toEqual([`${month}-04`]);
+  });
+
+  it("rejects a malformed month", async () => {
+    const a = await createUser();
+    await expect(loggedDates(a, "2026-13")).rejects.toBeInstanceOf(InvalidError);
+    await expect(loggedDates(a, "2026-1")).rejects.toBeInstanceOf(InvalidError);
   });
 });

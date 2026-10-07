@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Tx } from "@/lib/db/client";
 import { food, foodLog, scan, userFoodStats } from "@/lib/db/schema";
@@ -158,4 +158,14 @@ export async function deleteEntry(userId: string, id: string): Promise<boolean> 
   if (!z.uuid().safeParse(id).success) return false;
   const rows = await db.delete(foodLog).where(and(eq(foodLog.id, id), eq(foodLog.userId, userId))).returning({ id: foodLog.id });
   return rows.length === 1;
+}
+
+/** Distinct dates in `month` (YYYY-MM) with at least one entry, ascending — the date picker's dots. */
+export async function loggedDates(userId: string, month: string): Promise<string[]> {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new InvalidError("Pick a month as YYYY-MM.");
+  const start = `${month}-01`;
+  const rows = await db.selectDistinct({ date: foodLog.date }).from(foodLog)
+    .where(and(eq(foodLog.userId, userId), gte(foodLog.date, start), lt(foodLog.date, sql`(${start}::date + interval '1 month')::date`)))
+    .orderBy(foodLog.date);
+  return rows.map((r) => r.date);
 }

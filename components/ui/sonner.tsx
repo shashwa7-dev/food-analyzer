@@ -1,7 +1,7 @@
 "use client"
 
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
+import { CheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
@@ -10,7 +10,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       icons={{
         success: (
-          <CircleCheckIcon className="size-4 text-brand" />
+          // Lime on the ink pill; in dark mode the pill itself is lime, so the check takes the text colour.
+          <CheckIcon aria-hidden className="size-5 text-brand dark:text-action-ink" />
         ),
         info: (
           <InfoIcon className="size-4" />
@@ -45,9 +46,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
         } as React.CSSProperties
       }
       toastOptions={{
+        // mock-c1 .toast: an ink pill with a 20 px icon, a one-line message that ellipsises, and
+        // an Undo-style action (44 px tall for the tap-target rule).
         classNames: {
-          toast: "cn-toast rounded-[18px] bg-action text-action-ink shadow-lg",
-          actionButton: "rounded-xl bg-action-ink/15",
+          toast: "cn-toast [--toast-icon-margin-end:0px] [--toast-icon-margin-start:0px] !gap-2.5 rounded-[18px] bg-action !py-1.5 !pr-1.5 !pl-3.5 !min-h-14 text-action-ink",
+          icon: "!size-5",
+          title: "!truncate !text-[14px] !font-[550]",
+          content: "!min-w-0",
+          actionButton: "!ml-auto !h-11 !gap-1.5 !rounded-[14px] !bg-action-ink/15 !px-3.5 !text-[14px] !font-semibold !whitespace-nowrap !text-action-ink",
         },
       }}
       {...props}
