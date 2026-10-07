@@ -46,3 +46,23 @@ export function formatLocalDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+// Fixed 3-letter English abbreviations ("Sep", not ICU en-GB/en-IN's "Sept") so "12 Sep" is exact
+// regardless of the host's locale data.
+const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * A short, human relative time for a scan row: "Just now", "N min ago", "N h ago", "Yesterday"
+ * (one to two days back), then an absolute "12 Sep" past that. Elapsed-time tiers, not calendar
+ * days, so it stays simple and monotonic as `now` advances.
+ */
+export function relativeDate(iso: string, now: Date = new Date()): string {
+  const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  if (hours < 48) return "Yesterday";
+  const d = new Date(iso);
+  return `${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]}`;
+}

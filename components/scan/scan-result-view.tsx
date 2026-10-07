@@ -12,7 +12,7 @@ import { FlagList, ReasonList } from "@/components/food/food-verdict";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
 import { NutritionTable } from "@/components/food/nutrition-table";
-import { AddScanToMeal, SaveScanToFoods } from "./scan-result";
+import { AddScanToMeal, DeleteScanButton, SaveScanToFoods } from "./scan-result";
 
 /** Validated ?meal=&date= carried from /scan, passed on to "Scan again" links. */
 export type ScanParams = { meal?: string; date?: string };
@@ -47,6 +47,7 @@ export function FailedScan({ view, sp }: { view: ScanView; sp: ScanParams }) {
           <Link href={`/scan${scanQuery(sp)}`} className={`${LINK_BUTTON} bg-accent text-accent-ink`}>Scan again</Link>
         )}
       </section>
+      <DeleteScanButton scanId={view.id} />
     </div>
   );
 }
@@ -154,6 +155,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
           ) : null}
           <SaveScanToFoods scanId={view.id} />
           <Link href={`/scan${scanQuery(sp)}`} className={`${LINK_BUTTON} text-accent`}>Scan something else</Link>
+          <DeleteScanButton scanId={view.id} />
         </div>
       </div>
       <p className="text-sm text-subtle">Information only, not medical advice. Check the pack for allergens.</p>

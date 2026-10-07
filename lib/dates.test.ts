@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, DateSchema, defaultMealIn, formatLocalDate, isAllowedLogDate, parseLocalDate, todayIn } from "./dates";
+import { addDays, DateSchema, defaultMealIn, formatLocalDate, isAllowedLogDate, parseLocalDate, relativeDate, todayIn } from "./dates";
 
 describe("todayIn", () => {
   it("uses the user's timezone, not UTC (00:30 IST is still the previous UTC day)", () => {
@@ -41,6 +41,22 @@ describe("parseLocalDate / formatLocalDate", () => {
   it("parses using local getters, not UTC ones", () => {
     const d = parseLocalDate("2026-10-07");
     expect([d.getFullYear(), d.getMonth(), d.getDate()]).toEqual([2026, 9, 7]);
+  });
+});
+
+describe("relativeDate", () => {
+  const now = new Date("2026-10-07T12:00:00Z");
+  it("ticks through the elapsed-time tiers", () => {
+    expect(relativeDate("2026-10-07T11:59:30Z", now)).toBe("Just now");
+    expect(relativeDate("2026-10-07T11:55:00Z", now)).toBe("5 min ago");
+    expect(relativeDate("2026-10-07T09:00:00Z", now)).toBe("3 h ago");
+    expect(relativeDate("2026-10-06T10:00:00Z", now)).toBe("Yesterday"); // 26 h ago
+  });
+  it("falls back to an absolute date past ~two days", () => {
+    expect(relativeDate("2026-09-12T08:00:00Z", now)).toBe("12 Sep");
+  });
+  it("treats a clock-skewed future timestamp as Just now", () => {
+    expect(relativeDate("2026-10-07T12:00:30Z", now)).toBe("Just now");
   });
 });
 

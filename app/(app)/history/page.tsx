@@ -1,13 +1,14 @@
-import Link from "next/link";
+import { requireUser } from "@/lib/session";
+import { listScans } from "@/lib/scans/service";
+import { ScanList } from "@/components/history/scan-list";
 
-export default function HistoryPage() {
+export default async function HistoryPage() {
+  const { userId } = await requireUser();
+  const first = await listScans(userId, {});
   return (
-    <div className="rounded-[18px] border border-line bg-surface p-5 shadow-card">
-      <h1 className="section-title">History</h1>
-      <p className="mt-2 text-subtle">Scanning arrives in the next update. Search or quick add works today.</p>
-      <Link href="/foods" className="mt-4 inline-flex min-h-11 items-center font-semibold text-accent">
-        Go to Foods
-      </Link>
+    <div className="flex flex-col gap-5">
+      <h1 className="title text-[30px] md:text-[34px]">History</h1>
+      <ScanList initialPage={first} />
     </div>
   );
 }
