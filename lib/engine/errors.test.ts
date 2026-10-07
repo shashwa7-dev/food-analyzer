@@ -14,4 +14,9 @@ describe("EngineError", () => {
     const withoutMessage = new EngineError("MODEL_ERROR");
     expect(withoutMessage.message).toBeTruthy();
   });
+  it("preserves the original error as `cause` when given one", () => {
+    const original = new Error("underlying failure");
+    const err = new EngineError("MODEL_ERROR", "The scan couldn't be completed. Please try again.", { cause: original });
+    expect(err.cause).toBe(original);
+  });
 });

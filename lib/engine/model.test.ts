@@ -2,7 +2,7 @@ import { APICallError, NoObjectGeneratedError, NoOutputGeneratedError } from "ai
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { EngineError } from "./errors";
-import { isRetryable, withRetry } from "./model";
+import { extract, finalizeResult, isRetryable, toEngineError, withRetry } from "./model";
 
 // --- Fakes. No network: every error here is hand-built to match the shape the real SDK /
 // fetch / zod would produce, per lib/engine/model.ts's classification rules. ---
@@ -55,7 +55,12 @@ describe("isRetryable", () => {
 
   it("is true for network errors (TypeError, ECONNRESET)", () => {
     expect(isRetryable(new TypeError("fetch failed"))).toBe(true);
+    expect(isRetryable(new TypeError("Failed to fetch"))).toBe(true);
     expect(isRetryable(Object.assign(new Error("reset"), { code: "ECONNRESET" }))).toBe(true);
+  });
+
+  it("is false for a TypeError that isn't a network failure (e.g. a programming bug)", () => {
+    expect(isRetryable(new TypeError("Cannot read properties of undefined (reading 'x')"))).toBe(false);
   });
 
   it("is false for a safety block / no-output-generated error", () => {
@@ -217,5 +222,140 @@ describe("withRetry", () => {
       50_000,
       () => 0,
     );
+  });
+});
+
+describe("toEngineError", () => {
+  it("maps a per-call timeout (AbortError/TimeoutError) to EngineError(TIMEOUT), keeping the cause", () => {
+    const abortErr = Object.assign(new Error("aborted"), { name: "AbortError" });
+    const mapped = toEngineError(abortErr, { signal: new AbortController().signal, deadline: 50_000, now: () => 0 });
+    expect(mapped).toBeInstanceOf(EngineError);
+    expect(mapped.code).toBe("TIMEOUT");
+    expect(mapped.cause).toBe(abortErr);
+
+    const timeoutErr = Object.assign(new Error("timed out"), { name: "TimeoutError" });
+    expect(toEngineError(timeoutErr, { signal: new AbortController().signal, deadline: 50_000, now: () => 0 }).code).toBe("TIMEOUT");
+  });
+
+  it("maps to TIMEOUT when the outer signal is aborted, regardless of the error's own shape", () => {
+    const controller = new AbortController();
+    controller.abort();
+    const mapped = toEngineError(new Error("whatever"), { signal: controller.signal, deadline: 50_000, now: () => 0 });
+    expect(mapped.code).toBe("TIMEOUT");
+  });
+
+  it("maps to TIMEOUT when the deadline has already passed, regardless of the error's own shape", () => {
+    const mapped = toEngineError(new Error("whatever"), { signal: new AbortController().signal, deadline: 1000, now: () => 2000 });
+    expect(mapped.code).toBe("TIMEOUT");
+  });
+
+  it("maps a per-call timeout at the exact deadline to TIMEOUT via an injected call fn", async () => {
+    // Exercises the real path through extract()'s callOnce/withRetry/toEngineError wiring: a
+    // per-call AbortSignal.timeout() firing (simulated here, since we have no network) must
+    // surface as EngineError("TIMEOUT"), not MODEL_ERROR.
+    const deadline = 1000;
+    const perCallTimeout = Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+    const failingCall = async () => {
+      throw perCallTimeout;
+    };
+    let err: unknown;
+    try {
+      await withRetry(failingCall, deadline, () => 0);
+    } catch (e) {
+      err = e;
+    }
+    const mapped = toEngineError(err, { signal: new AbortController().signal, deadline, now: () => deadline });
+    expect(mapped).toBeInstanceOf(EngineError);
+    expect(mapped.code).toBe("TIMEOUT");
+    expect(mapped.cause).toBe(perCallTimeout);
+  });
+
+  it("maps any other error to EngineError(MODEL_ERROR), keeping the cause", () => {
+    const err = new Error("503 from provider");
+    const mapped = toEngineError(err, { signal: new AbortController().signal, deadline: 50_000, now: () => 0 });
+    expect(mapped.code).toBe("MODEL_ERROR");
+    expect(mapped.cause).toBe(err);
+  });
+
+  it("passes an EngineError through unchanged, without re-classifying it", () => {
+    const original = new EngineError("TIMEOUT");
+    expect(toEngineError(original, { signal: new AbortController().signal, deadline: 50_000, now: () => 0 })).toBe(original);
+  });
+});
+
+describe("finalizeResult", () => {
+  it("returns sanitised data and defaulted usage for a normal result", () => {
+    const { data, usage } = finalizeResult(
+      { output: { product: { name: "Tea" } }, usage: { inputTokens: 10, outputTokens: 20 } },
+      { signal: new AbortController().signal, deadline: 50_000, now: () => 0 },
+    );
+    expect(data.product?.name).toBe("Tea");
+    expect(usage).toEqual({ inputTokens: 10, outputTokens: 20 });
+  });
+
+  it("defaults usage token counts to 0 when the SDK reports them as undefined", () => {
+    const { usage } = finalizeResult(
+      { output: {}, usage: {} },
+      { signal: new AbortController().signal, deadline: 50_000, now: () => 0 },
+    );
+    expect(usage).toEqual({ inputTokens: 0, outputTokens: 0 });
+  });
+
+  it("maps a throwing `output` getter (e.g. a safety-blocked response) to EngineError(MODEL_ERROR)", () => {
+    const fakeResult = {
+      usage: { inputTokens: 5, outputTokens: 0 },
+      get output(): never {
+        throw new NoOutputGeneratedError({ message: "no output" });
+      },
+    };
+    expect(() => finalizeResult(fakeResult, { signal: new AbortController().signal, deadline: 50_000, now: () => 0 })).toThrow(EngineError);
+    try {
+      finalizeResult(fakeResult, { signal: new AbortController().signal, deadline: 50_000, now: () => 0 });
+      throw new Error("expected finalizeResult to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(EngineError);
+      expect((err as EngineError).code).toBe("MODEL_ERROR");
+    }
+  });
+
+  it("maps a throwing `output` getter to EngineError(TIMEOUT) if the outer signal is aborted", () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fakeResult = {
+      usage: {},
+      get output(): never {
+        throw new NoOutputGeneratedError({ message: "no output" });
+      },
+    };
+    try {
+      finalizeResult(fakeResult, { signal: controller.signal, deadline: 50_000, now: () => 0 });
+      throw new Error("expected finalizeResult to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(EngineError);
+      expect((err as EngineError).code).toBe("TIMEOUT");
+    }
+  });
+});
+
+describe("extract", () => {
+  it("rejects with EngineError(UNREADABLE_IMAGE) before any call when given 0 images", async () => {
+    try {
+      await extract([], { model: "fast", signal: new AbortController().signal, deadline: Date.now() + 50_000 });
+      throw new Error("expected extract to reject");
+    } catch (err) {
+      expect(err).toBeInstanceOf(EngineError);
+      expect((err as EngineError).code).toBe("UNREADABLE_IMAGE");
+    }
+  });
+
+  it("rejects with EngineError(UNREADABLE_IMAGE) before any call when given more than 3 images", async () => {
+    const image = { mime: "image/jpeg" as const, data: new Uint8Array([1]) };
+    try {
+      await extract([image, image, image, image], { model: "fast", signal: new AbortController().signal, deadline: Date.now() + 50_000 });
+      throw new Error("expected extract to reject");
+    } catch (err) {
+      expect(err).toBeInstanceOf(EngineError);
+      expect((err as EngineError).code).toBe("UNREADABLE_IMAGE");
+    }
   });
 });

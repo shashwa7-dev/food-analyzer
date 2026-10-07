@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_MODEL_FAST, DEFAULT_MODEL_STRONG } from "@/lib/engine/models";
 
 const nonEmpty = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1));
 const optional = z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).optional());
@@ -12,8 +13,8 @@ const schema = z.object({
   GOOGLE_CLIENT_SECRET: nonEmpty,
   OFF_CONTACT_EMAIL: optional,
   GOOGLE_GENERATIVE_AI_API_KEY: optional,
-  MODEL_FAST: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default("gemini-3.5-flash-lite")),
-  MODEL_STRONG: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default("gemini-3.5-flash")),
+  MODEL_FAST: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default(DEFAULT_MODEL_FAST)),
+  MODEL_STRONG: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default(DEFAULT_MODEL_STRONG)),
   DAILY_AI_SCAN_CAP: z.preprocess((v) => (v === "" ? undefined : v), z.coerce.number().int().min(0).default(300)),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });

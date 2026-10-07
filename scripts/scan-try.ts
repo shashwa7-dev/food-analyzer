@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { extname } from "node:path";
 import { extract } from "@/lib/engine/model";
+import { DEFAULT_MODEL_FAST, DEFAULT_MODEL_STRONG } from "@/lib/engine/models";
 import type { EngineImage } from "@/lib/engine/schema";
 
 const MIME_BY_EXT: Record<string, EngineImage["mime"]> = {
@@ -23,7 +24,7 @@ function mimeFor(path: string): EngineImage["mime"] {
 // Checks MODEL_FAST / MODEL_STRONG against the live Gemini models list, so a stale default in
 // lib/env.ts (a model Google has retired or renamed) is caught before `extract()` wastes a call.
 async function checkLiveModelIds(apiKey: string, fast: string, strong: string) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models", { headers: { "x-goog-api-key": apiKey } });
   if (!res.ok) {
     console.warn(`model list check: GET /v1beta/models failed (${res.status}); skipping the live id check.`);
     return;
@@ -51,8 +52,8 @@ async function main() {
     return;
   }
 
-  const fast = process.env.MODEL_FAST?.trim() || "gemini-3.5-flash-lite";
-  const strong = process.env.MODEL_STRONG?.trim() || "gemini-3.5-flash";
+  const fast = process.env.MODEL_FAST?.trim() || DEFAULT_MODEL_FAST;
+  const strong = process.env.MODEL_STRONG?.trim() || DEFAULT_MODEL_STRONG;
   await checkLiveModelIds(apiKey, fast, strong);
 
   const paths = process.argv.slice(2);
