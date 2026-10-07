@@ -13,7 +13,7 @@ import type { ScanView } from "@/lib/scans/service";
 import type { Meal } from "@/lib/nutrition/types";
 import { Camera, type CameraState } from "./camera";
 import { getBarcodeReader } from "./barcode-reader";
-import { compressFile, compressSource, PhotoError, UNSUPPORTED_PHOTO_MESSAGE, type CompressedPhoto } from "./compress";
+import { CAMERA_NOT_READY_MESSAGE, compressFile, compressSource, PhotoError, UNSUPPORTED_PHOTO_MESSAGE, type CompressedPhoto } from "./compress";
 import { ScanProgress } from "./scan-progress";
 
 const SLOT_LABELS = ["Front", "Nutrition label", "Ingredients"] as const;
@@ -127,8 +127,17 @@ export function ScanFlow({ meal, date, initialBarcode }: { meal: Meal | null; da
     setCapturing(true);
     try {
       // "live" can arrive a moment before the first frame (and again after a tab-switch restart).
-      if (!v.videoWidth) await new Promise((r) => { v.addEventListener("loadeddata", r, { once: true }); setTimeout(r, 2000); });
-      if (!v.videoWidth) return;
+      if (!v.videoWidth) {
+        await new Promise<void>((resolve) => {
+          const done = () => { clearTimeout(timer); v.removeEventListener("loadeddata", done); resolve(); };
+          const timer = setTimeout(done, 2000);
+          v.addEventListener("loadeddata", done);
+        });
+      }
+      if (!v.videoWidth) {
+        setPhotoError(CAMERA_NOT_READY_MESSAGE);
+        return;
+      }
       await addPhoto(await compressSource(v, v.videoWidth, v.videoHeight));
     } catch (e) {
       setPhotoError(e instanceof PhotoError ? e.message : UNSUPPORTED_PHOTO_MESSAGE);

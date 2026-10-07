@@ -8,6 +8,7 @@ export const MAX_EDGE_PX = 1600;
 export const QUALITIES = [0.8, 0.65] as const;
 
 export const UNSUPPORTED_PHOTO_MESSAGE = "This photo format isn't supported — take a photo instead.";
+export const CAMERA_NOT_READY_MESSAGE = "The camera isn't ready yet — try again, or use Gallery.";
 export const PHOTO_TOO_LARGE_MESSAGE = "That photo is too large to send. Take a photo instead.";
 
 export class PhotoError extends Error {}
