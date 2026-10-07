@@ -12,9 +12,10 @@ const ITEMS = [
   { href: "/me", label: "Me", icon: User },
 ];
 
-export function AppNav() {
+export function AppNav({ credits, allowance, planLabel }: { credits: number; allowance: number; planLabel: string }) {
   const path = usePathname();
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
+  const pct = allowance > 0 ? Math.min(credits / allowance, 1) * 100 : 0;
   return (
     <>
       <nav aria-label="Main" className="hidden md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:gap-1 md:border-r md:border-line md:px-3.5 md:py-5">
@@ -27,6 +28,17 @@ export function AppNav() {
         ))}
         <Link href="/scan" className="mt-2.5 flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent font-semibold text-accent-ink">
           <ScanLine className="size-5" aria-hidden />Scan food
+        </Link>
+        <Link href="/me/credits" className="mt-auto flex flex-col gap-1.5 rounded-md border border-line bg-surface p-3">
+          <span className="text-xs text-subtle">AI scans left</span>
+          <span className="flex items-center justify-between">
+            <span className="num text-lg font-semibold">{credits} / {allowance}</span>
+            <span className="text-sm text-subtle">{planLabel}</span>
+          </span>
+          <span className="h-1.5 overflow-hidden rounded-full bg-sunken">
+            <span className="block h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+          </span>
+          <span className="text-xs text-subtle">Barcode scans are free.</span>
         </Link>
       </nav>
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 items-end border-t border-line bg-surface px-2 pb-[calc(8px+env(safe-area-inset-bottom))] pt-1.5 md:hidden">
