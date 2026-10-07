@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "./env";
+import { parseEnv, proGatesEnforced } from "./env";
 
 const base = {
   DATABASE_URL: "postgres://u:p@localhost:5432/db",
@@ -31,5 +31,19 @@ describe("parseEnv", () => {
   });
   it("coerces a numeric DAILY_AI_SCAN_CAP", () => {
     expect(parseEnv({ ...base, DAILY_AI_SCAN_CAP: "50" }).DAILY_AI_SCAN_CAP).toBe(50);
+  });
+});
+
+describe("PRO_GATES_ENFORCED", () => {
+  it("defaults to off and accepts true/false/1/0", () => {
+    expect(parseEnv(base).PRO_GATES_ENFORCED).toBe(false);
+    expect(parseEnv({ ...base, PRO_GATES_ENFORCED: "true" }).PRO_GATES_ENFORCED).toBe(true);
+    expect(parseEnv({ ...base, PRO_GATES_ENFORCED: "1" }).PRO_GATES_ENFORCED).toBe(true);
+    expect(parseEnv({ ...base, PRO_GATES_ENFORCED: "false" }).PRO_GATES_ENFORCED).toBe(false);
+    expect(() => parseEnv({ ...base, PRO_GATES_ENFORCED: "on" })).toThrow(/PRO_GATES_ENFORCED/);
+  });
+  it("proGatesEnforced reads it fresh", () => {
+    expect(proGatesEnforced({})).toBe(false);
+    expect(proGatesEnforced({ PRO_GATES_ENFORCED: "true" })).toBe(true);
   });
 });

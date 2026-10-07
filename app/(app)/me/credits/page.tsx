@@ -1,16 +1,14 @@
-import { Check, Sparkles } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { countActivity, getBalance, listActivity, periodChanges } from "@/lib/credits/ledger";
 import { currentPeriod } from "@/lib/credits/logic";
 import { balanceSeries } from "@/lib/credits/activity";
 import { sweepStuck } from "@/lib/scans/service";
 import { isOnWaitlist } from "@/lib/credits/waitlist";
-import { PLANS } from "@/lib/credits/plans";
 import { addDays, todayIn } from "@/lib/dates";
-import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/nav/back-button";
 import { BalanceChart } from "@/components/credits/balance-chart";
 import { ActivityList } from "@/components/credits/activity-list";
+import { PlanCards } from "@/components/credits/plan-cards";
 import { joinWaitlistAction } from "./actions";
 
 const MONTH_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -24,18 +22,9 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-function Perk({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-2">
-      <Check className="mt-0.5 size-4 shrink-0 text-brand-deep" aria-hidden />
-      <span>{children}</span>
-    </li>
-  );
-}
-
 /**
- * Scan credits (spec §6.14, mock "Credits & activity"): the balance this period as a step chart,
- * used / free / refunded counts, the activity grouped by day, then the plans (#pro).
+ * Scan credits (spec §6.14, mock "Credits & activity"): the plans (#pro) first, then the balance this
+ * period as a step chart, used / free / refunded counts and the activity grouped by day.
  */
 export default async function CreditsPage() {
   const { userId, profile } = await requireUser();
@@ -67,12 +56,14 @@ export default async function CreditsPage() {
   const month = MONTH_LONG[Number(period.slice(5)) - 1]!;
 
   return (
-    <div className="mx-auto grid w-full max-w-[560px] gap-3">
+    <div className="mx-auto grid w-full max-w-[640px] gap-3">
       <div className="flex items-center justify-between gap-2.5">
         <BackButton fallback="/me" />
         <h1 className="m-0 min-w-0 truncate text-center text-[17px] font-semibold whitespace-nowrap text-ink">Scan credits</h1>
         <span className="size-11 shrink-0" aria-hidden />
       </div>
+
+      <PlanCards plan={profile.plan} onWaitlist={onWaitlist} joinWaitlist={joinWaitlistAction} />
 
       <BalanceChart credits={balance.credits} allowance={balance.allowance} month={month} points={points} today={today} end={periodEnd} />
 
@@ -84,45 +75,6 @@ export default async function CreditsPage() {
 
       <ActivityList initialPage={firstPage} tz={profile.timezone} now={now.toISOString()} />
 
-      <section id="pro" aria-label="Plans" className="mt-3 grid scroll-mt-6 gap-2.5">
-        <h2 className="m-0 px-1 text-[17px] font-semibold tracking-[-0.018em] text-ink">Plans</h2>
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          <div className="flex flex-col gap-3 rounded-[24px] bg-surface p-4 shadow-card">
-            <div className="flex items-center justify-between gap-2">
-              <b className="text-[17px] font-semibold text-ink">Basic</b>
-              <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-brand-deep">Current</span>
-            </div>
-            <ul className="m-0 grid list-none gap-1.5 p-0 text-[13.5px] text-subtle">
-              <Perk>{PLANS.basic.aiScansPerMonth} AI scans a month</Perk>
-              <Perk>Barcode scans, search and logging always free</Perk>
-              <Perk>Failed scans refunded</Perk>
-            </ul>
-          </div>
-          <div className="flex flex-col gap-3 rounded-[24px] bg-surface p-4 shadow-card">
-            <div className="flex items-center justify-between gap-2">
-              <b className="text-[17px] font-semibold text-ink">Pro</b>
-              <span className="rounded-full bg-sunken px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-subtle">Coming soon</span>
-            </div>
-            <ul className="m-0 grid list-none gap-1.5 p-0 text-[13.5px] text-subtle">
-              <Perk>{PLANS.pro.aiScansPerMonth} AI scans a month</Perk>
-              <Perk>Barcode scans, search and logging always free</Perk>
-            </ul>
-            {onWaitlist ? (
-              <Button type="button" disabled variant="ghost-sunken" shape="pill" size="lg" className="mt-auto w-full">
-                <Check aria-hidden />
-                You&apos;re on the list
-              </Button>
-            ) : (
-              <form action={joinWaitlistAction} className="mt-auto">
-                <Button type="submit" shape="pill" size="lg" className="w-full">
-                  <Sparkles aria-hidden />
-                  Join the waitlist
-                </Button>
-              </form>
-            )}
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

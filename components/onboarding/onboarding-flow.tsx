@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,8 @@ function toTextRecord(preset: DailyTargets): Record<FieldKey, string> {
   return out;
 }
 
-export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
+/** `customTargets` false (Pro gate on, Basic plan): the targets step shows the goal's presets read-only. */
+export function OnboardingFlow({ initial, customTargets = true }: { initial: OnboardingInitial; customTargets?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState<Goal>(initial.goal);
@@ -61,7 +63,7 @@ export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
   }
 
   function buildTargetsOverride(): Partial<DailyTargets> | null {
-    if (!fieldsReady) return initial.targets ?? null;
+    if (!fieldsReady || !customTargets) return initial.targets ?? null;
     const preset = PRESETS[goal];
     const out: Partial<DailyTargets> = {};
     for (const f of ALL_FIELDS) {
@@ -173,6 +175,12 @@ export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
 
       {step === 3 && (
         <div className="flex flex-col gap-4">
+          {!customTargets && (
+            <p className="m-0 text-sm text-subtle">
+              These are your goal&apos;s targets. Changing them is part of{" "}
+              <Link href="/me/credits#pro" className="font-semibold text-brand-deep underline-offset-2 hover:underline">Pro</Link>.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {PRIMARY_FIELDS.map((f) => (
               <label key={f.key} className="flex flex-col gap-1.5 text-sm font-medium">
@@ -180,6 +188,7 @@ export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
                 <input
                   inputMode="decimal"
                   value={fields[f.key] ?? ""}
+                  readOnly={!customTargets}
                   onChange={(e) => setFields((v) => ({ ...v, [f.key]: e.target.value }))}
                   className="num min-h-11 rounded-md border border-line bg-surface px-3 text-base outline-none focus-visible:border-accent"
                 />
@@ -197,6 +206,7 @@ export function OnboardingFlow({ initial }: { initial: OnboardingInitial }) {
                   <input
                     inputMode="decimal"
                     value={fields[f.key] ?? ""}
+                    readOnly={!customTargets}
                     onChange={(e) => setFields((v) => ({ ...v, [f.key]: e.target.value }))}
                     className="num min-h-11 rounded-md border border-line bg-surface px-3 text-base outline-none focus-visible:border-accent"
                   />

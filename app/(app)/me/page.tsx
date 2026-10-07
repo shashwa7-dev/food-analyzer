@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/session";
 import { getBalance } from "@/lib/credits/ledger";
+import { allows } from "@/lib/credits/plans";
 import { initialsOf } from "@/lib/initials";
 import { resetDayLabel } from "@/lib/credits/display";
 import { CreditStrip } from "@/components/credits/credit-strip";
@@ -31,7 +32,7 @@ export default async function MePage() {
       </div>
       <CreditStrip credits={balance.credits} allowance={balance.allowance} planLabel={PLAN_LABEL[profile.plan]} resetsLabel={resetsLabel} />
       <SettingsList
-        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: profile.targets ?? null, country: profile.country }}
+        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: profile.targets ?? null, country: profile.country, customTargets: allows(profile.plan, "customTargets") }}
       />
       <AccountFooter />
     </div>

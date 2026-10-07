@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
+import { allows } from "@/lib/credits/plans";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ redo?: string }> }) {
@@ -14,6 +15,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         allergies: profile.allergies,
         targets: profile.targets ?? null,
       }}
+      customTargets={allows(profile.plan, "customTargets")}
     />
   );
 }

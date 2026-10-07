@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createUser, resetDb } from "@/tests/helpers/db";
 import { db } from "@/lib/db/client";
-import { foodLog } from "@/lib/db/schema";
+import { foodLog, profile } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { todayIn } from "@/lib/dates";
 
 const session = vi.hoisted(() => ({ userId: null as string | null }));
@@ -17,6 +18,21 @@ describe("GET /api/v1/progress", () => {
   beforeEach(async () => {
     await resetDb();
     session.userId = null;
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("gates the month view on the plan only once PRO_GATES_ENFORCED is on", async () => {
+    session.userId = await createUser(); // a new profile is on Basic
+    vi.stubEnv("PRO_GATES_ENFORCED", "");
+    expect((await call("?range=month")).status).toBe(200);
+    vi.stubEnv("PRO_GATES_ENFORCED", "true");
+    const gated = await call("?range=month");
+    expect(gated.status).toBe(403);
+    expect((await gated.json()).error.code).toBe("PRO_REQUIRED");
+    expect((await call("?range=week")).status).toBe(200);
+    await db.update(profile).set({ plan: "pro" }).where(eq(profile.userId, session.userId));
+    expect((await call("?range=month")).status).toBe(200);
   });
 
   it("needs a session", async () => {

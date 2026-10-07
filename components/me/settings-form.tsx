@@ -3,9 +3,10 @@
 // Allergies and Country. Every section saves through the same server action (saveProfile), then
 // refreshes the page so the settings list shows the stored values.
 import { useId, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PRESETS, targetsFor } from "@/lib/nutrition/targets";
@@ -119,13 +120,32 @@ function SubHead({ children }: { children: ReactNode }) {
   return <h3 className="m-0 px-1 text-[12px] font-[650] tracking-[0.06em] text-subtle uppercase">{children}</h3>;
 }
 
-function TargetField({ label, unit, value, error, onChange }: { label: string; unit: string; value: string; error: boolean; onChange: (v: string) => void }) {
+/** "Pro" with a lock, linking to the plans: marks a control that's Pro-only while the gates are on. */
+function ProChip({ children }: { children: string }) {
+  return (
+    <Link
+      href="/me/credits#pro"
+      aria-label={`${children} are part of Pro`}
+      className="-my-2 inline-flex min-h-11 shrink-0 items-center"
+    >
+      <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-[12px] font-[650] whitespace-nowrap text-on-brand-soft">
+        <Lock className="size-3" aria-hidden />
+        Pro
+      </span>
+    </Link>
+  );
+}
+
+function TargetField({ label, unit, value, error, readOnly, onChange }: {
+  label: string; unit: string; value: string; error: boolean; readOnly: boolean; onChange: (v: string) => void;
+}) {
   const errorId = useId();
   return (
     <label className="flex min-w-0 flex-col gap-1.5">
       <span className="truncate px-1 text-[13px] font-medium text-subtle">{label}</span>
       <span className={cn(
-        "flex h-[52px] items-center gap-2 rounded-2xl border bg-surface px-3.5 focus-within:ring-2",
+        "flex h-[52px] items-center gap-2 rounded-2xl border px-3.5 focus-within:ring-2",
+        readOnly ? "bg-sunken" : "bg-surface",
         error ? "border-bad focus-within:ring-bad" : "border-line focus-within:ring-brand-deep",
       )}>
         <input
@@ -134,6 +154,7 @@ function TargetField({ label, unit, value, error, onChange }: { label: string; u
           onChange={(e) => onChange(e.target.value)}
           aria-label={`${label} (${unit})`}
           aria-invalid={error || undefined}
+          readOnly={readOnly}
           aria-describedby={error ? errorId : undefined}
           className="num h-full w-full min-w-0 bg-transparent text-base font-semibold text-ink outline-none!"
         />
@@ -145,7 +166,9 @@ function TargetField({ label, unit, value, error, onChange }: { label: string; u
 }
 
 /** Goal plus the daily targets it sets; targets are stored only where they differ from the goal's preset. */
-export function GoalSection({ goal, targets, onDone }: { goal: Goal; targets: Partial<DailyTargets> | null; onDone: () => void }) {
+export function GoalSection({ goal, targets, customTargets, onDone }: {
+  goal: Goal; targets: Partial<DailyTargets> | null; customTargets: boolean; onDone: () => void;
+}) {
   const { pending, save } = useProfileSave(onDone);
   const [draftGoal, setDraftGoal] = useState(goal);
   const [fields, setFields] = useState(() => toTextRecord(targetsFor(goal, targets)));
@@ -176,6 +199,8 @@ export function GoalSection({ goal, targets, onDone }: { goal: Goal; targets: Pa
     });
   }
   function submit() {
+    // Presets only (Pro gate on, Basic plan): the fields are read-only, so only the goal is saved.
+    if (!customTargets) return void save({ goal: draftGoal });
     const preset = PRESETS[draftGoal];
     const out: Partial<DailyTargets> = {};
     const bad = new Set<FieldKey>();
@@ -197,10 +222,13 @@ export function GoalSection({ goal, targets, onDone }: { goal: Goal; targets: Pa
   return (
     <>
       <OptionList label="Goal" options={GOALS.map(([key, title, desc]) => ({ key, title, desc }))} value={draftGoal} onPick={pickGoal} />
-      <SubHead>Daily targets</SubHead>
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <SubHead>Daily targets</SubHead>
+        {!customTargets && <ProChip>Custom targets</ProChip>}
+      </div>
       <div className="grid shrink-0 grid-cols-2 gap-2.5">
-        {PRIMARY_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} onChange={(v) => setField(f.key, v)} />)}
-        {showAll && MORE_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} onChange={(v) => setField(f.key, v)} />)}
+        {PRIMARY_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} readOnly={!customTargets} onChange={(v) => setField(f.key, v)} />)}
+        {showAll && MORE_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} readOnly={!customTargets} onChange={(v) => setField(f.key, v)} />)}
       </div>
       <button
         type="button"

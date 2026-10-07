@@ -14,6 +14,8 @@ export interface SettingsValues {
   allergies: string[];
   targets: Partial<DailyTargets> | null;
   country: string;
+  /** Whether the plan may set custom daily targets (allows(plan, "customTargets")). */
+  customTargets: boolean;
 }
 
 type Section = "goal" | "diet" | "allergies" | "country";
@@ -77,7 +79,7 @@ export function SettingsList({ values }: { values: SettingsValues }) {
       </div>
 
       <SettingSheet open={open} onOpenChange={setOpen} icon={meta.icon} title={meta.label} hint={meta.hint}>
-        {section === "goal" && <GoalSection key={session} goal={values.goal} targets={values.targets} onDone={close} />}
+        {section === "goal" && <GoalSection key={session} goal={values.goal} targets={values.targets} customTargets={values.customTargets} onDone={close} />}
         {section === "diet" && <DietSection key={session} diet={values.diet} onDone={close} />}
         {section === "allergies" && <AllergiesSection key={session} diet={values.diet} allergies={values.allergies} onDone={close} />}
         {section === "country" && <CountrySection key={session} country={values.country} onDone={close} />}

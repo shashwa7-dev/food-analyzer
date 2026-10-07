@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/session";
+import { allows } from "@/lib/credits/plans";
 import { defaultMealIn } from "@/lib/dates";
 import type { Range } from "@/lib/progress/aggregate";
 import { getProgress } from "@/lib/progress/service";
@@ -22,7 +23,9 @@ const MIN_DAYS_FOR_TRENDS = 2;
  */
 export default async function ProgressPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const { userId, profile } = await requireUser();
-  const range: Range = (await searchParams).range === "month" ? "month" : "week";
+  // Month is Pro-only once PRO_GATES_ENFORCED is on: a locked month shows the week with a Pro chip on the toggle.
+  const monthLocked = !allows(profile.plan, "progressMonth");
+  const range: Range = (await searchParams).range === "month" && !monthLocked ? "month" : "week";
   const summary = await getProgress(userId, range);
   const period = range === "week" ? "This week" : "This month";
 
@@ -33,7 +36,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           <span className="md:hidden">Progress</span>
           <span className="hidden md:inline">{period}</span>
         </h1>
-        <RangeToggle range={range} />
+        <RangeToggle range={range} monthLocked={monthLocked} />
       </header>
 
       {summary.kpis.daysLogged < MIN_DAYS_FOR_TRENDS ? (
