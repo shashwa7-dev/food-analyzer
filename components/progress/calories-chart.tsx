@@ -6,15 +6,15 @@ import { EvilComposedChart, type BarStyle } from "@/components/charts/recharts-c
 import { ChartTooltip, ChartTooltipContent } from "@/components/charts/ui/recharts-tooltip";
 import { useMatches } from "./use-matches";
 import type { CalorieBar } from "@/lib/progress/chart-data";
-import { labelSide, labelledDates, niceAxis } from "@/lib/progress/chart-data";
+import { labelledDates, niceAxis } from "@/lib/progress/chart-data";
 import { compact, dayMonth, grouped, weekdayLetter, weekdayShort } from "@/lib/progress/copy";
-import { AXIS_TICK, HALO, STRONG_LABEL, series, token } from "./chart-theme";
+import { AXIS_TICK, series, token } from "./chart-theme";
 
 const config = { kcal: series("Calories", token("brand")) };
 
 /**
- * Daily kcal bars against a dashed target line (spec §6.12). Over-target bars are hatched in --fat on
- * --fat-soft, today's bar is --brand-soft (with a --brand edge so it still reads on the dark surface).
+ * Daily kcal bars against a dashed target line (spec §6.12); its label is a key in the card header.
+ * Bars above the on-target band are hatched in --fat on --fat-soft, today's bar is --brand-soft (with a --brand edge so it still reads on the dark surface).
  */
 export default function CaloriesChart({ bars, target }: { bars: CalorieBar[]; target: number }) {
   const hatchId = `kcal-hatch-${useId().replace(/:/g, "")}`;
@@ -22,7 +22,6 @@ export default function CaloriesChart({ bars, target }: { bars: CalorieBar[]; ta
   const isWeek = bars.length <= 7;
   const axis = niceAxis(Math.max(0, ...bars.map((b) => b.kcal)), target);
   const ticks = labelledDates(bars);
-  const side = labelSide(bars.map((b) => (b.logged ? b.kcal : null)), target, { prefer: "right" }); // the label sits above the line
   const tick = (date: string) => (isWeek ? (wide ? weekdayShort(date) : weekdayLetter(date)) : dayMonth(date));
 
   const styleFor = (row: Record<string, unknown>): BarStyle | undefined => {
@@ -37,7 +36,7 @@ export default function CaloriesChart({ bars, target }: { bars: CalorieBar[]; ta
       config={config}
       data={bars}
       className="aspect-auto h-[170px] md:h-[220px]"
-      chartProps={{ accessibilityLayer: false, barCategoryGap: isWeek ? "28%" : "18%", margin: { top: 18, right: isWeek ? 2 : 14, bottom: 0, left: 0 } }}
+      chartProps={{ accessibilityLayer: false, barCategoryGap: isWeek ? "28%" : "18%", margin: { top: 8, right: isWeek ? 2 : 14, bottom: 0, left: 0 } }}
     >
       <defs>
         <pattern id={hatchId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -59,7 +58,6 @@ export default function CaloriesChart({ bars, target }: { bars: CalorieBar[]; ta
         strokeWidth={1.5}
         strokeDasharray="5 4"
         ifOverflow="extendDomain"
-        label={{ value: `Target ${grouped(target)}`, position: side === "right" ? "insideBottomRight" : "insideBottomLeft" /* Recharts' insideBottom* = just above a horizontal line */, offset: 5, ...STRONG_LABEL, ...HALO }}
       />
     </EvilComposedChart>
   );

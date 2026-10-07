@@ -1,14 +1,18 @@
-import { toneFor } from "@/lib/today/tone";
-import type { DayAgg, ProgressSummary } from "./aggregate";
+import type { Goal } from "@/lib/nutrition/types";
+import { onTargetRange, type DayAgg, type ProgressSummary } from "./aggregate";
 
-/** A bar on the calories chart. `over` matches Today's over-target signal: strictly above the target. */
+/**
+ * A bar on the calories chart. `over` (the hatch) is above the top of the goal's on-target band, the
+ * same bound the "days on target" KPI uses, so a hatched bar is never counted as on target.
+ */
 export type CalorieBar = { date: string; kcal: number; over: boolean; isToday: boolean; logged: boolean };
 
-export function calorieBars(days: DayAgg[], target: number, today: string): CalorieBar[] {
+export function calorieBars(days: DayAgg[], target: number, today: string, goal: Goal): CalorieBar[] {
+  const [, hi] = onTargetRange(goal);
   return days.map((d) => ({
     date: d.date,
     kcal: Math.round(d.kcal),
-    over: d.entries > 0 && toneFor(d.kcal, target) === "over",
+    over: d.entries > 0 && d.kcal > target * hi,
     isToday: d.date === today,
     logged: d.entries > 0,
   }));
@@ -51,19 +55,4 @@ export const BALANCE_ORDER = ["protein", "fibre", "energy", "sugars", "sodium", 
 
 export function balanceRows(balance: ProgressSummary["balance"]) {
   return BALANCE_ORDER.map((key) => ({ key, value: balance[key], over: (key === "sugars" || key === "sodium" || key === "satFat") && balance[key] > 100 }));
-}
-
-/**
- * Which end of a reference line its label should sit on. A label just above the line collides with
- * points at ≥ 90% of the reference; one just below it with points between 60% and 110%. Counts those
- * in each outer third and picks the emptier end; a tie keeps `prefer` (the mock's side).
- */
-export function labelSide(values: (number | null)[], reference: number, opts: { prefer: "left" | "right"; below?: boolean }): "left" | "right" {
-  const third = Math.max(1, Math.ceil(values.length / 3));
-  const collides = (v: number) => (opts.below ? v >= reference * 0.6 && v <= reference * 1.1 : v >= reference * 0.9);
-  const hits = (vs: (number | null)[]) => vs.filter((v) => v !== null && collides(v)).length;
-  const left = hits(values.slice(0, third));
-  const right = hits(values.slice(-third));
-  if (left === right) return opts.prefer;
-  return left < right ? "left" : "right";
 }

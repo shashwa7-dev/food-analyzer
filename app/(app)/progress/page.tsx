@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/session";
-import { defaultMealIn, todayIn } from "@/lib/dates";
+import { defaultMealIn } from "@/lib/dates";
 import type { Range } from "@/lib/progress/aggregate";
 import { getProgress } from "@/lib/progress/service";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,6 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const { userId, profile } = await requireUser();
   const range: Range = (await searchParams).range === "month" ? "month" : "week";
   const summary = await getProgress(userId, range);
-  const today = todayIn(profile.timezone);
   const period = range === "week" ? "This week" : "This month";
 
   return (
@@ -42,16 +41,12 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
       ) : (
         <>
           <Kpis kpis={summary.kpis} />
-          <CaloriesCard summary={summary} today={today} className="md:order-1 md:col-span-2" />
+          <CaloriesCard summary={summary} goal={profile.goal} className="md:order-1 md:col-span-2" />
           <MacroSplitCard split={summary.macroSplit} avgKcal={summary.kpis.avgKcal} className="md:order-4" />
           <BalanceCard summary={summary} className="md:order-2" />
           <SodiumCard summary={summary} className="md:order-5" />
           {/* Food quality: always on desktop; on phones only under Month (spec §6.12). */}
-          <GradeDonutCard
-            mix={summary.gradeMix}
-            className={cn("md:order-3", range === "week" && "hidden md:grid")}
-            mountWhen={range === "week" ? "(min-width: 900px)" : undefined}
-          />
+          <GradeDonutCard mix={summary.gradeMix} className={cn("md:order-3", range === "week" && "hidden md:grid")} />
           <WorkoutsCard className="md:order-6 md:col-span-2" />
         </>
       )}

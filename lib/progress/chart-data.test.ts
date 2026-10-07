@@ -1,17 +1,35 @@
 import { describe, expect, it } from "vitest";
-import type { DayAgg } from "./aggregate";
-import { balanceRows, calorieBars, labelSide, labelledDates, niceAxis, sodiumPoints } from "./chart-data";
+import { summarize, type DayAgg } from "./aggregate";
+import { targetsFor } from "@/lib/nutrition/targets";
+import { balanceRows, calorieBars, labelledDates, niceAxis, sodiumPoints } from "./chart-data";
 
 const d = (date: string, kcal: number, sodiumMg: number, entries = 2): DayAgg => ({
   date, kcal, protein: 0, carbs: 0, fat: 0, fibre: 0, sugars: 0, sodiumMg, satFat: 0, entries, gradeKcal: {},
 });
 
 describe("calorieBars", () => {
-  it("marks over strictly above the target, never on an empty day, and flags today", () => {
-    const bars = calorieBars([d("2026-10-05", 2000, 0), d("2026-10-06", 2001, 0), d("2026-10-07", 0, 0, 0)], 2000, "2026-10-07");
+  it("hatches above the goal's on-target band (weight loss: 100%), never an empty day, and flags today", () => {
+    const bars = calorieBars([d("2026-10-05", 2000, 0), d("2026-10-06", 2001, 0), d("2026-10-07", 0, 0, 0)], 2000, "2026-10-07", "weight_loss");
     expect(bars.map((b) => b.over)).toEqual([false, true, false]);
     expect(bars.map((b) => b.isToday)).toEqual([false, false, true]);
     expect(bars[2]!.logged).toBe(false);
+  });
+});
+
+describe("calorieBars and the on-target KPI agree", () => {
+  it("uses 110% for general goals: 105% is on target and not hatched, 115% is hatched", () => {
+    const bars = calorieBars([d("2026-10-06", 2100, 0), d("2026-10-07", 2300, 0)], 2000, "2026-10-07", "general");
+    expect(bars.map((b) => b.over)).toEqual([false, true]);
+  });
+  it.each(["general", "weight_loss", "muscle"] as const)("never hatches a day the KPI counts as on target (%s)", (goal) => {
+    const T = targetsFor(goal);
+    for (const ratio of [0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.0001, 1.05, 1.1, 1.1001, 1.3]) {
+      const day = d("2026-10-07", T.energyKcal * ratio, 0);
+      const hatched = calorieBars([day], T.energyKcal, "2026-10-07", goal)[0]!.over;
+      const onTarget = summarize([day], T, goal, "2026-10-07", "week").kpis.daysOnTarget === 1;
+      expect(hatched && onTarget, `${goal} at ${ratio}`).toBe(false);
+      if (ratio > 1.2) expect(hatched).toBe(true);
+    }
   });
 });
 
@@ -52,20 +70,5 @@ describe("balanceRows", () => {
   it("only flags limits over 100, never targets", () => {
     const rows = balanceRows({ protein: 140, fibre: 50, energy: 120, sugars: 101, sodium: 100, satFat: 150 });
     expect(rows.filter((r) => r.over).map((r) => r.key)).toEqual(["sugars", "satFat"]);
-  });
-});
-
-describe("labelSide", () => {
-  it("keeps the preferred side unless the data crowds it", () => {
-    expect(labelSide([1000, 1000, 1000], 2000, { prefer: "right" })).toBe("right");
-    // the demo week: Thu over target on the left, Tue/Wed under on the right
-    expect(labelSide([2407, 1361, null, 1573, 2489, 1256, 1183], 1700, { prefer: "right" })).toBe("right");
-    const month = [...Array(20).fill(null), 2300, 1800, 2500, 1900, 2000, 1600, 2400, 1700, 1500, 1400];
-    expect(labelSide(month, 1700, { prefer: "right" })).toBe("left");
-  });
-  it("checks the band under the line for a label below it", () => {
-    // the demo week's sodium: Thu 2,421 and Fri 1,324 crowd the left, Tue/Wed ~1,100 crowd the right as well
-    expect(labelSide([2421, 1324, null, 2567, 3053, 1392, 1117], 2000, { prefer: "left", below: true })).toBe("left");
-    expect(labelSide([1900, 1800, null, 900, 3000, 500, 400], 2000, { prefer: "left", below: true })).toBe("right");
   });
 });

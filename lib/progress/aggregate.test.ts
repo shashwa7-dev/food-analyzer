@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { onTargetRange, streakEnding, summarize, type DayAgg } from "./aggregate";
+import { STREAK_CAP, onTargetRange, streakEnding, summarize, type DayAgg } from "./aggregate";
+import { addDays } from "@/lib/dates";
 import { targetsFor } from "@/lib/nutrition/targets";
 
 const T = targetsFor("general"); // energyKcal 2000, protein 60, fibre 30, sugarsMax 50, sodiumMgMax 2000, satFatMax 22
@@ -33,7 +34,7 @@ describe("streakEnding", () => {
 describe("summarize", () => {
   it("returns zeros, not NaN, for no data", () => {
     const s = summarize([], T, "general", "2026-10-07", "week");
-    expect(s.kpis).toEqual({ avgKcal: 0, avgProtein: 0, daysOnTarget: 0, daysLogged: 0, streak: 0 });
+    expect(s.kpis).toEqual({ avgKcal: 0, avgProtein: 0, daysOnTarget: 0, daysLogged: 0, streak: 0, streakCapped: false });
     expect(s.macroSplit).toEqual({ protein: 0, carbs: 0, fat: 0 });
     expect(Object.values(s.balance).every((v) => v === 0)).toBe(true);
     expect(s.gradeMix).toEqual({ A: 0, B: 0, C: 0, D: 0, E: 0 });
@@ -83,8 +84,9 @@ describe("summarize edge cases", () => {
   it("lets the streak reach back past the range when given streak dates", () => {
     const dates = Array.from({ length: 12 }, (_, i) => `2026-10-${String(7 - i).padStart(2, "0")}`).filter((d) => d >= "2026-10-01")
       .concat(["2026-09-30", "2026-09-29", "2026-09-28", "2026-09-27", "2026-09-26"]);
-    const s = summarize([day("2026-10-07", 1800)], T, "general", "2026-10-07", "week", dates);
+    const s = summarize([day("2026-10-07", 1800)], T, "general", "2026-10-07", "week", { dates });
     expect(s.kpis.streak).toBe(12);
+    expect(s.kpis.streakCapped).toBe(false);
   });
   it("has no worst limit when every limit is within, and picks the largest when several are over", () => {
     expect(summarize([day("2026-10-07", 2000)], T, "general", "2026-10-07", "week").worstOverLimit).toBeNull();
@@ -94,5 +96,24 @@ describe("summarize edge cases", () => {
   it("leaves the grade mix at zero when nothing logged was graded", () => {
     const s = summarize([day("2026-10-07", 2000)], T, "general", "2026-10-07", "week");
     expect(s.gradeMix).toEqual({ A: 0, B: 0, C: 0, D: 0, E: 0 });
+  });
+});
+
+describe("streak cap", () => {
+  const today = "2026-10-07";
+  const from = addDays(today, -STREAK_CAP);
+  const run = (n: number, end = today) => Array.from({ length: n }, (_, i) => addDays(end, -i));
+
+  it("reports 365+ when the streak reaches the start of the lookback", () => {
+    const s = summarize([], T, "general", today, "week", { dates: run(STREAK_CAP + 1), from });
+    expect(s.kpis).toMatchObject({ streak: STREAK_CAP, streakCapped: true });
+  });
+  it("is capped too when the run ends yesterday and still reaches the lookback start", () => {
+    const s = summarize([], T, "general", today, "week", { dates: run(STREAK_CAP, addDays(today, -1)), from });
+    expect(s.kpis).toMatchObject({ streak: STREAK_CAP, streakCapped: true });
+  });
+  it("is exact when the run stops inside the lookback", () => {
+    const s = summarize([], T, "general", today, "week", { dates: run(STREAK_CAP - 1), from });
+    expect(s.kpis).toMatchObject({ streak: STREAK_CAP - 1, streakCapped: false });
   });
 });

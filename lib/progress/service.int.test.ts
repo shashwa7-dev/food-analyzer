@@ -68,6 +68,18 @@ describe("getProgress", () => {
     expect(s.kpis.daysLogged).toBe(7);
   });
 
+  it("shows a streak that reaches the lookback as 365+", async () => {
+    const a = await createUser();
+    const portion = { label: "1 serving", amount: 1, unit: "serving" as const, grams: null };
+    const rows = Array.from({ length: 400 }, (_, i) => ({
+      userId: a, date: addDays("2026-10-07", -i), meal: "lunch" as const, name: "Thing", portion,
+      nutrients: { energyKcal: 1800, protein: 10, carbs: 50, fat: 10 },
+    }));
+    await db.insert(foodLog).values(rows);
+    const s = await getProgress(a, "week", NOW);
+    expect(s.kpis).toMatchObject({ streak: 365, streakCapped: true });
+  });
+
   it("finds today in the profile timezone", async () => {
     const a = await createUser();
     await db.update(profile).set({ timezone: "Asia/Kolkata" }).where(eq(profile.userId, a));
@@ -84,7 +96,7 @@ describe("getProgress", () => {
   it("returns a zeroed summary for a user with no log", async () => {
     const a = await createUser();
     const s = await getProgress(a, "week", NOW);
-    expect(s.kpis).toEqual({ avgKcal: 0, avgProtein: 0, daysOnTarget: 0, daysLogged: 0, streak: 0 });
+    expect(s.kpis).toEqual({ avgKcal: 0, avgProtein: 0, daysOnTarget: 0, daysLogged: 0, streak: 0, streakCapped: false });
     expect(s.worstOverLimit).toBeNull();
   });
 });

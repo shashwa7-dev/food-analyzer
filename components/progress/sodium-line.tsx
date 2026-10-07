@@ -4,7 +4,7 @@ import { ReferenceLine } from "recharts";
 import { EvilAreaChart } from "@/components/charts/recharts-area-chart";
 import { ChartTooltip, ChartTooltipContent } from "@/components/charts/ui/recharts-tooltip";
 import { useMatches } from "./use-matches";
-import { labelSide, labelledDates, niceAxis, type SodiumPoint } from "@/lib/progress/chart-data";
+import { labelledDates, niceAxis, type SodiumPoint } from "@/lib/progress/chart-data";
 import { compact, dayMonth, grouped, weekdayLetter, weekdayShort } from "@/lib/progress/copy";
 import { AXIS_TICK, HALO, STRONG_LABEL, series, token } from "./chart-theme";
 
@@ -13,7 +13,8 @@ const config = { sodium: series("Sodium", token("warn")) };
 type DotProps = { cx?: number; cy?: number; index?: number };
 
 /**
- * Daily sodium as a smooth line over a soft fill, with a dashed limit line (spec §6.12). Points over
+ * Daily sodium as a smooth line over a soft fill, with a dashed limit line (spec §6.12) keyed
+ * in the card header. Points over
  * the limit fill red; the highest day is larger and carries its value. Days with no log are gaps.
  */
 export default function SodiumLine({ points, limit }: { points: SodiumPoint[]; limit: number }) {
@@ -22,13 +23,14 @@ export default function SodiumLine({ points, limit }: { points: SodiumPoint[]; l
   const peak = Math.max(0, ...points.map((p) => p.sodium ?? 0));
   const axis = niceAxis(peak, limit);
   const top = Math.max(axis.max, peak * 1.22); // room above the highest point for its value label
-  const side = labelSide(points.map((p) => p.sodium), limit, { prefer: "left", below: true }); // under the line, as in the mock
   const tick = (date: string) => (isWeek ? (wide ? weekdayShort(date) : weekdayLetter(date)) : dayMonth(date));
 
   const dot = ({ cx, cy, index = 0 }: DotProps) => {
     const p = points[index];
     if (!p || p.sodium === null || cx === undefined || cy === undefined) return <g key={index} />;
-    if (!isWeek && !p.over && !p.isMax) return <g key={index} />; // a month of dots is noise: keep the meaningful ones
+    // A month of dots is noise: keep the meaningful ones, and any day with no neighbour (no line reaches it).
+    const isolated = points[index - 1]?.sodium == null && points[index + 1]?.sodium == null;
+    if (!isWeek && !p.over && !p.isMax && !isolated) return <g key={index} />;
     return (
       <g key={index}>
         <circle cx={cx} cy={cy} r={p.isMax ? 4.5 : 3} fill={p.over ? token("g-e") : token("surface")} stroke={token("warn")} strokeWidth={2} />
@@ -62,9 +64,8 @@ export default function SodiumLine({ points, limit }: { points: SodiumPoint[]; l
         strokeWidth={1.5}
         strokeDasharray="5 4"
         ifOverflow="extendDomain"
-        label={{ value: `Limit ${grouped(limit)} mg`, position: side === "left" ? "insideTopLeft" : "insideTopRight" /* Recharts' insideTop* = just below a horizontal line */, offset: 6, ...STRONG_LABEL, ...HALO, fill: token("bad") }}
       />
-      <EvilAreaChart.Area dataKey="sodium" variant="gradient" strokeVariant="solid" strokeWidth={2.4} connectNulls areaProps={{ dataKey: "sodium", dot, activeDot: { r: 4, fill: token("warn"), stroke: token("surface") } }} />
+      <EvilAreaChart.Area dataKey="sodium" variant="gradient" strokeVariant="solid" strokeWidth={2.4} areaProps={{ dataKey: "sodium", dot, activeDot: { r: 4, fill: token("warn"), stroke: token("surface") } }} />
     </EvilAreaChart>
   );
 }

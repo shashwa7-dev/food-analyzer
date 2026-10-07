@@ -11,7 +11,7 @@ export function Kpis({ kpis }: { kpis: ProgressSummary["kpis"] }) {
     { key: "kcal", icon: Flame, value: grouped(kpis.avgKcal), label: "avg kcal", deskLabel: "avg kcal a day", sr: `${grouped(kpis.avgKcal)} kcal a day on average` },
     { key: "target", icon: Target, value: `${kpis.daysOnTarget}/${kpis.daysLogged}`, deskValue: `${kpis.daysOnTarget} of ${kpis.daysLogged}`, label: "on target", deskLabel: "days on target", sr: `${kpis.daysOnTarget} of ${kpis.daysLogged} logged days on target` },
     { key: "protein", icon: Drumstick, value: `${kpis.avgProtein} g`, label: "avg protein", deskOnly: true, sr: `${kpis.avgProtein} grams of protein a day on average` },
-    { key: "streak", icon: Zap, value: String(kpis.streak), label: "day streak", sr: `${kpis.streak} day logging streak` },
+    { key: "streak", icon: Zap, value: `${kpis.streak}${kpis.streakCapped ? "+" : ""}`, label: "day streak", sr: `${kpis.streakCapped ? "At least " : ""}${kpis.streak} day logging streak` },
   ];
   return (
     <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0 md:col-span-2 md:grid-cols-4 md:gap-3">

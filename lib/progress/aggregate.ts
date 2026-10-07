@@ -16,7 +16,8 @@ export interface ProgressSummary {
   /** Every day of the range, oldest first; days without entries are zero rows. */
   days: DayAgg[];
   targets: DailyTargets;
-  kpis: { avgKcal: number; avgProtein: number; daysOnTarget: number; daysLogged: number; streak: number };
+  /** `streakCapped`: the streak reaches past the lookback, so `streak` is a floor (STREAK_CAP) — show "365+". */
+  kpis: { avgKcal: number; avgProtein: number; daysOnTarget: number; daysLogged: number; streak: number; streakCapped: boolean };
   /** % of kcal from each macro (protein×4, carbs×4, fat×9); sums to 100, or all 0. */
   macroSplit: { protein: number; carbs: number; fat: number };
   /** % of target (protein, fibre, energy) or of limit (sugars, sodium, satFat), averaged over logged days, capped at 150. */
@@ -30,6 +31,8 @@ export interface ProgressSummary {
 export const GRADES: Grade[] = ["A", "B", "C", "D", "E"];
 export const RANGES = ["week", "month"] as const;
 export const rangeDays = (r: Range) => (r === "week" ? 7 : 30);
+/** The longest streak the service looks for; one that reaches it shows as "365+". */
+export const STREAK_CAP = 365;
 /** Balance values are capped here so one wild day can't flatten the radar. */
 export const BALANCE_CAP = 150;
 
@@ -71,10 +74,15 @@ export function roundTo100(parts: number[]): number[] {
 
 /**
  * Turns per-day rows into the Progress summary for the `range` ending on `today`.
- * Averages are over days with entries only. `streakDates` (dates with entries reaching further
+ * Averages are over days with entries only. `streak.dates` (dates with entries reaching further
  * back than the range) lets the streak run past the window; without it the streak uses `rows`.
+ * `streak.from` is the oldest date those dates could include: a streak that reaches it may go on
+ * further, so it is reported as capped (STREAK_CAP+).
  */
-export function summarize(rows: DayAgg[], targets: DailyTargets, goal: Goal, today: string, range: Range, streakDates?: Iterable<string>): ProgressSummary {
+export function summarize(
+  rows: DayAgg[], targets: DailyTargets, goal: Goal, today: string, range: Range,
+  streak: { dates?: Iterable<string>; from?: string } = {},
+): ProgressSummary {
   const n = rangeDays(range);
   const byDate = new Map(rows.map((r) => [r.date, r]));
   const days = Array.from({ length: n }, (_, i) => {
@@ -102,11 +110,14 @@ export function summarize(rows: DayAgg[], targets: DailyTargets, goal: Goal, tod
   const over = (["sugars", "sodium", "satFat"] as const).filter((k) => raw[k] > 100).sort((a, b) => raw[b] - raw[a]);
 
   const mix = roundTo100(GRADES.map((g) => logged.reduce((a, d) => a + (d.gradeKcal[g] ?? 0), 0)));
-  const streakSet = new Set(streakDates ?? rows.filter((r) => r.entries > 0).map((r) => r.date));
+  const streakSet = new Set(streak.dates ?? rows.filter((r) => r.entries > 0).map((r) => r.date));
+  const run = streakEnding(streakSet, today);
+  const runStart = run > 0 ? addDays(streakSet.has(today) ? today : addDays(today, -1), -(run - 1)) : null;
+  const streakCapped = run >= STREAK_CAP || (runStart !== null && streak.from !== undefined && runStart <= streak.from);
 
   return {
     range, days, targets,
-    kpis: { avgKcal: Math.round(avg("kcal")), avgProtein: Math.round(avg("protein")), daysOnTarget, daysLogged: L, streak: streakEnding(streakSet, today) },
+    kpis: { avgKcal: Math.round(avg("kcal")), avgProtein: Math.round(avg("protein")), daysOnTarget, daysLogged: L, streak: streakCapped ? STREAK_CAP : run, streakCapped },
     macroSplit: { protein, carbs, fat },
     balance,
     gradeMix: Object.fromEntries(GRADES.map((g, i) => [g, mix[i]!])) as Record<Grade, number>,

@@ -49,3 +49,18 @@ export function LegendList({ items, className }: { items: { key: string; label: 
     </ul>
   );
 }
+
+/**
+ * A reference-line key for a card header: a short dashed swatch in the line's colour and its label
+ * ("Target 1,700"). The label lives here rather than on the plot, so it never collides with the data.
+ */
+export function RefKey({ color, children }: { color: string; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-[5px] whitespace-nowrap">
+      <svg aria-hidden width="14" height="10" viewBox="0 0 14 10" className="shrink-0">
+        <line x1="0" x2="14" y1="5" y2="5" stroke={color} strokeWidth="1.5" strokeDasharray="4 2.5" />
+      </svg>
+      {children}
+    </span>
+  );
+}

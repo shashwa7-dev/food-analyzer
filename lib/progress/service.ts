@@ -5,10 +5,8 @@ import { addDays, todayIn } from "@/lib/dates";
 import { getProfile } from "@/lib/profile/service";
 import { targetsFor } from "@/lib/nutrition/targets";
 import type { Grade, NutrientKey } from "@/lib/nutrition/types";
-import { rangeDays, summarize, type DayAgg, type ProgressSummary, type Range } from "./aggregate";
+import { STREAK_CAP, rangeDays, summarize, type DayAgg, type ProgressSummary, type Range } from "./aggregate";
 
-/** How far back the logging streak may reach. */
-const STREAK_LOOKBACK_DAYS = 365;
 
 // A nutrient from the per-entry snapshot. The key travels as a bound parameter (never raw SQL)
 // and is typed to the fixed NutrientKey union, so only the snapshot's own keys can appear.
@@ -21,6 +19,8 @@ export async function getProgress(userId: string, range: Range, now: Date = new 
   const today = todayIn(prof.timezone, now);
   const start = addDays(today, -(rangeDays(range) - 1));
   const mine = eq(foodLog.userId, userId);
+  // The streak can run past the range: read logged dates back to STREAK_CAP days before today.
+  const streakFrom = addDays(today, -STREAK_CAP);
 
   const [rows, streakRows] = await Promise.all([
     db.select({
@@ -32,9 +32,8 @@ export async function getProgress(userId: string, range: Range, now: Date = new 
     }).from(foodLog)
       .where(and(mine, gte(foodLog.date, start), lte(foodLog.date, today)))
       .groupBy(foodLog.date),
-    // The streak can run past the range, so it reads the distinct logged dates for the last year.
     db.selectDistinct({ date: foodLog.date }).from(foodLog)
-      .where(and(mine, gte(foodLog.date, addDays(today, -STREAK_LOOKBACK_DAYS)), lte(foodLog.date, today))),
+      .where(and(mine, gte(foodLog.date, streakFrom), lte(foodLog.date, today))),
   ]);
 
   const days: DayAgg[] = rows.map((r) => {
@@ -47,5 +46,5 @@ export async function getProgress(userId: string, range: Range, now: Date = new 
       gradeKcal: g,
     };
   });
-  return summarize(days, targetsFor(prof.goal, prof.targets), prof.goal, today, range, streakRows.map((r) => r.date));
+  return summarize(days, targetsFor(prof.goal, prof.targets), prof.goal, today, range, { dates: streakRows.map((r) => r.date), from: streakFrom });
 }

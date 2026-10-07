@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
  * matchMedia for components that only ever render on the client (the ssr:false charts). Unlike
- * useMediaQuery it has no server snapshot, so a chart that mounts while the page is still hydrating
- * reads the real viewport straight away instead of starting (and possibly staying) at `false`.
+ * useMediaQuery, its "server" snapshot is the live value too, so a chart that mounts while the page
+ * is still hydrating reads the real viewport instead of starting at `false`; every read goes to
+ * `mql.matches`, so it can never hold a stale value.
  */
-/** `query` is expected to be a constant for the component's life. */
 export function useMatches(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
+  const subscribe = useCallback((onChange: () => void) => {
     const mql = window.matchMedia(query);
-    const onChange = () => setMatches(mql.matches);
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
   }, [query]);
-  return matches;
+  const read = () => window.matchMedia(query).matches;
+  return useSyncExternalStore(subscribe, read, read);
 }
