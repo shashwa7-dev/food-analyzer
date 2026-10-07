@@ -19,7 +19,9 @@ export function useLogEntry() {
   const qc = useQueryClient();
   return useCallback(async (body: Record<string, unknown>, { name, meal }: { name: string; meal: Meal }): Promise<string | null> => {
     const changed = () => {
-      void qc.invalidateQueries({ queryKey: ["foods", "recent"] });
+      // Mark recents stale without refetching: a visible Recent list must not reorder under the
+      // user's finger. It refetches the next time a Recent list mounts.
+      void qc.invalidateQueries({ queryKey: ["foods", "recent"], refetchType: "none" });
       invalidateLogQueries(qc);
       router.refresh();
     };

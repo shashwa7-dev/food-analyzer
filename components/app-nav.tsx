@@ -42,6 +42,8 @@ export function AppNav({
 }) {
   const path = usePathname();
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
+  // Food search is a focused sub-page with its own Back (mock-c1): no phone bottom nav there.
+  const phoneNav = path !== "/foods";
 
   return (
     <>
@@ -90,34 +92,36 @@ export function AppNav({
       </nav>
 
       {/* Phone bottom nav (spec §5) */}
-      <nav
-        aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 mx-3 mb-[calc(12px+env(safe-area-inset-bottom))] grid h-[72px] grid-cols-5 rounded-[28px] bg-surface px-1.5 shadow md:hidden"
-      >
-        {PHONE_ITEMS.map(({ href, label, icon: Icon, primary }) => {
-          const isActive = active(href);
-          if (primary) {
+      {phoneNav && (
+        <nav
+          aria-label="Main"
+          className="fixed inset-x-0 bottom-0 z-30 mx-3 mb-[calc(12px+env(safe-area-inset-bottom))] grid h-[72px] grid-cols-5 rounded-[28px] bg-surface px-1.5 shadow md:hidden"
+        >
+          {PHONE_ITEMS.map(({ href, label, icon: Icon, primary }) => {
+            const isActive = active(href);
+            if (primary) {
+              return (
+                <Link key={href} href={href} aria-label="Scan" className="flex h-full items-center justify-center">
+                  <span className="-mt-[30px] grid size-[60px] place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_18px_-2px_color-mix(in_srgb,var(--brand)_55%,transparent)] ring-[6px] ring-bg">
+                    <Icon className="size-[26px]" aria-hidden />
+                  </span>
+                </Link>
+              );
+            }
             return (
-              <Link key={href} href={href} aria-label="Scan" className="flex h-full items-center justify-center">
-                <span className="-mt-[30px] grid size-[60px] place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_18px_-2px_color-mix(in_srgb,var(--brand)_55%,transparent)] ring-[6px] ring-bg">
-                  <Icon className="size-[26px]" aria-hidden />
-                </span>
+              <Link
+                key={href}
+                href={href}
+                aria-current={isActive ? "page" : undefined}
+                className={cn("flex h-full flex-col items-center justify-center gap-[3px] whitespace-nowrap text-[10.5px] font-semibold text-subtle", isActive && "text-ink")}
+              >
+                <Icon className="size-[22px]" aria-hidden />
+                {label}
               </Link>
             );
-          }
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={isActive ? "page" : undefined}
-              className={cn("flex h-full flex-col items-center justify-center gap-[3px] whitespace-nowrap text-[10.5px] font-semibold text-subtle", isActive && "text-ink")}
-            >
-              <Icon className="size-[22px]" aria-hidden />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+          })}
+        </nav>
+      )}
     </>
   );
 }

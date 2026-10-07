@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { AddFoodSheet } from "@/components/add-food/add-food-sheet";
 import { FoodSearch } from "@/components/add-food/food-search";
+import { backAction, readInAppNav } from "@/lib/nav/back";
 import type { FoodHit } from "@/lib/foods/types";
 import type { Meal } from "@/lib/nutrition/types";
 
@@ -22,12 +23,13 @@ export function FoodsPageSearch({ title, subtitle, meal, date, backHref }: {
   const [session, setSession] = useState(0);
 
   const back = () => {
-    if (window.history.length > 1) router.back();
-    else router.push(backHref);
+    const action = backAction(readInAppNav(), backHref);
+    if (action.kind === "back") router.back();
+    else router.push(action.href);
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
+    <div data-no-phone-nav className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
       <div className="flex items-center justify-between gap-2.5">
         <button
           type="button"

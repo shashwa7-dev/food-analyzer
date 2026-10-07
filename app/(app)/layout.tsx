@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/session";
 import { getBalance } from "@/lib/credits/ledger";
 import { countVisibleScans } from "@/lib/scans/service";
 import { AppNav } from "@/components/app-nav";
+import { NavTracker } from "@/components/nav/nav-tracker";
 import { ScanShortcut } from "@/components/nav/scan-shortcut";
 import { TimezoneSync } from "@/components/timezone-sync";
 
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
       <ScanShortcut />
+      <NavTracker />
       <TimezoneSync current={profile.timezone} />
     </div>
   );

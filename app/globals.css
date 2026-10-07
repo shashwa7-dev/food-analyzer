@@ -68,6 +68,8 @@ body {
 /* Toasts float above the phone nav (72 px bar + 12 px margin + safe area); no nav from 900 px. */
 :root { --toast-bottom: calc(96px + env(safe-area-inset-bottom)); }
 @media (min-width: 900px) { :root { --toast-bottom: 24px; } }
+/* Pages without the phone nav (food search) keep toasts near the bottom safe area. */
+@media (max-width: 899.98px) { :root:has([data-no-phone-nav]) { --toast-bottom: calc(18px + env(safe-area-inset-bottom)); } }
 .cn-toast { box-shadow: 0 2px 8px rgb(0 0 0 / .18), 0 8px 24px rgb(0 0 0 / .14) !important; }
 .bg-wash { background: linear-gradient(180deg, var(--wash-a) 0, var(--bg) 45%); }
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }

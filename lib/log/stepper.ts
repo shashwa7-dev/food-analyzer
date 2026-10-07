@@ -10,12 +10,18 @@ export function stepAmount(amount: number, unit: PortionUnit, dir: 1 | -1): numb
   return Math.max(s, Math.round(snapped * 100) / 100);
 }
 
-/** 1.5 → "1½", 0.5 → "½", 2 → "2"; anything else to at most two decimals. */
+const FRACTION: Record<number, string> = { 0.25: "¼", 0.5: "½", 0.75: "¾" };
+
+/** 1.5 → "1½", 0.25 → "¼", 2.75 → "2¾", 2 → "2"; anything else to at most two decimals. */
 export function formatAmount(n: number): string {
   const whole = Math.floor(n), frac = Math.round((n - whole) * 100) / 100;
-  if (frac === 0.5) return whole ? `${whole}½` : "½";
+  const glyph = FRACTION[frac];
+  if (glyph) return whole ? `${whole}${glyph}` : glyph;
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
 }
+
+/** A portion's amount is a multiplier, so a "100 g" portion steps by halves like any other. */
+export const multiplierUnit = (u: PortionUnit): PortionUnit => (u === "g" || u === "ml" ? "serving" : u);
 
 // Sizes read as adjectives ("1 large"), so they never take a plural.
 const NOT_A_NOUN = new Set(["large", "small", "medium", "regular", "whole", "miniature", "individual", "big", "extra"]);

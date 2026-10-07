@@ -7,6 +7,7 @@ import { buildResult, type ScanResult } from "@/lib/engine/result";
 import { updateProfile } from "@/lib/profile/service";
 import { targetsFor } from "@/lib/nutrition/targets";
 import { NotFoundError } from "@/lib/errors";
+import { foodIconKey } from "./icon";
 import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
 import { createCustomFood, createCustomFoodFromScan, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
@@ -30,6 +31,23 @@ describe("foods service", () => {
     expect((await searchFoods(u, "chawal", "IN")).map((h) => h.name)).toContain("Rice, white, boiled");
     expect((await searchFoods(u, "panner", "IN"))[0]?.name).toBe("Paneer butter masala");
     expect((await searchFoods(u, "dal", "IN"))[0]?.name).toBe("Dal tadka");
+  });
+
+  it("search hits carry the default portion's index, unit and the food's icon key", async () => {
+    const u = await createUser();
+    const hits = await searchFoods(u, "rice", "IN");
+    const rows = await searchFoodRows(u, "rice", "IN");
+    expect(hits.length).toBeGreaterThan(0);
+    for (const h of hits) {
+      const row = rows.find((r) => r.id === h.id)!;
+      expect(h.defaultPortion.index).toBe(row.portions[row.defaultPortion] ? row.defaultPortion : 0);
+      expect(h.defaultPortion.label).toBe(row.portions[h.defaultPortion.index!]!.label);
+      expect(h.defaultPortion.unit).toBe(row.basis === "per_100ml" ? "ml" : "g");
+      expect(h.iconKey).toBe(foodIconKey(row));
+    }
+    const boiled = hits.find((h) => h.name === "Rice, white, boiled")!;
+    expect(boiled.iconKey).toBe("bowl");
+    expect(boiled.defaultPortion).toMatchObject({ label: "1 katori", grams: 150, unit: "g" });
   });
 
   it("ranks cooked foods above raw ingredients", async () => {

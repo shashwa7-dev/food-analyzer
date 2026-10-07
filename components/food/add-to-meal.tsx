@@ -7,7 +7,7 @@ import { LiveMacros, MealTiles, UnitChips } from "@/components/food/sheet-parts"
 import { MEAL_META } from "@/components/food/meal-meta";
 import { useLogEntry } from "@/components/food/use-log-entry";
 import { logEntryBody, MAX_QUANTITY, type LogTarget } from "@/lib/log/quantity";
-import { stepAmount, stepFor, unitChipLabel, unitWord } from "@/lib/log/stepper";
+import { multiplierUnit, stepAmount, stepFor, unitChipLabel, unitWord } from "@/lib/log/stepper";
 import type { Meal, Nutrients, Portion, PortionUnit } from "@/lib/nutrition/types";
 
 /** per100 null (+ perServing): a per-serving label with no serving weight — logged by servings only, never by grams. */
@@ -15,9 +15,6 @@ export type LoggableFood = { name: string; per100: Nutrients | null; perServing?
 
 const GRAMS = "grams";
 const MAX_GRAMS = 5000;
-
-/** A portion's amount is a multiplier, so a "100 g" portion steps by halves like any other. */
-export const multiplierUnit = (u: PortionUnit): PortionUnit => (u === "g" || u === "ml" ? "serving" : u);
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 

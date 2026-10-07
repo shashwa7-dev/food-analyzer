@@ -22,7 +22,9 @@ export default async function FoodsPage({ searchParams }: { searchParams: Promis
   return (
     <FoodsPageSearch
       title={meal ? `Add to ${MEAL_META[meal].label}` : "Foods"}
-      subtitle={meal ? (date === today ? `Today · ${labels.short}` : labels.long) : null}
+      // The date shows whenever adds go somewhere other than plain today: always on a past day,
+      // and as "Today · 7 Oct" under "Add to {Meal}".
+      subtitle={date !== today ? labels.long : meal ? `Today · ${labels.short}` : null}
       meal={meal ?? defaultMealIn(profile.timezone)}
       date={date}
       backHref={date === today ? "/today" : `/today?date=${date}`}

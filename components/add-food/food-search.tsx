@@ -51,6 +51,18 @@ function Muted({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Recent foods, queried only while this tab is mounted: adds mark recents stale without refetching
+ * (useLogEntry), so the list holds still after a quick add and refreshes the next time it mounts.
+ */
+function RecentPanel({ rows }: { rows: (list: FoodHit[]) => React.ReactNode }) {
+  const recents = useQuery({ queryKey: ["foods", "recent"], queryFn: () => api<{ results: FoodHit[] }>("/api/v1/foods/recent") });
+  if (recents.isPending) return <Muted>Loading…</Muted>;
+  if (recents.isError) return <Muted>Couldn’t load your recent foods. Try again.</Muted>;
+  if (recents.data.results.length === 0) return <Muted>Foods you log will appear here for one-tap logging.</Muted>;
+  return rows(recents.data.results);
+}
+
+/**
  * The food search body (spec §6.2): the autofocused search box with its barcode button, the tabs
  * (Results while there's a query; Recent by default), and each tab's list of FoodRows. Tapping a row
  * calls `onOpen` (the add sheet); its round button quick-adds the default portion to `meal` on `date`.
@@ -68,7 +80,6 @@ export function FoodSearch({ meal, date, onOpen }: { meal: Meal; date: string; o
   const hasQuery = typed.length > 0;
   const active: Tab = tab === "results" && !hasQuery ? "recent" : tab;
 
-  const recents = useQuery({ queryKey: ["foods", "recent"], queryFn: () => api<{ results: FoodHit[] }>("/api/v1/foods/recent") });
   const mine = useQuery({ queryKey: ["foods", "mine"], queryFn: () => api<{ results: FoodHit[] }>("/api/v1/foods/mine"), enabled: active === "mine" });
   const search = useQuery({
     queryKey: ["foods", "search", dq],
@@ -184,13 +195,7 @@ export function FoodSearch({ meal, date, onOpen }: { meal: Meal; date: string; o
           </>
         )}
 
-        {active === "recent" && (
-          <>
-            {recents.isPending && <Muted>Loading…</Muted>}
-            {recents.data && recents.data.results.length === 0 && <Muted>Foods you log will appear here for one-tap logging.</Muted>}
-            {recents.data && recents.data.results.length > 0 && rows(recents.data.results)}
-          </>
-        )}
+        {active === "recent" && <RecentPanel rows={rows} />}
 
         {active === "mine" && (
           <>
