@@ -51,14 +51,15 @@ export type ScanAction = { kind: "credits" | "photo" | "retry" | "rescan"; label
 
 const CREDITS: ScanAction = { kind: "credits", label: "See your AI scans" };
 const PHOTO: ScanAction = { kind: "photo", label: "Take a photo of the label" };
-const RETRY: ScanAction = { kind: "retry", label: "Try again" };
+/** Re-send the same photos (same Idempotency-Key) — the scan UI offers it after a dropped connection. */
+export const RETRY_ACTION: ScanAction = { kind: "retry", label: "Try again" };
 const RESCAN: ScanAction = { kind: "rescan", label: "Scan again" };
 
 export const SCAN_ACTIONS: Record<ScanErrorCode, ScanAction | null> = {
   NO_CREDITS: CREDITS,
   RATE_LIMITED: null,
   DAILY_LIMIT: null,
-  SERVICE_BUSY: RETRY,
+  SERVICE_BUSY: null, // "try again later" / not set up: an immediate retry can't succeed
   BARCODE_NOT_FOUND: PHOTO,
   UNREADABLE_IMAGE: RESCAN,
   NOT_FOOD: RESCAN,

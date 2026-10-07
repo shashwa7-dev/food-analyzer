@@ -305,7 +305,9 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     const u = await createUser();
     const s = await insertScan(u);
     const { food: saved } = await createCustomFoodFromScan(u, s.id);
-    await updateCustomFood(u, saved.id, { name: "My khichdi", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 170, protein: 6, carbs: 28, fat: 4 } });
+    expect(saved.gradeFrozen).toBe(true);
+    const edited = await updateCustomFood(u, saved.id, { name: "My khichdi", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 170, protein: 6, carbs: 28, fat: 4 } });
+    expect(edited!.gradeFrozen).toBe(false); // the grade now comes from the user's numbers, so regrade may refresh it (M6)
     const again = await createCustomFoodFromScan(u, s.id);
     expect(again.food.id).toBe(saved.id);
     expect(again.food.name).toBe("My khichdi");

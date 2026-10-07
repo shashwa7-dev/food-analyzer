@@ -260,7 +260,8 @@ export async function updateCustomFood(userId: string, id: string, input: Custom
   const d = customDraft(userId, CustomFoodSchema.parse(input));
   // sourceRef: undefined → Drizzle leaves the column alone, so a saved-from-scan food keeps its scan
   // link after an edit (Save to my foods stays idempotent).
-  const [row] = await db.update(food).set({ ...d, sourceRef: undefined, searchText: sql`to_tsvector('simple', ${d.searchName})` as unknown as string, updatedAt: new Date() })
+  // gradeFrozen: false — after an edit the grade is computed from the user's numbers, so regrade may refresh it.
+  const [row] = await db.update(food).set({ ...d, sourceRef: undefined, gradeFrozen: false, searchText: sql`to_tsvector('simple', ${d.searchName})` as unknown as string, updatedAt: new Date() })
     .where(and(eq(food.id, id), eq(food.ownerId, userId), eq(food.source, "custom"), sql`${food.deletedAt} IS NULL`)).returning();
   return row ?? null;
 }

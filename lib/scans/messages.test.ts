@@ -18,7 +18,7 @@ describe("scan messages", () => {
     expect(Object.keys(SCAN_ACTIONS).sort()).toEqual([...SCAN_ERROR_CODES].sort());
     expect(scanErrorAction("NO_CREDITS")?.kind).toBe("credits");
     expect(scanErrorAction("BARCODE_NOT_FOUND")?.kind).toBe("photo");
-    expect(scanErrorAction("SERVICE_BUSY")?.kind).toBe("retry");
+    expect(scanErrorAction("SERVICE_BUSY")).toBeNull();
     expect(scanErrorAction("RATE_LIMITED")).toBeNull();
     expect(scanErrorAction("DAILY_LIMIT")).toBeNull();
     expect(scanErrorAction("TIMEOUT")?.kind).toBe("rescan");

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { getBalance, listTransactions } from "@/lib/credits/ledger";
+import { sweepStuck } from "@/lib/scans/service";
 import { isOnWaitlist } from "@/lib/credits/waitlist";
 import { PLANS } from "@/lib/credits/plans";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ function formatAmount(amount: number): string {
 
 export default async function CreditsPage() {
   const { userId, profile } = await requireUser();
+  await sweepStuck(userId); // a killed scan job's credit is refunded before the balance is shown
   const [balance, txns, onWaitlist] = await Promise.all([
     getBalance(userId),
     listTransactions(userId),

@@ -127,7 +127,7 @@ async function failScanTx(tx: Tx, userId: string, scanId: string, code: ScanErro
 }
 
 /** Fails + refunds this user's scans stuck in queued/processing for longer than STUCK_AFTER_MS. */
-async function sweepStuck(userId: string, now: number): Promise<void> {
+export async function sweepStuck(userId: string, now: number = Date.now()): Promise<void> {
   const stale = await db.select({ id: scan.id }).from(scan)
     .where(and(eq(scan.userId, userId), inArray(scan.status, RUNNING), lt(scan.createdAt, new Date(now - STUCK_AFTER_MS))));
   for (const s of stale) await db.transaction((tx) => failScanTx(tx, userId, s.id, "TIMEOUT", now));
@@ -248,6 +248,11 @@ async function failSafely(scanId: string, userId: string, err: unknown, now: num
   // EngineError messages are fixed, user-safe sentences; keep one only when it says more than the code's own.
   const specific = err instanceof EngineError && err.message !== SCAN_MESSAGES[code] && err.message !== code ? err.message : null;
   if (!(err instanceof EngineError)) console.error("scan job failed", { scanId, err });
+  else if (code === "MODEL_ERROR" || code === "TIMEOUT") {
+    // Provider failures (revoked key, billing, 400s) would otherwise be silent. Never log the request body (base64 images).
+    const c = err.cause as { name?: unknown; statusCode?: unknown; message?: unknown } | undefined;
+    console.error("scan model call failed", { scanId, code, cause: c && { name: c.name, statusCode: c.statusCode, message: typeof c.message === "string" ? c.message.slice(0, 300) : undefined } });
+  }
   try {
     await db.transaction((tx) => failScanTx(tx, userId, scanId, code, now, specific));
     await recordUsage(scanId, userId, usage);

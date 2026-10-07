@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createUser, resetDb, testDb } from "@/tests/helpers/db";
 import { creditTxn, profile, scan } from "@/lib/db/schema";
 import {
-  NoCreditsError, ScanNotFoundError, debitForScan, ensureCurrentPeriod, getBalance, listTransactions, refundScan, refundScanStandalone,
+  NoCreditsError, ScanNotFoundError, debitForScan, ensureCurrentPeriod, getBalance, listTransactions, refundScan,
 } from "./ledger";
 
 const NOW = new Date("2026-10-05T00:00:00Z");
@@ -192,8 +192,8 @@ describe("credits/ledger", () => {
       const scanId = await insertScan(u);
       await testDb().transaction((tx) => debitForScan(tx, u, scanId, NOW)); // credits -> 4, scan.charged = true
 
-      const r1 = await refundScanStandalone(u, scanId);
-      const r2 = await refundScanStandalone(u, scanId);
+      const r1 = await testDb().transaction((tx) => refundScan(tx, u, scanId));
+      const r2 = await testDb().transaction((tx) => refundScan(tx, u, scanId));
       expect(r1).toBe(true);
       expect(r2).toBe(false);
 
@@ -211,7 +211,7 @@ describe("credits/ledger", () => {
       await testDb().update(profile).set({ credits: 5 }).where(eq(profile.userId, u));
       const scanId = await insertScan(u);
 
-      const refunded = await refundScanStandalone(u, scanId);
+      const refunded = await testDb().transaction((tx) => refundScan(tx, u, scanId));
       expect(refunded).toBe(false);
 
       const [p] = await testDb().select().from(profile).where(eq(profile.userId, u));
@@ -226,7 +226,7 @@ describe("credits/ledger", () => {
       const scanId = await insertScan(u);
       await testDb().transaction((tx) => debitForScan(tx, u, scanId, NOW));
 
-      await refundScanStandalone(u, scanId);
+      await testDb().transaction((tx) => refundScan(tx, u, scanId));
 
       const [s] = await testDb().select().from(scan).where(eq(scan.id, scanId));
       expect(s!.charged).toBe(true);

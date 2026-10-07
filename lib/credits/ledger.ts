@@ -145,11 +145,6 @@ export async function refundScan(tx: Tx, userId: string, scanId: string): Promis
   return true;
 }
 
-/** Convenience wrapper for callers that don't already have an open transaction. */
-export async function refundScanStandalone(userId: string, scanId: string): Promise<boolean> {
-  return db.transaction((tx) => refundScan(tx, userId, scanId));
-}
-
 // Within one reset transaction, `expire` and `grant` rows share the same `created_at`
 // (Postgres `now()` is stable per transaction) — rank `grant` first since it's the newer
 // logical event, then `debit`/`refund`/`purchase`, then `expire` last.
