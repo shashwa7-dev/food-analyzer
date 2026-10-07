@@ -106,8 +106,14 @@ export function discoverFixtures(fixturesDir = FIXTURES_DIR, expectedDir = EXPEC
       console.warn(`skipping fixture "${id}": no images found (expected eval/fixtures/${id}/1.jpg, optionally 2.jpg/3.jpg)`);
       continue;
     }
-    const expected = parseExpected(JSON.parse(readFileSync(expectedPath, "utf8")), id);
-    cases.push({ id, imagePaths, expected });
+    let raw: unknown;
+    try {
+      raw = JSON.parse(readFileSync(expectedPath, "utf8"));
+    } catch (err) {
+      console.warn(`skipping fixture "${id}": eval/expected/${id}.json is not valid JSON (${(err as Error).message})`);
+      continue;
+    }
+    cases.push({ id, imagePaths, expected: parseExpected(raw, id) });
   }
   return cases;
 }
@@ -313,7 +319,13 @@ async function main() {
   for (const model of models) {
     for (const fixture of fixtures) {
       process.stdout.write(`  [${model}] ${fixture.id} ... `);
-      const attempt = await runAttempt(fixture, model);
+      let attempt: AttemptResult;
+      try {
+        attempt = await runAttempt(fixture, model);
+      } catch (err) {
+        console.log(`skipped (${(err as Error).message})`); // e.g. an image became unreadable; keep the run going
+        continue;
+      }
       attempts.push(attempt);
       console.log(attempt.schemaFailure ? "schema failure" : `route=${attempt.route} (${attempt.latencyMs.toFixed(0)} ms)`);
     }
