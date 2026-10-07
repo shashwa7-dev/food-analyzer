@@ -44,6 +44,13 @@ describe("balanceSeries", () => {
       expect(s).toEqual([{ date: "2026-10-01", balance: 20, event: false }, { date: "2026-10-02", balance: 20, event: true }]);
     }
   });
+  it("counts a change on a local day past the period's last day on that last day (IST, 1st before 05:30)", () => {
+    // 20:30 UTC on 31 Oct is 02:00 on 1 Nov in India, but still October's (UTC) period, and already in the balance.
+    const s = balanceSeries([{ at: "2026-10-31T20:30:00Z", amount: -1 }], "2026-10-01", "2026-10-31", "Asia/Kolkata", 19);
+    expect(s[0]!.balance).toBe(20);
+    expect(s.at(-2)!.balance).toBe(20);
+    expect(s.at(-1)).toEqual({ date: "2026-10-31", balance: 19, event: true });
+  });
   it("leaves changes from before the first local day out of the shown days", () => {
     // 00:30 UTC on 1 Oct is still 30 Sep in New York, but it belongs to October's (UTC) period.
     const s = balanceSeries([{ at: "2026-10-01T00:30:00Z", amount: -1 }], "2026-10-01", "2026-10-02", "America/New_York", 19);

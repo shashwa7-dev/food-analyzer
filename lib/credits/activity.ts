@@ -50,8 +50,8 @@ export function groupActivity(items: ActivityItem[], tz: string, now: Date): { l
  * chart. It works backwards from `endBalance` (the live balance at the close of `today`): each
  * earlier day's close is the next day's close minus that next day's ledger changes. Only per-day sums
  * are used, so rows that share a timestamp (one transaction) can't be misordered. `event` marks days
- * with a change. Changes after `today` are ignored; changes before `periodStart` only shape days that
- * aren't shown.
+ * with a change. Changes on a local day after `today` count on `today` (the live balance holds them);
+ * changes before `periodStart` only shape days that aren't shown.
  */
 export function balanceSeries(
   txns: { at: string; amount: number }[],
@@ -63,7 +63,10 @@ export function balanceSeries(
   const sumByDay = new Map<string, number>();
   const marked = new Set<string>();
   for (const t of txns) {
-    const day = todayIn(tz, new Date(t.at));
+    // A change after `today`'s local day (an IST scan at 02:00 on the 1st, still the old UTC period)
+    // is already in `endBalance`, so it counts on `today`, the period's last day shown (review M8).
+    const local = todayIn(tz, new Date(t.at));
+    const day = local > today ? today : local;
     sumByDay.set(day, (sumByDay.get(day) ?? 0) + t.amount);
     marked.add(day);
   }
