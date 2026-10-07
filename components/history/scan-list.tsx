@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { AlertCircle, ChevronRight, Loader2, ScanLine, Search } from "lucide-react";
+import { AlertCircle, ChevronRight, Info, Loader2, ScanLine, Search, SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { relativeDate } from "@/lib/dates";
@@ -14,10 +14,12 @@ import type { ScanListItem } from "@/lib/scans/service";
 import { GradeBadge } from "@/components/grade-badge";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
+import { ResponsiveSheet, SheetTitle } from "@/components/ui/responsive-sheet";
+import { GRADE_BASIS, GRADE_SHORT, GRADE_UNAVAILABLE_NOTE, GRADES, gradeLegend } from "@/lib/scans/grade-legend";
+import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 
 type Page = { scans: ScanListItem[]; nextCursor: string | null };
 type Grade = "A" | "B" | "C" | "D" | "E";
-const GRADES: readonly Grade[] = ["A", "B", "C", "D", "E"];
 const GRADE_DOT: Record<Grade, string> = { A: "bg-grade-a", B: "bg-grade-b", C: "bg-grade-c", D: "bg-grade-d", E: "bg-grade-e" };
 
 function useDebounced<T>(v: T, ms: number) {
@@ -77,6 +79,7 @@ export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; 
   const nowMs = now.getTime();
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState<Grade | undefined>(undefined);
+  const [legendOpen, setLegendOpen] = useState(false);
   const dq = useDebounced(q.trim(), 300);
   const filtered = dq.length > 0 || grade !== undefined;
 
@@ -132,10 +135,15 @@ export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; 
         {GRADES.map((g) => (
           <FilterPill key={g} on={grade === g} onClick={() => setGrade((cur) => (cur === g ? undefined : g))}>
             <span className={cn("size-2 rounded-full", GRADE_DOT[g])} aria-hidden />
-            {g}
+            {g} · {GRADE_SHORT[g]}
           </FilterPill>
         ))}
       </div>
+      <button type="button" onClick={() => setLegendOpen(true)} className="-mt-1 inline-flex min-h-11 items-center gap-1.5 self-start rounded-full px-1 text-[13px] font-semibold whitespace-nowrap text-brand-deep hover:underline hover:underline-offset-4">
+        <Info className="size-4" aria-hidden />
+        What do grades mean?
+      </button>
+      <GradeLegendSheet open={legendOpen} onOpenChange={setLegendOpen} />
 
       {query.isLoading ? (
         <p className="m-0 inline-flex items-center gap-2 px-1 py-2 text-sm text-subtle"><Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />Loading…</p>
@@ -143,7 +151,22 @@ export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; 
         <p role="alert" className="m-0 px-1 py-2 text-sm text-bad">Couldn’t load your scans. Try again.</p>
       ) : scans.length === 0 ? (
         filtered ? (
-          <p className="m-0 px-1 py-2 text-sm text-subtle">No scans match your search.</p>
+          <div className="flex flex-col items-center gap-3 rounded-[24px] bg-surface px-5 py-7 text-center shadow-card">
+            <IconTile tone="neutral" size="lg"><SearchX /></IconTile>
+            <div className="leading-snug">
+              <b className="block text-[17px] font-semibold text-ink">No scans match</b>
+              <p className="m-0 mt-1 text-sm text-subtle">{noMatchLine(dq, grade)}</p>
+            </div>
+            <div className="mt-1 flex flex-wrap justify-center gap-2.5">
+              <Button type="button" variant="ghost-sunken" shape="pill" size="lg" className="px-5" onClick={() => { setQ(""); setGrade(undefined); }}>
+                Clear filters
+              </Button>
+              <Button render={<Link href="/scan" />} nativeButton={false} shape="pill" size="lg" className="px-5">
+                <ScanLine aria-hidden />
+                Scan food
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-[24px] bg-surface px-5 py-7 text-center shadow-card">
             <IconTile tone="brand" size="lg"><ScanLine /></IconTile>
@@ -172,5 +195,34 @@ export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; 
         </Button>
       )}
     </div>
+  );
+}
+
+/** "No “dal” scans with grade B." — names whichever filters are active. */
+function noMatchLine(q: string, grade: Grade | undefined): string {
+  const what = q ? `No “${q}” scans` : "No scans";
+  return grade ? `${what} with grade ${grade} · ${GRADE_SHORT[grade]}.` : `${what} yet.`;
+}
+
+/** "About grades": each letter with its verdict, the basis line, and the "?" badge. */
+function GradeLegendSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
+    <ResponsiveSheet open={open} onOpenChange={onOpenChange}>
+      <SheetTitle className="text-lg font-semibold tracking-[-0.02em] text-ink">About grades</SheetTitle>
+      <p className="m-0 text-sm text-subtle">{GRADE_BASIS}</p>
+      <ul className="m-0 grid list-none gap-2.5 p-0">
+        {gradeLegend().map((r) => (
+          <li key={r.grade} className="flex items-center gap-3">
+            <GradeBadge grade={r.grade} size="base" />
+            <span className="text-[15px] font-semibold text-ink">{r.verdict}</span>
+          </li>
+        ))}
+        <li className="flex items-center gap-3">
+          <GradeBadge grade={GRADE_UNAVAILABLE} size="base" />
+          <span className="text-sm text-subtle">{GRADE_UNAVAILABLE_NOTE}</span>
+        </li>
+      </ul>
+      <Button type="button" shape="pill" size="lg" className="mt-1 w-full" onClick={() => onOpenChange(false)}>Got it</Button>
+    </ResponsiveSheet>
   );
 }
