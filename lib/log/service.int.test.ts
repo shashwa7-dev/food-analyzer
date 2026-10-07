@@ -309,4 +309,12 @@ describe("food log", () => {
     expect(e.nutrients.sodiumMg).toBeUndefined();
     expect(e.grade).toBe("?");
   });
+
+  it("refuses to log a record whose energy or macros are implausible (a scan stored before the bounds), rather than counting them (review M3)", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { result: scanResult({ per100: { energyKcal: 3000, protein: 10, carbs: 50, fat: 35 } }) });
+    await expect(addEntry(u, { kind: "scan", date: today, meal: "lunch", scanId: s.id, portionIndex: 0, quantity: 1 })).rejects.toBeInstanceOf(InvalidError);
+    await expect(addEntry(u, { kind: "scan_grams", date: today, meal: "lunch", scanId: s.id, grams: 50 })).rejects.toBeInstanceOf(InvalidError);
+    expect((await getDay(u, today)).entries).toHaveLength(0);
+  });
 });

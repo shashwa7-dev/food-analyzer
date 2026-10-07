@@ -17,12 +17,16 @@ import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
 
 /**
- * A log entry's nutrient snapshot for `grams` of a per-100 record. Implausible per-100 values
+ * A log entry's nutrient snapshot for `grams` of a per-100 record. Implausible optional per-100 values
  * (lib/nutrition/plausible.ts) are dropped first, the same way food views drop them, so a bad source
  * value (a scan stored before the bounds, a row the read guard missed) never lands in a day's totals.
+ * Energy and the macros can't be dropped, so a record with an implausible one (a scan stored before
+ * the bounds with 3,000 kcal per 100 g, an old custom food) is refused instead of logged.
  */
 export function snapshotNutrients(per100: Nutrients, grams: number): Nutrients {
-  return nutrientsFor(dropImplausible(per100).per100, grams);
+  const { per100: sane, badCore } = dropImplausible(per100);
+  if (badCore.length > 0) throw new InvalidError("This food's calories or macros don't look right, so it can't be logged. Scan it again or add it with Quick add.");
+  return nutrientsFor(sane, grams);
 }
 
 export type EntryRow = typeof foodLog.$inferSelect;
