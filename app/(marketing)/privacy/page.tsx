@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { MarketingPage, ProseSection } from "@/components/marketing/marketing-page";
 
 export const metadata = { title: "Privacy — EATRi8" };
 
@@ -12,49 +12,38 @@ const contactEmail = process.env.OFF_CONTACT_EMAIL || "";
 export default function PrivacyPage() {
   const contact = contactEmail || "the contact address on this page";
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-10">
-      <Link href="/" className="text-sm text-subtle underline">
-        Back
-      </Link>
-      <div className="flex flex-col gap-2">
-        <h1 className="title text-2xl">Privacy</h1>
-        <p className="text-sm text-subtle">Plain language, no legalese. Last updated October 2026.</p>
-      </div>
-      <section className="flex flex-col gap-2">
-        <h2 className="section-title">What we store</h2>
-        <ul className="flex flex-col gap-1.5 text-sm text-subtle">
+    <MarketingPage title="Privacy" intro="Plain language, no legalese. Last updated October 2026.">
+      <ProseSection title="What we store">
+        <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 marker:text-brand-deep">
           <li>Basic profile info from your Google sign-in: name, email, profile photo.</li>
           <li>Your food diary: what you log, when, and the nutrition figures for it.</li>
           <li>Any custom foods you create.</li>
           <li>Your goal, diet, allergies and targets, so we can personalise grades and flags.</li>
         </ul>
-      </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="section-title">What we don&apos;t do</h2>
-        <p className="text-sm text-subtle">We don&apos;t sell your data, and we don&apos;t share it with advertisers.</p>
-      </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="section-title">Not medical advice</h2>
-        <p className="text-sm text-subtle">
+      </ProseSection>
+      <ProseSection title="What we don't do">
+        <p className="m-0">We don&apos;t sell your data, and we don&apos;t share it with advertisers.</p>
+      </ProseSection>
+      <ProseSection title="Not medical advice">
+        <p className="m-0">
           EATRi8 shows nutrition information and honest grades to help you make your own choices. It is not medical advice. Talk to a doctor or
           dietitian for anything related to a health condition.
         </p>
-      </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="section-title">Deleting your account</h2>
-        <p className="text-sm text-subtle">
+      </ProseSection>
+      <ProseSection title="Deleting your account">
+        <p className="m-0">
           You can delete your account at any time from Me → Delete account. This removes your profile and diary. We keep only a
           one-way, keyed hash of your email with how many AI scans you used this month and today, so deleting and signing up again
-          doesn&apos;t reset your allowance. It contains no readable email or other details. We keep that record until the end of
-          the month it was made.
+          doesn&apos;t reset your allowance. It contains no readable email or other details. It only counts toward the month it was
+          made, and we delete it after that month ends.
         </p>
-      </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="section-title">Contact</h2>
-        <p className="text-sm text-subtle">
-          Questions about this policy? Reach us at {contact.includes("@") ? <a href={`mailto:${contact}`} className="underline">{contact}</a> : contact}.
+      </ProseSection>
+      <ProseSection title="Contact">
+        <p className="m-0">
+          Questions about this policy? Reach us at{" "}
+          {contact.includes("@") ? <a href={`mailto:${contact}`} className="font-medium text-brand-deep underline underline-offset-2">{contact}</a> : contact}.
         </p>
-      </section>
-    </main>
+      </ProseSection>
+    </MarketingPage>
   );
 }

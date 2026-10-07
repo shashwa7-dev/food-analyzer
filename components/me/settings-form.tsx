@@ -2,11 +2,10 @@
 // The Me page's settings, one section per sheet (spec §6.13): Goal (with the daily targets), Diet,
 // Allergies and Country. Every section saves through the same server action (saveProfile), then
 // refreshes the page so the settings list shows the stored values.
-import { useId, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronDown, Loader2, Lock } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PRESETS, targetsFor } from "@/lib/nutrition/targets";
@@ -15,33 +14,13 @@ import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
 import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
 import { saveProfile } from "@/app/(app)/me/actions";
 import { parseTarget } from "@/lib/profile/parse-target";
+import { ALL_FIELDS, MORE_FIELDS, PRIMARY_FIELDS, ProChip, TargetField, toTextRecord, type FieldKey } from "@/components/me/target-fields";
 
 export const COUNTRIES: [string, string][] = [
   ["IN", "India"], ["US", "United States"], ["GB", "United Kingdom"],
   ["AE", "UAE"], ["CA", "Canada"], ["AU", "Australia"], ["SG", "Singapore"],
 ];
 export const countryName = (code: string) => COUNTRIES.find(([k]) => k === code)?.[1] ?? code;
-
-const PRIMARY_FIELDS = [
-  { key: "energyKcal", label: "Calories", unit: "kcal" },
-  { key: "protein", label: "Protein", unit: "g" },
-] as const;
-const MORE_FIELDS = [
-  { key: "carbs", label: "Carbs", unit: "g" },
-  { key: "fat", label: "Fat", unit: "g" },
-  { key: "fibre", label: "Fibre", unit: "g" },
-  { key: "sugarsMax", label: "Sugar limit", unit: "g" },
-  { key: "sodiumMgMax", label: "Sodium limit", unit: "mg" },
-  { key: "satFatMax", label: "Sat. fat limit", unit: "g" },
-] as const;
-const ALL_FIELDS = [...PRIMARY_FIELDS, ...MORE_FIELDS];
-type FieldKey = (typeof ALL_FIELDS)[number]["key"];
-
-function toTextRecord(t: DailyTargets): Record<FieldKey, string> {
-  const out = {} as Record<FieldKey, string>;
-  for (const f of ALL_FIELDS) out[f.key] = String(t[f.key]);
-  return out;
-}
 
 const knownAllergies = (list: string[]) => list.filter((a): a is AllergenKey => (ALLERGEN_KEYS as readonly string[]).includes(a));
 
@@ -118,51 +97,6 @@ function OptionList<K extends string>({ label, options, value, onPick }: {
 
 function SubHead({ children }: { children: ReactNode }) {
   return <h3 className="m-0 px-1 text-[12px] font-[650] tracking-[0.06em] text-subtle uppercase">{children}</h3>;
-}
-
-/** "Pro" with a lock, linking to the plans: marks a control that's Pro-only while the gates are on. */
-function ProChip({ children }: { children: string }) {
-  return (
-    <Link
-      href="/me/credits#pro"
-      aria-label={`${children} are part of Pro`}
-      className="-my-2 inline-flex min-h-11 shrink-0 items-center"
-    >
-      <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-[12px] font-[650] whitespace-nowrap text-on-brand-soft">
-        <Lock className="size-3" aria-hidden />
-        Pro
-      </span>
-    </Link>
-  );
-}
-
-function TargetField({ label, unit, value, error, readOnly, onChange }: {
-  label: string; unit: string; value: string; error: boolean; readOnly: boolean; onChange: (v: string) => void;
-}) {
-  const errorId = useId();
-  return (
-    <label className="flex min-w-0 flex-col gap-1.5">
-      <span className="truncate px-1 text-[13px] font-medium text-subtle">{label}</span>
-      <span className={cn(
-        "flex h-[52px] items-center gap-2 rounded-2xl border px-3.5 focus-within:ring-2",
-        readOnly ? "bg-sunken" : "bg-surface",
-        error ? "border-bad focus-within:ring-bad" : "border-line focus-within:ring-brand-deep",
-      )}>
-        <input
-          inputMode="decimal"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label={`${label} (${unit})`}
-          aria-invalid={error || undefined}
-          readOnly={readOnly}
-          aria-describedby={error ? errorId : undefined}
-          className="num h-full w-full min-w-0 bg-transparent text-base font-semibold text-ink outline-none!"
-        />
-        <span className="shrink-0 text-[13px] text-subtle">{unit}</span>
-      </span>
-      {error && <span id={errorId} className="px-1 text-[12.5px] font-medium text-bad">Enter a number</span>}
-    </label>
-  );
 }
 
 /** Goal plus the daily targets it sets; targets are stored only where they differ from the goal's preset. */

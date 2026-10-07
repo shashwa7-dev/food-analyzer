@@ -2,12 +2,10 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
-import { ResponsiveSheet, SheetTitle } from "@/components/ui/responsive-sheet";
+import { ResponsiveSheet } from "@/components/ui/responsive-sheet";
 import { Button } from "@/components/ui/button";
-import { GradeBadge } from "@/components/grade-badge";
-import { FoodIcon } from "@/components/food/food-icon";
 import { AddToMeal } from "@/components/food/add-to-meal";
-import { FlagNotes } from "@/components/food/sheet-parts";
+import { FlagNotes, FoodSheetHeader } from "@/components/food/sheet-parts";
 import { INGREDIENTS_UNKNOWN_NOTE } from "@/components/food/ingredients-unknown-note";
 import { api } from "@/lib/api-client";
 import { sourceLine } from "@/lib/foods/display";
@@ -45,14 +43,7 @@ function AddFoodSheetBody({ hit, meal, date, onClose }: { hit: FoodHit; meal: Me
 
   return (
     <>
-      <div className="flex items-center gap-3">
-        <FoodIcon iconKey={iconKey} size="lg" tone="brand" />
-        <div className="min-w-0 flex-1 leading-tight">
-          <SheetTitle className="block truncate text-[18px] font-semibold tracking-[-0.02em] text-ink">{hit.name}</SheetTitle>
-          <span className="block truncate text-[13px] text-subtle">{sourceLine(food ?? hit)}</span>
-        </div>
-        <GradeBadge grade={food?.grade ?? hit.grade} size="md" />
-      </div>
+      <FoodSheetHeader iconKey={iconKey} name={hit.name} subtitle={sourceLine(food ?? hit)} grade={food?.grade ?? hit.grade} />
       {detail.isPending && <Skeleton />}
       {detail.isError && (
         <div className="flex flex-col items-start gap-2 rounded-[18px] bg-surface p-4 shadow-card">

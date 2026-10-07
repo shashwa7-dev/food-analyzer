@@ -2,34 +2,28 @@
 // grade hero, calories, macro rings, flag chips, the better pick and the details below; and the
 // failure card. Data comes from the page (getScan, balance); nothing here touches the database.
 import Link from "next/link";
-import {
-  Barcode, CheckCircle2, ChevronRight, Droplet, Droplets, Drumstick, Flame, Info, Leaf, Lightbulb,
-  RotateCcw, Scale, ScanLine, Sparkles, TriangleAlert, Wheat, type LucideIcon,
-} from "lucide-react";
+import { Barcode, CheckCircle2, Info, RotateCcw, Scale, ScanLine, Sparkles, TriangleAlert } from "lucide-react";
 import type { ScanView } from "@/lib/scans/service";
 import { scanErrorAction } from "@/lib/scans/messages";
-import { dietChip, macroShare, oneLineReason, packSize, sodiumLevel, typicalPortion, verdict, warningFlags } from "@/lib/scans/result-display";
+import { oneLineReason, packSize, typicalPortion } from "@/lib/scans/result-display";
 import { foodIconKey, type FoodIconKey } from "@/lib/foods/icon";
 import { nutrientsFor } from "@/lib/nutrition/portions";
-import type { Diet, Flag, Grade, Meal, Nutrients } from "@/lib/nutrition/types";
+import type { Diet, Meal, Nutrients } from "@/lib/nutrition/types";
 import type { ScanResult } from "@/lib/engine/result";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
-import { GRADE_FILL, GradeBadge } from "@/components/grade-badge";
 import { FOOD_ICON, FoodIcon } from "@/components/food/food-icon";
-import { ReasonList } from "@/components/food/food-verdict";
-import { FlagNotes } from "@/components/food/sheet-parts";
+import {
+  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroRings, ResultTitle, Tag, Tags, WhyGrade,
+} from "@/components/food/result-parts";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
 import { NutritionTable } from "@/components/food/nutrition-table";
-import { cn } from "@/lib/utils";
 import { MODE_META } from "./mode-meta";
 import { ResultActions, ResultTopBar } from "./scan-result";
 
 /** Validated ?meal=&date= carried from /scan, passed on to "Scan again" links. */
 export type ScanParams = { meal?: string; date?: string };
-
-const CARD = "rounded-[24px] bg-surface p-[18px] shadow-card";
 
 function scanQuery(sp: ScanParams, extra: Record<string, string> = {}): string {
   const p = new URLSearchParams(extra);
@@ -38,191 +32,11 @@ function scanQuery(sp: ScanParams, extra: Record<string, string> = {}): string {
   return p.size ? `?${p}` : "";
 }
 
-const fmt = (n: number) => Math.round(n).toLocaleString("en-IN");
-/** Grams for a ring centre: one decimal under 10 g, whole grams above (the mock's "18.5g", "47g"). */
-const grams = (n: number) => (n < 10 ? String(Math.round(n * 10) / 10) : String(Math.round(n)));
-
-/* ---------- tags ---------- */
-
-const CATEGORY: Record<FoodIconKey, string> = {
-  package: "Packaged", drink: "Drink", bowl: "Dish", wheat: "Bread", milk: "Dairy", egg: "Egg", fruit: "Fruit", snack: "Snack", default: "Food",
-};
-
 /** The category chip's icon and word: from the name where it says something, else from the scan's kind. */
 function category(r: ScanResult): FoodIconKey {
   if (r.kind === "meal") return "bowl";
   const byName = foodIconKey({ name: r.name, source: "scan" });
   return byName !== "default" ? byName : r.kind === "packaged" ? "package" : "default";
-}
-
-function Tag({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[11.5px] font-semibold tracking-[0.06em] whitespace-nowrap text-ink uppercase">
-      <Icon className="size-3.5 text-subtle" aria-hidden />
-      {children}
-    </span>
-  );
-}
-
-function Tags({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-wrap justify-center gap-1.5">{children}</div>;
-}
-
-/* ---------- grade hero ---------- */
-
-const HERO_BG: Record<Grade, string> = {
-  A: "bg-grade-a/15", B: "bg-grade-b/15", C: "bg-grade-c/15", D: "bg-grade-d/15", E: "bg-grade-e/15",
-};
-const GRADES: Grade[] = ["A", "B", "C", "D", "E"];
-
-function GradeHero({ grade, reason }: { grade: Grade | null; reason: string | null }) {
-  return (
-    <section className={cn("grid gap-3.5 rounded-[28px] p-[18px]", grade ? HERO_BG[grade] : "bg-sunken")} aria-label="Grade">
-      <div className="flex items-center gap-3.5">
-        <GradeBadge grade={grade} size="lg" />
-        <p className="m-0 min-w-0 text-[14px] leading-[1.35] text-ink">
-          <b className="mb-0.5 block text-[16px] font-semibold">{verdict(grade)}</b>
-          {reason}
-        </p>
-      </div>
-      {grade && (
-        <div className="grid grid-cols-5 gap-1" aria-hidden>
-          {GRADES.map((g) => (
-            <span
-              key={g}
-              className={cn(
-                "grid h-[26px] place-items-center rounded-[8px] text-[12px] font-bold",
-                GRADE_FILL[g],
-                g === grade ? "scale-y-[1.18] ring-2 ring-surface" : "opacity-45",
-              )}
-            >
-              {g}
-            </span>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-/* ---------- calories and macros ---------- */
-
-function CalorieRow({ kcal, basis, portion }: { kcal: number; basis: string; portion: string | null }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-[20px] bg-brand-soft py-3 pr-3.5 pl-[18px]">
-      <span className="num inline-flex min-w-0 items-baseline gap-1 text-[16px] font-semibold whitespace-nowrap text-ink">
-        <Flame className="size-[18px] shrink-0 self-center text-brand-deep" aria-hidden />
-        {fmt(kcal)} kcal <small className="text-[13px] font-medium text-subtle">{basis}</small>
-      </span>
-      {portion && <span className="num truncate text-[13px] text-subtle">{portion}</span>}
-    </div>
-  );
-}
-
-const MACROS: { key: "protein" | "carbs" | "fat"; label: string; icon: LucideIcon; text: string }[] = [
-  { key: "protein", label: "Protein", icon: Drumstick, text: "text-protein" },
-  { key: "carbs", label: "Carbs", icon: Wheat, text: "text-carbs" },
-  { key: "fat", label: "Fat", icon: Droplet, text: "text-fat" },
-];
-
-function MacroRings({ n }: { n: Nutrients }) {
-  const share = macroShare(n);
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      {MACROS.map(({ key, label, icon: Icon, text }) => (
-        <div key={key} className={cn(CARD, "grid justify-items-center gap-1.5 px-1.5 py-3 text-[13px] font-medium")}>
-          <span className="inline-flex items-center gap-1 whitespace-nowrap text-ink">
-            <Icon className={cn("size-4", text)} aria-hidden />
-            {label}
-          </span>
-          <div className={cn("relative size-[66px]", text)}>
-            <svg viewBox="0 0 66 66" className="size-full -rotate-90" aria-hidden>
-              <circle cx="33" cy="33" r="27" fill="none" stroke="currentColor" strokeOpacity=".16" strokeWidth="7" />
-              {share[key] > 0 && (
-                <circle cx="33" cy="33" r="27" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" pathLength={100} strokeDasharray={`${share[key]} 100`} />
-              )}
-            </svg>
-            <b className="num absolute inset-0 grid place-items-center text-[15px] tracking-[-0.02em] text-ink">{grams(n[key])}g</b>
-          </div>
-          <small className="num text-[11px] font-medium whitespace-nowrap text-subtle">{share[key]}% of kcal</small>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ---------- flags ---------- */
-
-function FlagChip({ icon: Icon, tone, children }: { icon: LucideIcon; tone: string; children: React.ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-[12px] bg-sunken px-[11px] py-[7px] text-[13px] font-medium whitespace-nowrap text-ink">
-      <Icon className={cn("size-4 shrink-0", tone)} aria-hidden />
-      {children}
-    </span>
-  );
-}
-
-const SODIUM_TONE = { low: "text-ok", medium: "text-warn", high: "text-bad" } as const;
-
-/**
- * Allergen, sodium and diet as short icon chips for a glance, then the allergen and diet sentences in
- * full (announced as alerts, as in M1/M2). Sodium is banded only per 100 g; a serving-only label gets a plain chip.
- */
-function FlagChips({ flags, sodiumMg, sodiumPer100, diet, ingredientsKnown }: {
-  flags: Flag[]; sodiumMg: number | undefined; sodiumPer100: number | undefined; diet: Diet; ingredientsKnown: boolean;
-}) {
-  const allergens = flags.filter((f) => f.type === "allergen");
-  const dietFit = dietChip(diet, flags, ingredientsKnown);
-  const chips = [
-    ...allergens.map((f) => (
-      <FlagChip key={f.key} icon={TriangleAlert} tone="text-bad">
-        {f.severity === "may_contain" ? "May contain" : "Contains"} {f.key.replace("_", " ")}
-      </FlagChip>
-    )),
-    sodiumMg !== undefined && (
-      <FlagChip key="sodium" icon={Droplets} tone={sodiumPer100 !== undefined ? SODIUM_TONE[sodiumLevel(sodiumPer100)] : "text-subtle"}>
-        <span className="num">Sodium {fmt(sodiumMg)} mg</span>
-      </FlagChip>
-    ),
-    dietFit && <FlagChip key="diet" icon={Leaf} tone={dietFit.fits ? "text-ok" : "text-bad"}>{dietFit.label}</FlagChip>,
-  ].filter(Boolean);
-  const warnings = warningFlags(flags);
-  if (chips.length === 0 && warnings.length === 0) return null;
-  return (
-    <>
-      {chips.length > 0 && (
-        <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="Flags">
-          {chips.map((c, i) => <li key={i} className="contents">{c}</li>)}
-        </ul>
-      )}
-      <FlagNotes flags={warnings} />
-    </>
-  );
-}
-
-/* ---------- better pick ---------- */
-
-function BetterPick({ r }: { r: ScanResult }) {
-  const alt = r.alternatives[0];
-  if (alt) {
-    return (
-      <Link href={`/foods/${alt.id}`} className="flex min-h-11 items-center gap-3 rounded-[20px] bg-grade-a/10 p-3 transition-colors hover:bg-grade-a/15">
-        <GradeBadge grade={alt.grade} size="md" />
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="block text-[12px] font-semibold tracking-[0.06em] text-subtle uppercase">Better pick</span>
-          <span className="block truncate font-semibold text-ink">{alt.name}</span>
-        </span>
-        <ChevronRight className="size-5 shrink-0 text-subtle" aria-hidden />
-      </Link>
-    );
-  }
-  if (!r.tip) return null;
-  return (
-    <p className="m-0 flex items-start gap-3 rounded-[20px] bg-grade-a/10 p-3.5 text-[14px] leading-snug text-ink">
-      <Lightbulb className="mt-px size-[18px] shrink-0 text-grade-a" aria-hidden />
-      <span><b className="block text-[12px] font-semibold tracking-[0.06em] text-subtle uppercase">Better pick</b>{r.tip}</span>
-    </p>
-  );
 }
 
 /* ---------- details ---------- */
@@ -298,10 +112,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
         {pack && <Tag icon={Scale}><span className="num">{pack}</span></Tag>}
         <Tag icon={mode.icon}>{mode.label}</Tag>
       </Tags>
-      <header className="text-center">
-        <h1 className="title m-0 text-[30px] leading-[1.05] font-[650] tracking-[-0.04em] text-ink">{r.name}</h1>
-        {r.brand && <p className="m-0 mt-1 text-[13px] text-subtle">{r.brand}</p>}
-      </header>
+      <ResultTitle name={r.name} brand={r.brand} />
 
       <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
         <div className="flex min-w-0 flex-col gap-3">
@@ -309,21 +120,10 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
           <CalorieRow kcal={shown.energyKcal} basis={basis} portion={portionText} />
           <MacroRings n={shown} />
           <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
-          <BetterPick r={r} />
+          <BetterPick alt={r.alternatives[0]} tip={r.tip} />
         </div>
         <div className="flex min-w-0 flex-col gap-3">
-          {(r.reasons.length > 0 || r.hints.length > 0 || goalFlags.length > 0) && (
-            <section className={cn(CARD, "flex flex-col gap-3")}>
-              <h2 className="section-title m-0">Why this grade</h2>
-              <ReasonList reasons={r.reasons} />
-              {r.hints.map((h) => (
-                <p key={h} className="m-0 flex items-start gap-2 text-sm text-subtle">
-                  <Info className="mt-0.5 size-4 shrink-0" aria-hidden />{h}
-                </p>
-              ))}
-              <FlagNotes flags={goalFlags} />
-            </section>
-          )}
+          <WhyGrade reasons={r.reasons} hints={r.hints} goalFlags={goalFlags} />
           <IngredientsUnknownNote ingredientsKnown={r.ingredients.length > 0} hasAllergies={hasAllergies} />
           {r.kind === "meal" && r.items && r.items.length > 0 && <MealItems items={r.items} unit={unit} />}
           <section className={CARD}>

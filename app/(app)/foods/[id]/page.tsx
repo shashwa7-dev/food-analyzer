@@ -1,56 +1,85 @@
 import { notFound } from "next/navigation";
+import { Database, Scale } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { foodDetail } from "@/lib/foods/service";
+import { SOURCE_LABEL, sourceLine } from "@/lib/foods/display";
+import { foodIconKey } from "@/lib/foods/icon";
 import { defaultMealIn, todayIn } from "@/lib/dates";
-import { GradeStrip, GradeBadge } from "@/components/grade-badge";
-import { AddToMeal } from "@/components/food/add-to-meal";
-import { FoodOwnerActions } from "@/components/food/food-owner-actions";
-import { FlagList, ReasonList } from "@/components/food/food-verdict";
-import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
-import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
 import { nutrientsFor } from "@/lib/nutrition/portions";
+import { oneLineReason, packSize, typicalPortion } from "@/lib/scans/result-display";
+import type { Grade } from "@/lib/nutrition/types";
+import { FOOD_ICON } from "@/components/food/food-icon";
+import {
+  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroRings, ResultTitle, Tag, Tags, WhyGrade,
+} from "@/components/food/result-parts";
+import { FoodAddBar, FoodTopBar } from "@/components/food/food-detail-actions";
+import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
+import { IngredientsUnknownNote, INGREDIENTS_UNKNOWN_NOTE } from "@/components/food/ingredients-unknown-note";
 import { NutritionTable } from "@/components/food/nutrition-table";
-import Link from "next/link";
 
+/**
+ * A food's page (spec §6, C1), laid out like a scan result: tag chips, the name, the grade hero with
+ * per-100 calories and macro rings, personal flags, a better pick, then "Why this grade" and the
+ * nutrition table for the default portion; "Add to {Meal}" stays at the bottom.
+ */
 export default async function FoodPage({ params }: { params: Promise<{ id: string }> }) {
   const { userId, profile } = await requireUser();
   const detail = await foodDetail(userId, (await params).id);
   if (!detail) notFound();
   const { food, reasons, flags, alternatives, ingredientsKnown } = detail;
+  const unit = food.basis === "per_100ml" ? "ml" : "g";
   const p = food.portions[food.defaultPortion] ?? food.portions[0]!;
-  const n = p.grams ? nutrientsFor(food.per100, p.grams) : food.per100;
-  const defaultMeal = defaultMealIn(profile.timezone);
+  const forPortion = p.grams ? nutrientsFor(food.per100, p.grams) : food.per100;
+  const typical = typicalPortion(food.portions, food.defaultPortion);
+  const portionText = typical ? `${typical.label} = ${fmt((food.per100.energyKcal * typical.grams!) / 100)} kcal` : null;
+  const iconKey = foodIconKey(food);
+  const pack = packSize(food.portions, unit);
+  const grade = food.grade as Grade | null;
+  const goalFlags = flags.filter((f) => f.type === "goal");
+  const hasAllergies = profile.allergies.length > 0;
+  const owner = food.source === "custom" && food.ownerId === userId;
+
   return (
-    <div className="flex flex-col gap-4">
-      <header>
-        <div className="text-sm text-subtle capitalize">{food.kind === "ingredient" ? "Ingredient" : food.kind}</div>
-        <h1 className="title text-[30px] md:text-[34px]">{food.name}</h1>{food.brand && <div className="text-sm text-subtle">{food.brand}</div>}
-        {food.source === "custom" && <div className="mt-3"><FoodOwnerActions id={food.id} name={food.name} /></div>}
-      </header>
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr] lg:items-start">
-        <div className="flex flex-col gap-4">
-          <section className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-5 shadow-card">
-            <div className="flex flex-wrap items-center justify-between gap-3.5"><GradeStrip grade={food.grade} />
-              {food.gradeValue !== null && <div className="text-right"><div className="num text-[26px] font-bold">{food.gradeValue}<span className="text-sm text-subtle">/100</span></div><div className="text-sm text-subtle">Health score</div></div>}</div>
-            <ReasonList reasons={reasons} />
-          </section>
-          <FlagList flags={flags} />
-          <IngredientsUnknownNote ingredientsKnown={ingredientsKnown} hasAllergies={profile.allergies.length > 0} />
-          <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
-            <AddToMeal food={food} target={{ kind: "food", foodId: food.id }} date={todayIn(profile.timezone)} defaultMeal={defaultMeal} />
-          </section>
+    <div data-no-phone-nav className="mx-auto flex w-full max-w-[1000px] flex-col gap-3">
+      <FoodTopBar foodId={food.id} owner={owner} />
+      <Tags>
+        <Tag icon={FOOD_ICON[iconKey]}>{CATEGORY[iconKey]}</Tag>
+        {pack && <Tag icon={Scale}><span className="num">{pack}</span></Tag>}
+        <Tag icon={Database}>{food.source === "custom" ? "My food" : (SOURCE_LABEL[food.source] ?? "Food")}</Tag>
+      </Tags>
+      <ResultTitle name={food.name} brand={food.brand} />
+
+      <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
+        <div className="flex min-w-0 flex-col gap-3">
+          <GradeHero grade={grade} reason={oneLineReason(reasons)} />
+          <CalorieRow kcal={food.per100.energyKcal} basis={`per 100 ${unit}`} portion={portionText} />
+          <MacroRings n={food.per100} />
+          <FlagChips flags={flags} sodiumMg={food.per100.sodiumMg} sodiumPer100={food.per100.sodiumMg} diet={profile.diet} ingredientsKnown={ingredientsKnown} />
+          <BetterPick alt={alternatives[0]} />
         </div>
-        <div className="flex flex-col gap-4">
-          <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
-            <NutritionTable nutrients={n} provenance={food.provenance} portionLabel={p.label} grams={p.grams} unit={food.basis === "per_100ml" ? "ml" : "g"} />
-            {food.ingredients.length > 0 && <p className="mt-2.5 text-sm text-subtle">Ingredients: {food.ingredients.join(", ")}</p>}
+        <div className="flex min-w-0 flex-col gap-3">
+          <WhyGrade reasons={reasons} goalFlags={goalFlags} />
+          <IngredientsUnknownNote ingredientsKnown={ingredientsKnown} hasAllergies={hasAllergies} />
+          <section className={CARD}>
+            <NutritionTable nutrients={forPortion} provenance={food.provenance} portionLabel={p.label} grams={p.grams} unit={unit} />
+            {food.ingredients.length > 0 && <p className="mt-2.5 mb-0 text-sm text-subtle">Ingredients: {food.ingredients.join(", ")}</p>}
             <div className="mt-2.5"><IndbSodiumNote source={food.source} /></div>
           </section>
-          {alternatives.length > 0 && <section className="rounded-lg border border-line bg-surface p-5 shadow-card"><h2 className="section-title mb-2.5">Healthier options</h2>
-            {alternatives.slice(0, 1).map((a) => <Link key={a.id} href={`/foods/${a.id}`} className="flex items-center gap-3 rounded-md border border-line p-3"><GradeBadge grade={a.grade} /><span className="font-semibold">{a.name}</span></Link>)}</section>}
+          <p className="m-0 px-1 text-[13px] text-subtle">Information only, not medical advice. Check the pack for allergens.</p>
         </div>
       </div>
-      <p className="text-sm text-subtle">Information only, not medical advice. Check the pack for allergens.</p>
+
+      <FoodAddBar
+        foodId={food.id}
+        food={{ name: food.name, per100: food.per100, portions: food.portions, defaultPortion: food.defaultPortion, basis: food.basis }}
+        iconKey={iconKey}
+        grade={food.grade}
+        subtitle={sourceLine(food)}
+        flags={flags}
+        note={!ingredientsKnown && hasAllergies ? INGREDIENTS_UNKNOWN_NOTE : null}
+        date={todayIn(profile.timezone)}
+        defaultMeal={defaultMealIn(profile.timezone)}
+      />
     </div>
   );
 }

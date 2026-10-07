@@ -1,4 +1,4 @@
-import type { Flag, Reason } from "@/lib/nutrition/types";
+import type { Reason } from "@/lib/nutrition/types";
 
 const TONE_DOT: Record<Reason["tone"], string> = { good: "bg-ok", warn: "bg-warn", bad: "bg-bad" };
 
@@ -12,19 +12,5 @@ export function ReasonList({ reasons }: { reasons: Reason[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** Allergen and diet flags in a bad-bordered box; goal notes on accent-soft. */
-export function FlagList({ flags }: { flags: Flag[] }) {
-  return (
-    <>
-      {flags.map((f) => (
-        <div key={f.type + f.key} role={f.type === "goal" ? undefined : "alert"}
-          className={`rounded-md border p-3.5 text-sm ${f.type === "goal" ? "border-line bg-accent-soft" : "border-bad"}`}>
-          {f.text}
-        </div>
-      ))}
-    </>
   );
 }

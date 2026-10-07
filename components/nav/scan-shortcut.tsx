@@ -1,13 +1,16 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const EDITABLE = "input, textarea, select, [contenteditable], [contenteditable='true']";
 
 /** Mounted once in the app layout: pressing S opens /scan, unless focus is in a field, a modifier is held, or a dialog/sheet is open. */
 export function ScanShortcut() {
   const router = useRouter();
+  const path = usePathname();
   useEffect(() => {
+    // Onboarding is a focused flow with no way to the scanner yet.
+    if (path.startsWith("/onboarding")) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "s" && e.key !== "S") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -19,6 +22,6 @@ export function ScanShortcut() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [router]);
+  }, [router, path]);
   return null;
 }

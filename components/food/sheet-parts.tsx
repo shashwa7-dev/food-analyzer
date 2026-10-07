@@ -1,9 +1,27 @@
 "use client";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { ChevronDown, Droplet, Drumstick, Flame, Info, ShieldAlert, TriangleAlert, Wheat } from "lucide-react";
 import { DAY_MEALS, MEAL_META } from "@/components/food/meal-meta";
+import { FoodIcon } from "@/components/food/food-icon";
+import { GradeBadge } from "@/components/grade-badge";
+import { SheetTitle } from "@/components/ui/responsive-sheet";
+import type { FoodIconKey } from "@/lib/foods/icon";
 import { cn } from "@/lib/utils";
 import type { Flag, Meal } from "@/lib/nutrition/types";
+
+/** The add sheet's head (mock-c1 `.sheet-head`): the food's icon, its name (the sheet's title) and a source line, then its grade. */
+export function FoodSheetHeader({ iconKey, name, subtitle, grade }: { iconKey: FoodIconKey; name: string; subtitle: ReactNode; grade: string | null }) {
+  return (
+    <div className="flex items-center gap-3">
+      <FoodIcon iconKey={iconKey} size="lg" tone="brand" />
+      <div className="min-w-0 flex-1 leading-tight">
+        <SheetTitle className="block truncate text-[18px] font-semibold tracking-[-0.02em] text-ink">{name}</SheetTitle>
+        <span className="block truncate text-[13px] text-subtle">{subtitle}</span>
+      </div>
+      <GradeBadge grade={grade} size="md" />
+    </div>
+  );
+}
 
 /** Portion chips plus Grams (mock-c1 `.units`): one row that never wraps; it scrolls sideways when the food has many portions. */
 export function UnitChips({ options, active, onPick }: {

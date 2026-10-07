@@ -18,7 +18,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [balance, historyCount] = await Promise.all([getBalance(userId), countVisibleScans(userId)]);
   const resetsLabel = resetDayLabel(balance.periodResetsAt, profile.timezone);
   return (
-    <div className="bg-wash min-h-dvh md:grid md:grid-cols-[252px_minmax(0,1fr)]">
+    // Onboarding (data-onboarding) has no nav, so it drops the sidebar column.
+    <div className="bg-wash min-h-dvh md:grid md:grid-cols-[252px_minmax(0,1fr)] md:has-[[data-onboarding]]:block">
       <AppNav
         credits={balance.credits}
         allowance={balance.allowance}

@@ -16,6 +16,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         targets: profile.targets ?? null,
       }}
       customTargets={allows(profile.plan, "customTargets")}
+      redo={redo}
     />
   );
 }

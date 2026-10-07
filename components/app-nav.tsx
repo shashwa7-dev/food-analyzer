@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, History, LineChart, ScanLine, Search, Settings, User } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { SidebarCredits } from "@/components/nav/sidebar-credits";
 import { Button } from "@/components/ui/button";
 import { initialsOf } from "@/lib/initials";
@@ -41,10 +42,12 @@ export function AppNav({
   historyCount: number;
 }) {
   const path = usePathname();
+  // Onboarding is a focused flow: its nav links would only bounce back to it.
+  if (path.startsWith("/onboarding")) return null;
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
-  // Food search, the scanner and a scan result are focused sub-pages with their own Back (mock-c1):
-  // no phone bottom nav there.
-  const phoneNav = path !== "/foods" && path !== "/scan" && !path.startsWith("/scans/");
+  // Food search, a food's page, the custom food form, the scanner and a scan result are focused
+  // sub-pages with their own Back (mock-c1): no phone bottom nav there.
+  const phoneNav = path !== "/foods" && !path.startsWith("/foods/") && path !== "/scan" && !path.startsWith("/scans/");
 
   return (
     <>
@@ -53,9 +56,7 @@ export function AppNav({
         aria-label="Main"
         className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-[252px] md:flex-col md:gap-3 md:border-r md:border-line md:bg-surface/55 md:px-3.5 md:py-5"
       >
-        <div className="px-2.5 text-xl font-bold tracking-[-0.04em]">
-          EATR<span className="ml-0.5 rounded-lg bg-brand px-1.5 text-brand-ink">i8</span>
-        </div>
+        <Logo className="px-2.5 text-xl" />
         <Button render={<Link href="/scan" />} nativeButton={false} shape="pill" size="xl" className="w-full justify-center gap-2.5 bg-brand text-brand-ink hover:bg-brand/90">
           <ScanLine aria-hidden />
           Scan food

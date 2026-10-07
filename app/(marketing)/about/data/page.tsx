@@ -1,4 +1,6 @@
-import Link from "next/link";
+import { ArrowUpRight, Database } from "lucide-react";
+import { IconTile } from "@/components/ui/icon-tile";
+import { MarketingPage } from "@/components/marketing/marketing-page";
 
 export const metadata = { title: "Data sources — EATRi8" };
 
@@ -22,26 +24,29 @@ const SOURCES = [
 
 export default function DataSourcesPage() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-4 py-10">
-      <Link href="/" className="text-sm text-subtle underline">
-        Back
-      </Link>
-      <div className="flex flex-col gap-2">
-        <h1 className="title text-2xl">Where our data comes from</h1>
-        <p className="text-sm text-subtle">
-          EATRi8 grades and nutrition figures are built on these open datasets. We&apos;re grateful to the teams that maintain them.
-        </p>
-      </div>
-      <ul className="flex flex-col gap-5">
+    <MarketingPage
+      title="Where our data comes from"
+      intro={<>EATRi8 grades and nutrition figures are built on these open datasets. We&apos;re grateful to the teams that maintain them.</>}
+    >
+      <ul className="m-0 -my-1 flex list-none flex-col p-0">
         {SOURCES.map((s) => (
-          <li key={s.name} className="flex flex-col gap-1">
-            <a href={s.href} target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2">
-              {s.name}
-            </a>
-            <p className="text-sm text-subtle">{s.detail}</p>
+          <li key={s.name} className="flex items-start gap-3 border-line py-3.5 not-first:border-t">
+            <IconTile tone="brand"><Database /></IconTile>
+            <div className="flex min-w-0 max-w-[65ch] flex-col gap-0.5">
+              <a
+                href={s.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center gap-1 self-start font-semibold text-ink underline underline-offset-2 -my-1.5"
+              >
+                {s.name}
+                <ArrowUpRight className="size-4 shrink-0 text-brand-deep" aria-hidden />
+              </a>
+              <p className="m-0 text-[14px] leading-normal text-subtle">{s.detail}</p>
+            </div>
           </li>
         ))}
       </ul>
-    </main>
+    </MarketingPage>
   );
 }
