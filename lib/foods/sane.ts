@@ -28,17 +28,20 @@ export function gradeStoredFood(f: GradeInputs): GradeResult {
  * provenance removed. The stored grade was computed with that value, so it isn't shown:
  * - a dropped nutrient the grade scores (sodium, sugars, sat fat, energy): the grade is unavailable
  *   (lib/nutrition/grade-unavailable.ts): grade "?", no value or components, `gradeUnavailable` the reason;
- * - anything else dropped (fibre, added sugars, trans fat): the grade is recomputed on what is shown.
+ * - anything else dropped (fibre, added sugars, trans fat): the grade is recomputed on what is shown;
+ * - a micro (a vitamin or mineral) dropped: only the value goes; the grade never reads one.
  * A frozen grade (a scan snapshot) is kept as it is either way. Rows that pass are returned as they are.
  *
  * Nothing is written back: a re-seed (and `pnpm regrade`, which grades on these same values) cleans
  * the stored data.
  */
 export function plausibleFood<T extends GradeInputs & Pick<FoodRow, "grade"> & Partial<Pick<FoodRow, "provenance" | "gradeValue" | "gradeComponents" | "gradeFrozen" | "portions" | "defaultPortion">>>(f: T): T & Plausibility {
-  const { per100, dropped } = dropImplausible(f.per100);
+  const { per100, dropped, droppedMicros } = dropImplausible(f.per100);
   // A default portion stored before the pack rule (lib/foods/seed-map.ts) is corrected on read too.
   const defaultPortion = f.portions && f.defaultPortion !== undefined ? saneDefaultPortion(f.portions, f.defaultPortion) : f.defaultPortion;
-  if (dropped.length === 0) return defaultPortion === f.defaultPortion ? f : { ...f, defaultPortion };
+  if (dropped.length === 0 && droppedMicros.length === 0) return defaultPortion === f.defaultPortion ? f : { ...f, defaultPortion };
+  // Only micros dropped: they carry no provenance and no grade reads them, so nothing else changes.
+  if (dropped.length === 0) return { ...f, per100, defaultPortion };
   const out: T & Plausibility = { ...f, per100, dropped, defaultPortion };
   if (f.provenance) {
     const provenance = { ...f.provenance };

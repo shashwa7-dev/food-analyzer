@@ -1,6 +1,24 @@
 export const NUTRIENT_KEYS = ["energyKcal", "protein", "carbs", "fat", "fibre", "sugars", "addedSugars", "satFat", "transFat", "sodiumMg"] as const;
 export type NutrientKey = (typeof NUTRIENT_KEYS)[number];
-export interface Nutrients {
+/**
+ * Vitamins, minerals and cholesterol, per 100 g/ml, in the unit their name ends with. Kept apart from
+ * NUTRIENT_KEYS on purpose: totals, targets, grading and provenance only ever read the keys above, so
+ * a micro is display data (the food page's "Vitamins & minerals", lib/nutrition/daily-values.ts) that
+ * travels with a food and scales with its portion (lib/nutrition/portions.ts) and nothing else.
+ * Vitamin A is µg RAE and folate µg DFE, the units the FDA Daily Values use.
+ */
+export const MICRO_KEYS = [
+  "cholesterolMg", "potassiumMg", "calciumMg", "ironMg", "magnesiumMg", "zincMg", "phosphorusMg",
+  "vitaminAUg", "vitaminCMg", "vitaminDUg", "vitaminEMg", "vitaminKUg",
+  "thiaminMg", "riboflavinMg", "niacinMg", "vitaminB6Mg", "folateUg", "vitaminB12Ug",
+] as const;
+export type MicroKey = (typeof MICRO_KEYS)[number];
+/** Every key a Nutrients value can hold: the macro set, then the micros. */
+export const ALL_NUTRIENT_KEYS = [...NUTRIENT_KEYS, ...MICRO_KEYS] as const;
+export type AnyNutrientKey = NutrientKey | MicroKey;
+export type Micronutrients = Partial<Record<MicroKey, number>>;
+
+export interface Nutrients extends Micronutrients {
   energyKcal: number; protein: number; carbs: number; fat: number;
   fibre?: number; sugars?: number; addedSugars?: number; satFat?: number; transFat?: number; sodiumMg?: number;
 }

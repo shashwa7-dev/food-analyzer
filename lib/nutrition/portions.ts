@@ -1,8 +1,9 @@
-import { NUTRIENT_KEYS, type Nutrients, type Portion } from "./types";
+import { ALL_NUTRIENT_KEYS, type Nutrients, type Portion } from "./types";
 
+/** Every value present (macros and micros) times `factor`; a missing value stays missing. */
 export function scaleNutrients(n: Nutrients, factor: number): Nutrients {
   const out: Partial<Nutrients> = {};
-  for (const key of NUTRIENT_KEYS) {
+  for (const key of ALL_NUTRIENT_KEYS) {
     const v = n[key];
     if (typeof v === "number") out[key] = Math.round(v * factor * 1000) / 1000;
   }

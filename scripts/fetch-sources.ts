@@ -1,11 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { gzipSync, unzipSync, strFromU8 } from "fflate";
 import ExcelJS from "exceljs";
-import type { Nutrients, Portion } from "@/lib/nutrition/types";
+import type { MicroKey, Nutrients, Portion } from "@/lib/nutrition/types";
 import type { SourceRecord } from "@/lib/foods/seed-map";
 // toSourceRecordOFF/OffRow now live in lib/foods/off-map.ts (shared with the runtime barcode lookup in
 // lib/engine/off.ts); re-exported here so nothing that imports them from this script breaks.
 import { toSourceRecordOFF, type OffRow } from "@/lib/foods/off-map";
+import { cleanMicros, FNDDS_MICRO_NUM, microsFromINDB } from "@/lib/foods/micros-map";
 
 export { toSourceRecordOFF };
 export type { OffRow };
@@ -31,6 +32,7 @@ export function toSourceRecordINDB(row: Record<string, unknown>): SourceRecord |
     fibre: num(row.fibre_g), addedSugars: num(row.freesugar_g), sugars: num(row.freesugar_g),
     satFat: num(row.sfa_mg) !== undefined ? num(row.sfa_mg)! / 1000 : undefined, sodiumMg: num(row.sodium_mg),
   });
+  Object.assign(per100, microsFromINDB(row));
   const servKcal = num(row.unit_serving_energy_kcal);
   const unit = typeof row.servings_unit === "string" ? row.servings_unit.trim() : "";
   const portions: Portion[] = servKcal && unit ? [{ label: `1 ${unit}`, amount: 1, unit: "household", grams: Math.round((servKcal / kcal) * 100) }] : [];
@@ -46,16 +48,19 @@ const FNDDS_NUM: Record<string, keyof Nutrients> = { "208": "energyKcal", "203":
 
 export function toSourceRecordFNDDS(f: FnddsFood): SourceRecord | null {
   const n: Partial<Nutrients> = {};
+  const micros: Partial<Record<MicroKey, number>> = {};
   for (const fn of f.foodNutrients) {
     const key = FNDDS_NUM[fn.nutrient.number];
     if (key && typeof fn.amount === "number") n[key] = fn.amount;
+    const micro = FNDDS_MICRO_NUM[fn.nutrient.number];
+    if (micro && typeof fn.amount === "number") micros[micro] = fn.amount;
   }
   if (n.energyKcal === undefined || n.protein === undefined || n.carbs === undefined || n.fat === undefined) return null;
   const portions: Portion[] = (f.foodPortions ?? [])
     .filter((p) => p.gramWeight > 0 && !/not specified/i.test(p.portionDescription))
     .slice(0, 6)
     .map((p) => ({ label: p.portionDescription, amount: 1, unit: "household", grams: Math.round(p.gramWeight) }));
-  return { source: "fndds", sourceRef: String(f.fdcId), name: f.description, basis: "per_100g", per100: clean(n), portions, wweia: f.wweiaFoodCategory?.wweiaFoodCategoryDescription, countries: ["US"] };
+  return { source: "fndds", sourceRef: String(f.fdcId), name: f.description, basis: "per_100g", per100: { ...clean(n), ...cleanMicros(micros) }, portions, wweia: f.wweiaFoodCategory?.wweiaFoodCategoryDescription, countries: ["US"] };
 }
 
 async function fetchINDB() {
@@ -109,7 +114,9 @@ async function fetchOFFIndia() {
   await con.run("INSTALL httpfs; LOAD httpfs;");
   // HF rate-limits (HTTP 429) bursts of range requests against this ~5.7 GB file; back off and retry.
   await con.run("SET http_retries=12; SET http_retry_wait_ms=3000; SET http_retry_backoff=1.8; SET http_timeout=120000;");
-  const url = "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/food.parquet";
+  // OFF_PARQUET=<path> reads a local copy instead (curl -L -C - the URL below first): one 5.7 GB download
+  // is kinder to HF's rate limit than DuckDB's thousands of range requests, and survives a retry.
+  const url = process.env.OFF_PARQUET ?? "https://huggingface.co/datasets/openfoodfacts/product-database/resolve/main/food.parquet";
   const reader = await con.runAndReadAll(`
     SELECT code, product_name, brands, categories_tags, nutriments, serving_quantity, product_quantity,
            nova_group, additives_tags, allergens_tags, traces_tags, ingredients_text, nutriscore_grade

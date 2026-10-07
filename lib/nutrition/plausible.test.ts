@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dropImplausible, implausibleKeys, outOfRangeKeys, PER100_MAX } from "./plausible";
+import { dropImplausible, implausibleKeys, implausibleMicroKeys, MICRO_MAX, outOfRangeKeys, PER100_MAX } from "./plausible";
+import { MICRO_KEYS } from "./types";
 
 const base = { energyKcal: 129, protein: 4.3, carbs: 12.1, fat: 6.8 };
 
@@ -69,5 +70,38 @@ describe("plausibility bounds", () => {
 
   it("outOfRangeKeys is the range half only (no part-of-whole checks)", () => {
     expect(outOfRangeKeys({ ...base, carbs: 0, sugars: 50, sodiumMg: 50_000 })).toEqual(["sodiumMg"]);
+  });
+
+  describe("micronutrients", () => {
+    it("bounds every micro", () => {
+      expect(Object.keys(MICRO_MAX).sort()).toEqual([...MICRO_KEYS].sort());
+    });
+
+    it("keeps the richest real foods: cod liver oil, Kakadu plum, dried basil, yeast extract", () => {
+      expect(implausibleMicroKeys({ vitaminAUg: 30_000, vitaminDUg: 250 })).toEqual([]);
+      expect(implausibleMicroKeys({ vitaminCMg: 5_300 })).toEqual([]);
+      expect(implausibleMicroKeys({ vitaminKUg: 1_700 })).toEqual([]);
+      expect(implausibleMicroKeys({ niacinMg: 130, folateUg: 3_000, vitaminB12Ug: 500 })).toEqual([]);
+      expect(implausibleMicroKeys({ calciumMg: 1_200, ironMg: 124, cholesterolMg: 2_300 })).toEqual([]);
+    });
+
+    it("drops a 1,000× unit slip (mg typed as g, µg as mg)", () => {
+      expect(implausibleMicroKeys({ calciumMg: 120_000 })).toEqual(["calciumMg"]); // 120 g calcium per 100 g
+      expect(implausibleMicroKeys({ vitaminDUg: 2_500 })).toEqual(["vitaminDUg"]); // 2.5 mg read as µg ×1000
+      expect(implausibleMicroKeys({ vitaminB12Ug: 2_400 })).toEqual(["vitaminB12Ug"]);
+      expect(implausibleMicroKeys({ ironMg: -1, zincMg: Number.NaN })).toEqual(["ironMg", "zincMg"]);
+    });
+
+    it("drops a bad micro without reporting it as a dropped macro (grades never read micros)", () => {
+      const r = dropImplausible({ ...base, sodiumMg: 300, calciumMg: 120_000, ironMg: 2 });
+      expect(r.per100).toEqual({ ...base, sodiumMg: 300, ironMg: 2 });
+      expect(r.dropped).toEqual([]);
+      expect(r.droppedMicros).toEqual(["calciumMg"]);
+    });
+
+    it("returns the same object when the micros are plausible", () => {
+      const n = { ...base, calciumMg: 100, vitaminCMg: 4 };
+      expect(dropImplausible(n).per100).toBe(n);
+    });
   });
 });

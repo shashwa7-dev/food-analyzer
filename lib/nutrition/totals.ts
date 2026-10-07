@@ -1,6 +1,7 @@
-import { MEALS, NUTRIENT_KEYS, type DailyTargets, type Meal, type Nutrients } from "./types";
+import { MEALS, NUTRIENT_KEYS, type DailyTargets, type Meal, type NutrientKey, type Nutrients } from "./types";
 
-export type FullNutrients = Required<Nutrients>;
+/** Every macro-set nutrient, known or summed to 0 (micros are never totalled: see MICRO_KEYS). */
+export type FullNutrients = Required<Pick<Nutrients, NutrientKey>>;
 export interface TargetProgress {
   key: keyof DailyTargets; label: string; total: number; target: number;
   kind: "aim" | "limit"; remaining: number; overBy: number;

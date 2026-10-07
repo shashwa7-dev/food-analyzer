@@ -5,10 +5,11 @@ describe("INDB mapping", () => {
   it("maps per-100 g nutrients and derives serving grams from kcal", () => {
     const r = toSourceRecordINDB({
       food_code: "ASC001", food_name: "Hot tea (Garam Chai)", energy_kcal: 16.1443, carb_g: 2.582, protein_g: 0.388, fat_g: 0.532,
-      freesugar_g: 2.576, fibre_g: 0, sfa_mg: 321.5, sodium_mg: 3.12, servings_unit: "tea cup", unit_serving_energy_kcal: 33.98,
+      freesugar_g: 2.576, fibre_g: 0, sfa_mg: 321.5, sodium_mg: 3.12, calcium_mg: 14.204, servings_unit: "tea cup", unit_serving_energy_kcal: 33.98,
     })!;
     expect(r).toMatchObject({ source: "indb", sourceRef: "ASC001", name: "Hot tea (Garam Chai)", basis: "per_100g", countries: ["IN"] });
     expect(r.per100.satFat).toBeCloseTo(0.322, 3);
+    expect(r.per100.calciumMg).toBe(14.2);
     expect(r.per100.addedSugars).toBeCloseTo(2.576, 3);
     expect(r.portions[0]).toEqual({ label: "1 tea cup", amount: 1, unit: "household", grams: 210 });
   });
@@ -25,10 +26,15 @@ describe("FNDDS mapping", () => {
         { nutrient: { number: "208" }, amount: 61 }, { nutrient: { number: "203" }, amount: 3.27 }, { nutrient: { number: "205" }, amount: 4.63 },
         { nutrient: { number: "204" }, amount: 3.2 }, { nutrient: { number: "269" }, amount: 4.81 }, { nutrient: { number: "291" }, amount: 0 },
         { nutrient: { number: "606" }, amount: 1.86 }, { nutrient: { number: "307" }, amount: 38 },
+        { nutrient: { number: "301" }, amount: 123 }, { nutrient: { number: "320" }, amount: 32 }, { nutrient: { number: "418" }, amount: 0.45 },
+        { nutrient: { number: "401" }, amount: 0 }, { nutrient: { number: "435" }, amount: 5 }, { nutrient: { number: "601" }, amount: 12 },
       ],
       foodPortions: [{ portionDescription: "Quantity not specified", gramWeight: 0 }, { portionDescription: "1 cup", gramWeight: 244 }],
     })!;
-    expect(r.per100).toEqual({ energyKcal: 61, protein: 3.27, carbs: 4.63, fat: 3.2, sugars: 4.81, fibre: 0, satFat: 1.86, sodiumMg: 38 });
+    expect(r.per100).toEqual({
+      energyKcal: 61, protein: 3.27, carbs: 4.63, fat: 3.2, sugars: 4.81, fibre: 0, satFat: 1.86, sodiumMg: 38,
+      calciumMg: 123, vitaminAUg: 32, vitaminB12Ug: 0.45, folateUg: 5, cholesterolMg: 12, // vitamin C 0: left out
+    });
     expect(r.portions).toEqual([{ label: "1 cup", amount: 1, unit: "household", grams: 244 }]);
     expect(r.wweia).toBe("Milk, whole");
   });
