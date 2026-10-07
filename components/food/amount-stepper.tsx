@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
 import { formatAmount } from "@/lib/log/stepper";
+import { cn } from "@/lib/utils";
 
 const STEP = "grid size-12 shrink-0 place-items-center rounded-2xl bg-sunken text-ink transition-colors hover:bg-line disabled:opacity-40 disabled:hover:bg-sunken [&_svg]:size-[22px]";
 
@@ -10,16 +11,18 @@ const STEP = "grid size-12 shrink-0 place-items-center rounded-2xl bg-sunken tex
  * "{unit} · {grams} g" underneath. `input` swaps the number for a text field (grams can be typed,
  * as in M1); stepping and limits stay with the caller.
  */
-export function AmountStepper({ amount, sub, onStep, canDecrease, canIncrease, input }: {
+export function AmountStepper({ amount, sub, onStep, canDecrease, canIncrease, input, className }: {
   amount: number;
   sub: ReactNode;
   onStep: (dir: 1 | -1) => void;
   canDecrease: boolean;
   canIncrease: boolean;
   input?: { value: string; onChange: (value: string) => void; invalid: boolean; label: string };
+  /** Overrides for the frame, e.g. an outline instead of the card shadow inside a card. */
+  className?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-[22px] bg-surface p-2 shadow-card">
+    <div className={cn("flex items-center justify-between gap-2 rounded-[22px] bg-surface p-2 shadow-card", className)}>
       <button type="button" className={STEP} aria-label="Less" disabled={!canDecrease} onClick={() => onStep(-1)}>
         <Minus aria-hidden />
       </button>

@@ -9,6 +9,7 @@ import { useLogEntry } from "@/components/food/use-log-entry";
 import { logEntryBody, MAX_QUANTITY, type LogTarget } from "@/lib/log/quantity";
 import { minAmount, multiplierUnit, stepAmount, unitChipLabel, unitWord } from "@/lib/log/stepper";
 import { parseAmount } from "@/lib/parse-amount";
+import { cn } from "@/lib/utils";
 import type { Meal, Nutrients, Portion, PortionUnit } from "@/lib/nutrition/types";
 
 /** per100 null (+ perServing): a per-serving label with no serving weight — logged by servings only, never by grams. */
@@ -26,8 +27,10 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
  * result (kinds scan/scan_grams); `food` supplies what's shown in both cases. The bare "100 g"
  * portion every food carries is the Grams chip, not a chip of its own.
  */
-export function AddToMeal({ food, target, date, defaultMeal, onDone, notes }: {
+export function AddToMeal({ food, target, date, defaultMeal, onDone, notes, layout = "sheet" }: {
   food: LoggableFood; target: LogTarget; date: string; defaultMeal: Meal; onDone?: () => void; notes?: ReactNode;
+  /** "panel": the food page's side card (mock-c1 "Food detail" C): meal first, an outlined stepper. */
+  layout?: "sheet" | "panel";
 }) {
   const logEntry = useLogEntry();
   const servingsOnly = food.per100 === null;
@@ -88,18 +91,24 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone, notes }: {
     if (id) onDone?.();
   }
 
+  const panel = layout === "panel";
+  const stepper = (
+    <AmountStepper
+      amount={amount}
+      sub={sub}
+      onStep={step}
+      canDecrease={amount > minAmount(stepUnit)}
+      canIncrease={amount < max}
+      input={isGrams ? { value: gramsText, onChange: setGramsText, invalid: !gramsValid, label: `Amount in ${unit}` } : undefined}
+      className={panel ? "border border-line shadow-none" : undefined}
+    />
+  );
   return (
-    <div className="flex flex-col gap-3.5">
-      <AmountStepper
-        amount={amount}
-        sub={sub}
-        onStep={step}
-        canDecrease={amount > minAmount(stepUnit)}
-        canIncrease={amount < max}
-        input={isGrams ? { value: gramsText, onChange: setGramsText, invalid: !gramsValid, label: `Amount in ${unit}` } : undefined}
-      />
+    <div className={cn("flex min-w-0 flex-col", panel ? "gap-3" : "gap-3.5")}>
+      {panel && <MealTiles meal={meal} onPick={setMeal} />}
+      {stepper}
       {options.length > 1 && <UnitChips options={options} active={String(mode)} onPick={pick} />}
-      <MealTiles meal={meal} onPick={setMeal} />
+      {!panel && <MealTiles meal={meal} onPick={setMeal} />}
       <LiveMacros kcal={n.energyKcal} protein={n.protein} carbs={n.carbs} fat={n.fat} />
       {notes}
       <Button type="button" shape="pill" size="xl" className="h-[54px] w-full" disabled={pending || !canAdd} onClick={() => void add()}>

@@ -1,5 +1,6 @@
 // Pure helpers for the C1 scan result (spec §6.11): the grade hero's verdict and one-line reason,
 // the calorie row's portion, the macro rings' share of calories and the sodium chip's level.
+import { limitLevel, type Level } from "@/lib/nutrition/nutrient-display";
 import type { Diet, Flag, Grade, Nutrients, Portion, Reason } from "@/lib/nutrition/types";
 
 export const VERDICT: Record<Grade, string> = {
@@ -45,8 +46,8 @@ export function macroShare(n: Pick<Nutrients, "protein" | "carbs" | "fat">): { p
 }
 
 /** Sodium per 100 g: low up to 120 mg, high over 600 mg (0.3 g and 1.5 g salt, the UK FSA bands). */
-export function sodiumLevel(mgPer100: number): "low" | "medium" | "high" {
-  return mgPer100 > 600 ? "high" : mgPer100 > 120 ? "medium" : "low";
+export function sodiumLevel(mgPer100: number, basis: "per_100g" | "per_100ml" = "per_100g"): Level {
+  return limitLevel("sodiumMg", mgPer100, basis);
 }
 
 /** The calorie row's "typical portion": the default portion when it has a weight and isn't the bare 100 g. */

@@ -1,27 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Database, Scale } from "lucide-react";
+import { Database } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { foodDetail } from "@/lib/foods/service";
 import { SOURCE_NAME, SOURCE_SHORT, sourceLine } from "@/lib/foods/display";
 import { foodIconKey } from "@/lib/foods/icon";
 import { defaultMealIn, todayIn } from "@/lib/dates";
+import { moreNutrientRows, vitaminMineralRows } from "@/lib/nutrition/nutrient-display";
 import { nutrientsFor } from "@/lib/nutrition/portions";
-import { oneLineReason, packSize, typicalPortion } from "@/lib/scans/result-display";
+import { oneLineReason, packSize, typicalPortion, warningFlags } from "@/lib/scans/result-display";
 import type { Grade } from "@/lib/nutrition/types";
-import { FOOD_ICON } from "@/components/food/food-icon";
 import {
-  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroRings, ResultTitle, Tag, Tags, WhyGrade,
+  BetterPick, BigCalories, CATEGORY, DietChip, DV_NOTE, fmt, FoodTitle, MacroCards, NutrientGrid, VerdictLine,
 } from "@/components/food/result-parts";
-import { FoodAddBar, FoodTopBar } from "@/components/food/food-detail-actions";
+import { DetailTabs } from "@/components/food/detail-tabs";
+import { FoodAddBar, FoodAddPanel, FoodTopBar } from "@/components/food/food-detail-actions";
+import { ReasonList } from "@/components/food/food-verdict";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { IngredientsUnknownNote, INGREDIENTS_UNKNOWN_NOTE } from "@/components/food/ingredients-unknown-note";
-import { NutritionTable } from "@/components/food/nutrition-table";
+import { FullNutritionTable, PROVENANCE_LABEL, dominantProvenance } from "@/components/food/nutrition-table";
+import { FlagNotes } from "@/components/food/sheet-parts";
 
 /**
- * A food's page (spec §6, C1), laid out like a scan result: tag chips, the name, the grade hero with
- * per-100 calories and macro rings, personal flags, a better pick, then "Why this grade" and the
- * nutrition table for the default portion; "Add to {Meal}" stays at the bottom.
+ * A food's page (mock-c1 "Food detail", option C). Left: the name, one verdict line, big calories,
+ * Protein/Carbs/Fat cards, every other nutrient the food holds as cards (vitamins and minerals with
+ * % DV), then tabs for why it got its grade and its ingredients (with the full table). Right, from
+ * 900 px: a sticky "Add to a meal" card and the better pick. Phones stack, with the better pick inline
+ * and the sticky "Add to {Meal}" bar that opens the add sheet.
  */
 export default async function FoodPage({ params }: { params: Promise<{ id: string }> }) {
   const { userId, profile } = await requireUser();
@@ -29,66 +34,97 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
   if (!detail) notFound();
   const { food, reasons, flags, alternatives, ingredientsKnown, gradeUnavailable } = detail;
   const unit = food.basis === "per_100ml" ? "ml" : "g";
-  const p = food.portions[food.defaultPortion] ?? food.portions[0]!;
-  const forPortion = p.grams ? nutrientsFor(food.per100, p.grams) : food.per100;
+  const per = `per 100 ${unit}`;
   const typical = typicalPortion(food.portions, food.defaultPortion);
   const portionText = typical ? `${typical.label} = ${fmt((food.per100.energyKcal * typical.grams!) / 100)} kcal` : null;
   const iconKey = foodIconKey(food);
-  const pack = packSize(food.portions, unit);
   const grade = food.grade as Grade | null;
   const goalFlags = flags.filter((f) => f.type === "goal");
   const hasAllergies = profile.allergies.length > 0;
   const owner = food.source === "custom" && food.ownerId === userId;
+  // "Amul · Packaged · 200 g pack · per 100 g"; a reference food names its table instead of a brand ("Dish · INDB · per 100 g").
+  const kindWord = food.source === "custom" ? "My food" : iconKey === "default" ? null : CATEGORY[iconKey];
+  const meta = [food.brand, kindWord, packSize(food.portions, unit), food.source === "indb" || food.source === "fndds" ? SOURCE_SHORT[food.source] : null, per]
+    .filter(Boolean).join(" · ");
+  const loggable = { name: food.name, per100: food.per100, portions: food.portions, defaultPortion: food.defaultPortion, basis: food.basis };
+  const date = todayIn(profile.timezone);
+  const meal = defaultMealIn(profile.timezone);
+  const better = <BetterPick alt={alternatives[0]} />;
+  const whyLabel = gradeUnavailable || !grade ? "Why no grade" : `Why ${grade}`;
+  const provenance = dominantProvenance(food.provenance);
+
+  const why = (
+    <div className="flex flex-col gap-3 text-[14px]">
+      <ReasonList reasons={reasons} />
+      <FlagNotes flags={goalFlags} />
+    </div>
+  );
+  const ingredients = (
+    <div className="flex flex-col gap-3 text-[14px]">
+      {food.ingredients.length > 0
+        ? <p className="m-0 leading-normal text-ink">{food.ingredients.join(", ")}</p>
+        : <p className="m-0 text-subtle">No ingredient list for this food.</p>}
+      <IndbSodiumNote source={food.source} />
+      {SOURCE_NAME[food.source] && (
+        food.source === "custom" ? (
+          <p className="m-0 inline-flex items-center gap-1.5 text-[13px] text-subtle"><Database className="size-3.5 shrink-0" aria-hidden />{SOURCE_NAME.custom}</p>
+        ) : (
+          <Link href="/about/data" className="-my-2 inline-flex min-h-11 items-center gap-1.5 self-start text-[13px] text-subtle underline-offset-2 hover:underline">
+            <Database className="size-3.5 shrink-0" aria-hidden />{SOURCE_NAME[food.source]} · {PROVENANCE_LABEL[provenance].toLowerCase()}
+          </Link>
+        )
+      )}
+      <FullNutritionTable
+        per100={food.per100}
+        portion={typical ? { label: typical.label, grams: typical.grams, nutrients: nutrientsFor(food.per100, typical.grams!) } : null}
+        provenance={food.provenance}
+        unit={unit}
+      />
+    </div>
+  );
 
   return (
-    <div data-no-phone-nav className="mx-auto flex w-full max-w-[1000px] flex-col gap-3">
+    <div data-no-phone-nav className="mx-auto flex w-full max-w-[1040px] flex-col gap-4">
       <FoodTopBar foodId={food.id} owner={owner} />
-      <Tags>
-        <Tag icon={FOOD_ICON[iconKey]}>{CATEGORY[iconKey]}</Tag>
-        {pack && <Tag icon={Scale}><span className="num">{pack}</span></Tag>}
-        {SOURCE_SHORT[food.source] && <Tag icon={Database}>{SOURCE_SHORT[food.source]}</Tag>}
-      </Tags>
-      <ResultTitle name={food.name} brand={food.brand} />
 
-      <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
-        <div className="flex min-w-0 flex-col gap-3">
-          <GradeHero grade={grade} reason={oneLineReason(reasons, grade)} unavailable={gradeUnavailable} />
-          <CalorieRow kcal={food.per100.energyKcal} basis={`per 100 ${unit}`} portion={portionText} />
-          <MacroRings n={food.per100} />
-          <FlagChips flags={flags} sodiumMg={food.per100.sodiumMg} sodiumPer100={food.per100.sodiumMg} diet={profile.diet} ingredientsKnown={ingredientsKnown} />
-          <BetterPick alt={alternatives[0]} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-3">
-          <WhyGrade reasons={reasons} goalFlags={goalFlags} />
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] md:items-start md:gap-6">
+        <div className="flex min-w-0 flex-col gap-4">
+          <FoodTitle name={food.name} meta={meta} />
+          <VerdictLine
+            grade={grade}
+            reason={oneLineReason(reasons, grade)}
+            unavailable={gradeUnavailable}
+            chip={<DietChip diet={profile.diet} flags={flags} ingredientsKnown={ingredientsKnown} />}
+          />
+          <FlagNotes flags={warningFlags(flags)} />
           <IngredientsUnknownNote ingredientsKnown={ingredientsKnown} hasAllergies={hasAllergies} />
-          <section className={CARD}>
-            <NutritionTable nutrients={forPortion} provenance={food.provenance} portionLabel={p.label} grams={p.grams} unit={unit} />
-            {food.ingredients.length > 0 && <p className="mt-2.5 mb-0 text-sm text-subtle">Ingredients: {food.ingredients.join(", ")}</p>}
-            <div className="mt-2.5"><IndbSodiumNote source={food.source} /></div>
-            {SOURCE_NAME[food.source] && (
-              food.source === "custom" ? (
-                <p className="mt-2.5 mb-0 text-sm text-subtle">Source: {SOURCE_NAME.custom}</p>
-              ) : (
-                <Link href="/about/data" className="-mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-subtle underline underline-offset-2">
-                  Source: {SOURCE_NAME[food.source]}
-                </Link>
-              )
-            )}
-          </section>
+          <BigCalories kcal={food.per100.energyKcal} basis={per} portion={portionText} />
+          <MacroCards n={food.per100} />
+          {alternatives[0] && <div className="md:hidden">{better}</div>}
+          <NutrientGrid title="More nutrients" basis={per} rows={moreNutrientRows(food.per100, food.per100, food.basis)} />
+          <NutrientGrid title="Vitamins & minerals" basis={per} rows={vitaminMineralRows(food.per100)} note={DV_NOTE} />
+          <DetailTabs
+            label="Details"
+            tabs={[{ id: "why", label: whyLabel, panel: why }, { id: "ingredients", label: "Ingredients", panel: ingredients }]}
+          />
           <p className="m-0 px-1 text-[13px] text-subtle">Information only, not medical advice. Check the pack for allergens.</p>
         </div>
+
+        <aside className="hidden min-w-0 md:sticky md:top-4 md:block">
+          <FoodAddPanel foodId={food.id} food={loggable} date={date} defaultMeal={meal} footer={better} />
+        </aside>
       </div>
 
       <FoodAddBar
         foodId={food.id}
-        food={{ name: food.name, per100: food.per100, portions: food.portions, defaultPortion: food.defaultPortion, basis: food.basis }}
+        food={loggable}
         iconKey={iconKey}
         grade={food.grade}
         subtitle={sourceLine(food)}
         flags={flags}
         note={!ingredientsKnown && hasAllergies ? INGREDIENTS_UNKNOWN_NOTE : null}
-        date={todayIn(profile.timezone)}
-        defaultMeal={defaultMealIn(profile.timezone)}
+        date={date}
+        defaultMeal={meal}
       />
     </div>
   );

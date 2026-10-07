@@ -8,6 +8,7 @@ import { scanErrorAction } from "@/lib/scans/messages";
 import { oneLineReason, packSize, typicalPortion } from "@/lib/scans/result-display";
 import { foodIconKey, type FoodIconKey } from "@/lib/foods/icon";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
+import { moreNutrientRows, vitaminMineralRows } from "@/lib/nutrition/nutrient-display";
 import { nutrientsFor } from "@/lib/nutrition/portions";
 import type { Diet, Meal, Nutrients } from "@/lib/nutrition/types";
 import type { ScanResult } from "@/lib/engine/result";
@@ -15,11 +16,12 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { FOOD_ICON, FoodIcon } from "@/components/food/food-icon";
 import {
-  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroRings, ResultTitle, Tag, Tags, WhyGrade,
+  BetterPick, CalorieRow, CARD, CATEGORY, DV_NOTE, FlagChips, fmt, GradeHero, MacroCards, NutrientGrid, ResultTitle, Tag, Tags, WhyGrade,
 } from "@/components/food/result-parts";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
-import { NutritionTable } from "@/components/food/nutrition-table";
+import { FullNutritionTable } from "@/components/food/nutrition-table";
+import { cn } from "@/lib/utils";
 import { MODE_META } from "./mode-meta";
 import { ResultActions, ResultTopBar } from "./scan-result";
 
@@ -119,18 +121,28 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
         <div className="flex min-w-0 flex-col gap-3">
           <GradeHero grade={r.grade} reason={oneLineReason(r.reasons, r.grade)} unavailable={r.gradeUnavailable} />
           <CalorieRow kcal={shown.energyKcal} basis={basis} portion={portionText} />
-          <MacroRings n={shown} />
-          <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
+          <MacroCards n={shown} />
+          <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} basis={r.basis} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
           <BetterPick alt={r.alternatives[0]} tip={r.tip} />
+          <NutrientGrid title="More nutrients" basis={basis} rows={moreNutrientRows(shown, r.per100, r.basis)} />
+          <NutrientGrid title="Vitamins & minerals" basis={basis} rows={vitaminMineralRows(shown)} note={DV_NOTE} />
         </div>
         <div className="flex min-w-0 flex-col gap-3">
           <WhyGrade reasons={r.reasons} hints={r.hints} goalFlags={goalFlags} />
           <IngredientsUnknownNote ingredientsKnown={r.ingredients.length > 0} hasAllergies={hasAllergies} />
           {r.kind === "meal" && r.items && r.items.length > 0 && <MealItems items={r.items} unit={unit} />}
-          <section className={CARD}>
-            <NutritionTable nutrients={forPortion} provenance={r.provenance} portionLabel={p?.label ?? `100 ${unit}`} grams={p?.grams ?? null} unit={unit} />
-            {r.ingredients.length > 0 && <p className="mt-2.5 mb-0 text-sm text-subtle">Ingredients: {r.ingredients.join(", ")}</p>}
-            {fromIndb && <div className="mt-2.5"><IndbSodiumNote source="indb" /></div>}
+          <section className={cn(CARD, "flex flex-col gap-2.5")}>
+            <h2 className="section-title m-0">Ingredients</h2>
+            {r.ingredients.length > 0
+              ? <p className="m-0 text-sm leading-normal text-ink">{r.ingredients.join(", ")}</p>
+              : <p className="m-0 text-sm text-subtle">No ingredient list was read.</p>}
+            {fromIndb && <IndbSodiumNote source="indb" />}
+            <FullNutritionTable
+              per100={r.per100}
+              portion={!r.per100 ? (p ? { label: p.label, grams: p.grams, nutrients: forPortion } : null) : typical || isMeal ? { label: p!.label, grams: p!.grams, nutrients: forPortion } : null}
+              provenance={r.provenance}
+              unit={unit}
+            />
           </section>
           <SourceLine view={view} credits={credits} />
           <Button render={<Link href={`/scan${scanQuery(sp)}`} />} nativeButton={false} variant="ghost-sunken" shape="pill" size="lg" className="self-center">

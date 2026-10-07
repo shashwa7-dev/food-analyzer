@@ -1,10 +1,12 @@
-// The C1 result layout shared by a scan result (/scans/[id]) and a food's page (/foods/[id]), after
-// mock-c1 "Scan result": tag chips, the grade hero, the calorie row, macro rings, flag chips, the
-// better pick, "Why this grade" and the sticky action bar. Server-safe: no hooks, data comes in as props.
+// Result parts shared by a scan result (/scans/[id]) and a food's page (/foods/[id]), after mock-c1:
+// tag chips, the grade hero (scans) or the one-line verdict (food pages), calories, the macro cards,
+// the "More nutrients" and "Vitamins & minerals" cards, flag chips, the better pick, "Why this grade"
+// and the sticky action bar. Server-safe: no hooks, data comes in as props.
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronRight, Droplet, Droplets, Drumstick, Flame, Info, Leaf, Lightbulb, TriangleAlert, Wheat, type LucideIcon } from "lucide-react";
 import { dietChip, macroShare, sodiumLevel, verdict, warningFlags } from "@/lib/scans/result-display";
+import { formatAmount, type Level, type NutrientRow } from "@/lib/nutrition/nutrient-display";
 import type { FoodIconKey } from "@/lib/foods/icon";
 import type { Diet, Flag, Grade, Nutrients, Reason } from "@/lib/nutrition/types";
 import { GRADE_FILL, GradeBadge } from "@/components/grade-badge";
@@ -55,6 +57,66 @@ export function ResultTitle({ name, brand }: { name: string; brand?: string | nu
       </h1>
       {brand && <p className="m-0 mt-1 truncate text-[13px] text-subtle">{brand}</p>}
     </header>
+  );
+}
+
+/**
+ * A food page's title (mock-c1 "Food detail" C): the name, left-aligned, and one muted meta line
+ * ("Amul · Packaged · per 100 g"). A long name steps down a size and stops at three lines.
+ */
+export function FoodTitle({ name, meta }: { name: string; meta: string }) {
+  const long = name.length > 40;
+  return (
+    <header className="min-w-0">
+      <h1
+        title={long ? name : undefined}
+        className={cn("title m-0 line-clamp-3 leading-[1.1] font-[650] tracking-[-0.035em] break-words text-ink", long ? "text-[24px]" : "text-[30px]")}
+      >
+        {name}
+      </h1>
+      <p className="m-0 mt-1 truncate text-[13px] text-subtle">{meta}</p>
+    </header>
+  );
+}
+
+/**
+ * The one-line grade (replaces the hero on a food page): the badge, the verdict and its one reason,
+ * and an optional chip on the right (the diet chip). With `unavailable` the badge is the neutral "?"
+ * and the reason is why.
+ */
+export function VerdictLine({ grade, reason, unavailable, chip }: { grade: Grade | null; reason: string | null; unavailable?: string | null; chip?: ReactNode }) {
+  return (
+    <section className="flex items-center gap-3.5" aria-label="Grade">
+      <GradeBadge grade={unavailable ? GRADE_UNAVAILABLE : grade} size="md" />
+      <p className="m-0 min-w-0 flex-1 text-[13.5px] leading-[1.35] text-subtle">
+        <b className="block text-[17px] font-semibold text-ink">{unavailable ? "Grade unavailable" : verdict(grade)}</b>
+        {unavailable ?? reason}
+      </p>
+      {chip}
+    </section>
+  );
+}
+
+/** The diet chip ("Veg", "Not Vegan") for the verdict line, only where lib/scans/result-display.ts dietChip allows one. */
+export function DietChip({ diet, flags, ingredientsKnown }: { diet: Diet; flags: Flag[]; ingredientsKnown: boolean }) {
+  const fit = dietChip(diet, flags, ingredientsKnown);
+  if (!fit) return null;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sunken px-3 py-[7px] text-[13px] font-semibold whitespace-nowrap text-ink">
+      <Leaf className={cn("size-[15px]", fit.fits ? "text-ok" : "text-bad")} aria-hidden />
+      {fit.label}
+    </span>
+  );
+}
+
+/** Big calories ("289 kcal per 100 g") and, when there is one, the typical portion's ("1 katori = 220 kcal"). */
+export function BigCalories({ kcal, basis, portion }: { kcal: number; basis: string; portion: string | null }) {
+  return (
+    <p className="m-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <b className="num text-[44px] leading-none font-[650] tracking-[-0.045em] text-ink">{fmt(kcal)}</b>
+      <span className="text-[14px] whitespace-nowrap text-subtle">kcal {basis}</span>
+      {portion && <span className="num text-[14px] whitespace-nowrap text-subtle">· {portion}</span>}
+    </p>
   );
 }
 
@@ -139,31 +201,77 @@ const MACROS: { key: "protein" | "carbs" | "fat"; label: string; icon: LucideIco
   { key: "fat", label: "Fat", icon: Droplet, text: "text-fat" },
 ];
 
-export function MacroRings({ n }: { n: Nutrients }) {
+/**
+ * Protein, carbs and fat as three cards (mock-c1 "Food detail" C): the macro's icon in its colour, the
+ * amount, and its share of the calories. No rings and no split bar: the share is the number.
+ */
+export function MacroCards({ n }: { n: Nutrients }) {
   const share = macroShare(n);
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <ul className="m-0 grid list-none grid-cols-3 gap-2 p-0" aria-label="Macronutrients">
       {MACROS.map(({ key, label, icon: Icon, text }) => (
-        <div key={key} className={cn(CARD, "grid justify-items-center gap-1.5 px-1.5 py-3 text-[13px] font-medium")}>
-          <span className="inline-flex items-center gap-1 whitespace-nowrap text-ink">
-            <Icon className={cn("size-4", text)} aria-hidden />
-            {label}
+        <li key={key} className="grid min-w-0 gap-1 rounded-[20px] bg-surface px-3.5 py-3 shadow-card">
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap text-ink">
+            <Icon className={cn("size-4 shrink-0", text)} aria-hidden />
+            <span className="truncate">{label}</span>
           </span>
-          <div className={cn("relative size-[66px]", text)}>
-            <svg viewBox="0 0 66 66" className="size-full -rotate-90" aria-hidden>
-              <circle cx="33" cy="33" r="27" fill="none" stroke="currentColor" strokeOpacity=".16" strokeWidth="7" />
-              {share[key] > 0 && (
-                <circle cx="33" cy="33" r="27" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" pathLength={100} strokeDasharray={`${share[key]} 100`} />
-              )}
-            </svg>
-            <b className="num absolute inset-0 grid place-items-center text-[15px] tracking-[-0.02em] text-ink">{grams(n[key])}g</b>
-          </div>
-          <small className="num text-[11px] font-medium whitespace-nowrap text-subtle">{share[key]}% of kcal</small>
-        </div>
+          <b className="num text-[24px] leading-none font-[650] tracking-[-0.03em] whitespace-nowrap text-ink">
+            {grams(n[key])}<small className="ml-0.5 text-[14px] font-semibold"> g</small>
+          </b>
+          <small className="num truncate text-[12px] font-medium whitespace-nowrap text-subtle">{share[key]}% of kcal</small>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
+
+const LEVEL_TONE: Record<Level, string | null> = { low: null, medium: "text-warn-ink", high: "text-bad" };
+const LEVEL_WORD: Record<Level, string | null> = { low: null, medium: "Medium", high: "High" };
+
+function NutrientCard({ row }: { row: NutrientRow }) {
+  const tone = row.level ? LEVEL_TONE[row.level] : null;
+  const word = row.level ? LEVEL_WORD[row.level] : null;
+  const dv = row.dv === null ? null : `${row.dv < 1 ? "<1" : row.dv}% DV`;
+  return (
+    <li className="grid min-w-0 content-start gap-0.5 rounded-[16px] bg-surface px-3.5 py-3 shadow-card">
+      <span className="truncate text-[12.5px] font-medium whitespace-nowrap text-subtle">{row.label}</span>
+      <b className={cn("num text-[17px] font-semibold tracking-[-0.02em] whitespace-nowrap", tone ?? "text-ink")}>
+        {formatAmount(row.value)} <small className="text-[12.5px] font-medium">{row.unit}</small>
+      </b>
+      {(word || dv) && (
+        <small className="num truncate text-[12px] whitespace-nowrap text-subtle">
+          {word && <span className={cn("font-semibold", tone)}>{word}</span>}
+          {word && dv && " · "}
+          {dv}
+        </small>
+      )}
+    </li>
+  );
+}
+
+/**
+ * A titled grid of small nutrient cards: "More nutrients" (limits banded per 100 g: medium in the
+ * warn tone, high in the bad tone, each with its word so colour is never the only cue) and "Vitamins &
+ * minerals" (with % of the Daily Value). Nothing at all when the food holds none of them.
+ */
+export function NutrientGrid({ title, basis, rows, note }: { title: string; basis: string; rows: NutrientRow[]; note?: ReactNode }) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="grid gap-2" aria-label={title}>
+      <div className="flex items-baseline justify-between gap-3 px-1">
+        <h2 className="section-title m-0">{title}</h2>
+        <span className="text-[12.5px] whitespace-nowrap text-subtle">{basis}</span>
+      </div>
+      <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2 p-0">
+        {rows.map((r) => <NutrientCard key={r.key} row={r} />)}
+      </ul>
+      {note && <p className="m-0 px-1 text-[12.5px] text-subtle">{note}</p>}
+    </section>
+  );
+}
+
+/** Daily Values' source, under the vitamins grid. */
+export const DV_NOTE = "% DV: share of a Daily Value for adults on 2,000 kcal (US FDA).";
 
 /* ---------- flags ---------- */
 
@@ -182,8 +290,8 @@ const SODIUM_TONE = { low: "text-ok", medium: "text-warn-ink", high: "text-bad" 
  * Allergen, sodium and diet as short icon chips for a glance, then the allergen and diet sentences in
  * full (announced as alerts, as in M1/M2). Sodium is banded only per 100 g; a serving-only label gets a plain chip.
  */
-export function FlagChips({ flags, sodiumMg, sodiumPer100, diet, ingredientsKnown }: {
-  flags: Flag[]; sodiumMg: number | undefined; sodiumPer100: number | undefined; diet: Diet; ingredientsKnown: boolean;
+export function FlagChips({ flags, sodiumMg, sodiumPer100, basis = "per_100g", diet, ingredientsKnown }: {
+  flags: Flag[]; sodiumMg: number | undefined; sodiumPer100: number | undefined; basis?: "per_100g" | "per_100ml"; diet: Diet; ingredientsKnown: boolean;
 }) {
   const allergens = flags.filter((f) => f.type === "allergen");
   const dietFit = dietChip(diet, flags, ingredientsKnown);
@@ -194,7 +302,7 @@ export function FlagChips({ flags, sodiumMg, sodiumPer100, diet, ingredientsKnow
       </FlagChip>
     )),
     sodiumMg !== undefined && (
-      <FlagChip key="sodium" icon={Droplets} tone={sodiumPer100 !== undefined ? SODIUM_TONE[sodiumLevel(sodiumPer100)] : "text-subtle"}>
+      <FlagChip key="sodium" icon={Droplets} tone={sodiumPer100 !== undefined ? SODIUM_TONE[sodiumLevel(sodiumPer100, basis)] : "text-subtle"}>
         <span className="num">Sodium {fmt(sodiumMg)} mg</span>
       </FlagChip>
     ),
@@ -262,11 +370,12 @@ export function WhyGrade({ reasons, hints = [], goalFlags }: { reasons: Reason[]
  * The sticky bottom action bar (mock-c1 `.actions`), fading the page out behind it. On wide screens
  * it spans the left column (the hero side of the two-column result) unless `fullWidth` (a one-column page).
  */
-export function StickyActionBar({ children, fullWidth = false }: { children: ReactNode; fullWidth?: boolean }) {
+export function StickyActionBar({ children, fullWidth = false, className }: { children: ReactNode; fullWidth?: boolean; className?: string }) {
   return (
     <div data-sticky-actions className={cn(
       "sticky bottom-0 z-10 -mx-4 mt-1 bg-[linear-gradient(180deg,transparent,var(--bg)_30%)] px-[18px] pt-3 pb-[calc(22px+env(safe-area-inset-bottom))] md:mx-0 md:px-0 md:pb-5",
       !fullWidth && "lg:w-[calc((100%-16px)*0.525)]",
+      className,
     )}>
       {children}
     </div>

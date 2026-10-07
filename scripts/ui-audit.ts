@@ -18,7 +18,7 @@ const OUT = resolve("docs/design/qa");
 const WIDTHS = [390, 1280] as const;
 const CONCURRENCY = 3;
 
-type Ids = { aptamil: string; dal: string; scanLabel: string; scanBarcode: string; scanMeal: string; scanFailed: string };
+type Ids = { aptamil: string; dal: string; paneer: string; spinach: string; scanLabel: string; scanBarcode: string; scanMeal: string; scanFailed: string };
 type Scenario = {
   name: string;
   path: (ids: Ids) => string;
@@ -103,6 +103,14 @@ const SCENARIOS: Scenario[] = [
   { name: "foods-new", path: () => "/foods/new" },
   { name: "food-dal", path: (i) => `/foods/${i.dal}` },
   { name: "food-aptamil", path: (i) => `/foods/${i.aptamil}` },
+  // Micronutrient cards: an OFF paneer (label micros, a better pick) and a USDA food (every vitamin and mineral).
+  { name: "food-paneer", path: (i) => `/foods/${i.paneer}` },
+  { name: "food-paneer-ingredients", path: (i) => `/foods/${i.paneer}`, setup: async (p) => {
+    await clickText(p, "[role=tab]", "Ingredients");
+    await p.click("details summary");
+    await sleep(200);
+  } },
+  { name: "food-spinach", path: (i) => `/foods/${i.spinach}` },
   {
     name: "scan", path: () => "/scan", viewportShot: true,
     setup: async (p) => { await p.waitForFunction(() => { const v = document.querySelector("video"); return !!v && v.videoWidth > 0; }, { timeout: 20_000 }); await sleep(600); },
@@ -149,10 +157,14 @@ async function resolveIds(): Promise<Ids> {
   const foods = async (q: string) => (await api<{ results: Hit[] }>(`/api/v1/foods?q=${encodeURIComponent(q)}`)).results;
   const aptamil = (await foods("Aptamil")).find((f) => f.name.startsWith("Aptamil Gold Stage 3")) ?? (await foods("Aptamil"))[0];
   const dal = (await foods("dal")).find((f) => f.name === "Dal") ?? (await foods("dal"))[0];
+  type BrandHit = Hit & { brand: string | null; source: string };
+  const paneers = (await foods("paneer")) as BrandHit[];
+  const paneer = paneers.find((f) => f.name === "Paneer" && f.brand === "Vallhabha") ?? paneers.find((f) => f.source === "off");
+  const spinach = (await foods("spinach raw")).find((f) => f.name === "Spinach, raw");
   const { scans } = await api<{ scans: { id: string; status: string; inputKind: string }[] }>("/api/v1/scans");
   const done = (kind: string) => scans.find((s) => s.status === "done" && s.inputKind === kind)?.id;
   const failed = scans.find((s) => s.status === "failed")?.id;
-  const ids = { aptamil: aptamil?.id, dal: dal?.id, scanLabel: done("label"), scanBarcode: done("barcode"), scanMeal: done("meal"), scanFailed: failed };
+  const ids = { aptamil: aptamil?.id, dal: dal?.id, paneer: paneer?.id, spinach: spinach?.id, scanLabel: done("label"), scanBarcode: done("barcode"), scanMeal: done("meal"), scanFailed: failed };
   const missing = Object.entries(ids).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Demo data missing ${missing.join(", ")}: run pnpm seed:demo`);
   return ids as Ids;

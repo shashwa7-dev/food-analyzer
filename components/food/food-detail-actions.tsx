@@ -1,7 +1,7 @@
 "use client";
 // Client parts of /foods/[id]: the top bar (Back, and for your own food an overflow with Edit and
 // Delete) and the sticky "Add to {Meal}", which opens the add sheet for this food.
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -74,7 +74,24 @@ export function FoodTopBar({ foodId, owner }: { foodId: string; owner: boolean }
   );
 }
 
-/** The sticky "Add to {Meal}" and its add sheet (amount, unit, meal, live macros, personal flags). */
+/**
+ * The food page's "Add to a meal" card for wide screens (mock-c1 "Food detail" C, ≥ 900 px): meal
+ * tiles, the amount with live calories and "Add to {Meal}" in place, then `footer` (the better pick).
+ * Phones get the sticky bar and the sheet instead (FoodAddBar).
+ */
+export function FoodAddPanel({ foodId, food, date, defaultMeal, footer }: {
+  foodId: string; food: LoggableFood; date: string; defaultMeal: Meal; footer?: ReactNode;
+}) {
+  return (
+    <section className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-[24px] bg-surface p-[18px] shadow-card" aria-labelledby="add-panel-title">
+      <h2 id="add-panel-title" className="section-title m-0">Add to a meal</h2>
+      <AddToMeal food={food} target={{ kind: "food", foodId }} date={date} defaultMeal={defaultMeal} layout="panel" />
+      {footer}
+    </section>
+  );
+}
+
+/** The sticky "Add to {Meal}" and its add sheet (amount, unit, meal, live macros, personal flags); phones only. */
 export function FoodAddBar({ foodId, food, iconKey, grade, subtitle, flags, note, date, defaultMeal }: {
   foodId: string; food: LoggableFood; iconKey: FoodIconKey; grade: string | null; subtitle: string;
   flags: Flag[]; note: string | null; date: string; defaultMeal: Meal;
@@ -83,8 +100,8 @@ export function FoodAddBar({ foodId, food, iconKey, grade, subtitle, flags, note
   const [session, setSession] = useState(0);
   return (
     <>
-      <StickyActionBar>
-        <div className="mx-auto grid max-w-[560px] lg:max-w-none">
+      <StickyActionBar fullWidth className="md:hidden">
+        <div className="mx-auto grid max-w-[560px]">
           <Button
             type="button"
             shape="pill"
