@@ -16,12 +16,15 @@
     "seed:foods": "tsx --env-file-if-exists=.env.local scripts/seed-foods.ts",
     "regrade": "tsx --env-file-if-exists=.env.local scripts/regrade.ts",
     "search:smoke": "tsx --env-file-if-exists=.env.local scripts/search-smoke.ts",
+    "scan:try": "tsx --env-file-if-exists=.env.local scripts/scan-try.ts",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.90",
     "@base-ui/react": "^1.8.0",
     "@neondatabase/serverless": "^1.2.0",
     "@tanstack/react-query": "^5.104.1",
+    "ai": "^7.0.130",
     "better-auth": "^1.7.7",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
