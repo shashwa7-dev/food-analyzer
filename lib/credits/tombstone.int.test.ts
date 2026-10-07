@@ -6,7 +6,7 @@ import { creditTombstone, creditTxn, profile, scan } from "@/lib/db/schema";
 import { deleteAccount } from "@/lib/profile/service";
 import { dailyCapHit, DAILY_AI_SCANS_PER_USER } from "@/lib/rate-limit";
 import { debitForScan, ensureCurrentPeriod, getBalance, refundScan } from "./ledger";
-import { emailHash } from "./tombstone";
+import { emailHash, pruneTombstones } from "./tombstone";
 
 const NOW = new Date("2026-10-07T10:00:00Z");
 
@@ -99,5 +99,68 @@ describe("account deletion tombstone (final review I4)", () => {
     expect(await testDb().select().from(user).where(eq(user.id, "u_bare"))).toHaveLength(0);
     const { rows } = await testDb().execute(sql`SELECT count(*)::int AS n FROM credit_tombstone`);
     expect((rows[0] as { n: number }).n).toBe(0);
+  });
+});
+
+describe("tombstone retention (review N5)", () => {
+  beforeEach(resetDb);
+  const tomb = (emailHash: string, period: string, day: string) => ({ emailHash, period, used: 3, day, dayScans: 3 });
+
+  it("pruneTombstones deletes only rows from before the current period", async () => {
+    await testDb().insert(creditTombstone).values([tomb("old", "2026-09", "2026-09-30"), tomb("older", "2025-12", "2025-12-01"), tomb("now", "2026-10", "2026-10-01")]);
+    expect(await pruneTombstones(NOW)).toBe(2);
+    expect((await testDb().select().from(creditTombstone)).map((t) => t.emailHash)).toEqual(["now"]);
+  });
+
+  it("deleteAccount prunes stale rows after writing its own", async () => {
+    await testDb().insert(creditTombstone).values(tomb("old", "2026-09", "2026-09-30"));
+    const a = await signUp("u_a", "prune@example.com");
+    await getBalance(a, NOW);
+    await chargedScans(a, 1);
+    await deleteAccount(a, NOW);
+    const rows = await testDb().select().from(creditTombstone);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ emailHash: emailHash("prune@example.com"), period: "2026-10", used: 1 });
+  });
+});
+
+describe("deleteAccount lock order (review N4)", () => {
+  beforeEach(resetDb);
+
+  it("waits on a running scan before taking the profile lock, so a failing job (scan → profile) can finish", async () => {
+    const a = await signUp("u_a", "order@example.com");
+    await getBalance(a, NOW);
+    const [running] = await testDb().insert(scan).values({ userId: a, status: "processing", imageCount: 1, engineVersion: "e", createdAt: NOW }).returning();
+
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let locked!: () => void;
+    const scanLocked = new Promise<void>((r) => { locked = r; });
+    let profileLockedByJob = false;
+
+    // The job, failScanTx-style: the conditional scan UPDATE first, the profile lock (refund) second.
+    const job = testDb().transaction(async (tx) => {
+      await tx.update(scan).set({ status: "failed", errorCode: "MODEL_ERROR" }).where(eq(scan.id, running!.id));
+      locked();
+      await gate;
+      await tx.execute(sql`SELECT 1 FROM profile WHERE user_id = ${a} FOR UPDATE NOWAIT`); // throws if deleteAccount took it first
+      profileLockedByJob = true;
+    });
+    await scanLocked;
+
+    const deletion = deleteAccount(a, NOW);
+    const deadline = Date.now() + 5000;
+    for (;;) {
+      const { rows } = await testDb().execute(sql`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`);
+      if ((rows[0] as { n: number }).n > 0) break;
+      if (Date.now() > deadline) throw new Error("deleteAccount never waited on the scan lock");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    release();
+    await job;
+    await deletion;
+
+    expect(profileLockedByJob).toBe(true);
+    expect(await testDb().select().from(user).where(eq(user.id, a))).toHaveLength(0);
   });
 });

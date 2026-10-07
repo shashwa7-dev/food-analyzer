@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { profile } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
-import { recordTombstone } from "@/lib/credits/tombstone";
+import { pruneTombstones, recordTombstone } from "@/lib/credits/tombstone";
 import { TargetsSchema } from "@/lib/nutrition/targets";
 import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
 
@@ -61,8 +61,21 @@ export async function updateProfile(userId: string, raw: z.infer<typeof ProfileU
 
 export async function deleteAccount(userId: string, now: Date = new Date()) {
   await db.transaction(async (tx) => {
+    // Lock order (review N4): the user's running scans first, then the profile — the same order as
+    // failScanTx (conditional scan UPDATE, then refundScan's profile lock) and deleteScan. Taking the
+    // profile first (as recordTombstone would) could deadlock against an AI job failing or finishing
+    // at the moment the user confirms deletion.
+    await tx.execute(sql`SELECT id FROM scan WHERE user_id = ${userId} AND status IN ('queued', 'processing') FOR UPDATE`);
+    await tx.execute(sql`SELECT 1 FROM profile WHERE user_id = ${userId} FOR UPDATE`);
     // Keep this period's AI-scan usage and today's count (keyed by an email HMAC) so signing up again can't reset them.
     await recordTombstone(tx, userId, now);
     await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods
   });
+  // Opportunistic retention sweep (review N5), after the deletion has committed: a failure here must
+  // never fail or roll back the deletion itself.
+  try {
+    await pruneTombstones(now);
+  } catch (err) {
+    console.error("pruneTombstones failed", err);
+  }
 }

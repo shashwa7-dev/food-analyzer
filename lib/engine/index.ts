@@ -5,7 +5,7 @@ import { normaliseBarcode } from "./barcode";
 import { toPer100, type ConvertedFacts } from "./convert";
 import { EngineError } from "./errors";
 import { mergeFacts } from "./merge";
-import { buildResult, toOffAllergenTags, type ScanResult } from "./result";
+import { buildResult, isOffTag, toOffAllergenTags, type ScanResult } from "./result";
 import type { EngineImage, Extraction } from "./schema";
 import { categoriesFromGuess, tipFor } from "./tips";
 import { validateFacts } from "./validate";
@@ -37,7 +37,7 @@ export interface ExtractOutput {
 export interface EngineDeps {
   /** A curated (OFF/INDB/FNDDS) food by barcode. Never a crowd row: those come from label photos, unverified. */
   findFoodByBarcode(code: string): Promise<FoodLike | null>;
-  lookupOffByBarcode(code: string): Promise<OffLookup>;
+  lookupOffByBarcode(code: string, opts?: { timeoutMs?: number }): Promise<OffLookup>;
   cacheOffFood(rec: SourceRecord): Promise<FoodLike>;
   /** Our DB only (never a runtime OFF search). */
   searchFoods(q: { name: string; brand?: string; country: string }): Promise<FoodLike[]>;
@@ -95,6 +95,11 @@ const FALLBACK_PRODUCT_NAME = "Packaged food";
 const MAX_NAME = 120;
 const REQUIRED_KEYS = ["energyKcal", "protein", "carbs", "fat"] as const;
 const GRADES: readonly string[] = ["A", "B", "C", "D", "E"];
+/** Review N1: time kept back from the scan deadline for alternatives queries and the result writes after an OFF lookup. */
+const OFF_DEADLINE_RESERVE_MS = 3000;
+/** Below this much time left, an OFF lookup isn't worth starting: the code is treated as `unavailable`. */
+const OFF_MIN_LOOKUP_MS = 1000;
+const OFF_MAX_LOOKUP_MS = 6000;
 
 const unreadable = () => new EngineError("UNREADABLE_IMAGE", "Couldn't read the photo. Try again with the label in focus and well lit.");
 const unknownProduct = () => new EngineError("UNREADABLE_IMAGE", "We don't know this product yet — add a photo of the nutrition label.");
@@ -236,11 +241,22 @@ export async function resolveBarcode(input: EngineInput, deps: EngineDeps): Prom
   return hasImages ? { kind: "needs_ai", barcodeFood: found, offNotFound } : { kind: "barcode_not_found" };
 }
 
-/** Our curated foods first, then Open Food Facts (a hit is cached). */
-async function lookupBarcode(code: string, deps: EngineDeps): Promise<{ found: FoodLike | null; offNotFound: boolean }> {
+/**
+ * Our curated foods first, then Open Food Facts (a hit is cached). With a `deadline` (the model-read
+ * barcode path, which runs after the model call), the OFF request is bounded by what's left of the
+ * scan budget minus a reserve; too little left and it's skipped as `unavailable` (no crowd barcode).
+ */
+async function lookupBarcode(code: string, deps: EngineDeps, deadline?: number): Promise<{ found: FoodLike | null; offNotFound: boolean }> {
   const found = await deps.findFoodByBarcode(code);
   if (found) return { found, offNotFound: false };
-  const off = await deps.lookupOffByBarcode(code);
+  let off: OffLookup;
+  if (deadline === undefined) off = await deps.lookupOffByBarcode(code);
+  else {
+    const remaining = deadline - deps.now() - OFF_DEADLINE_RESERVE_MS;
+    off = remaining < OFF_MIN_LOOKUP_MS
+      ? { status: "unavailable" }
+      : await deps.lookupOffByBarcode(code, { timeoutMs: Math.min(OFF_MAX_LOOKUP_MS, remaining) });
+  }
   if (off.status === "found") return { found: await deps.cacheOffFood(off.rec), offNotFound: false };
   return { found: null, offNotFound: off.status === "not_found" };
 }
@@ -285,7 +301,7 @@ export async function runAi(
   const read = x.barcodeText ? normaliseBarcode(x.barcodeText) : null;
   const barcode = submitted ?? read;
   const lookupFood = async (): Promise<{ found: FoodLike | null; offNotFound: boolean }> =>
-    submitted || !read ? { found: barcodeFood, offNotFound: submitted ? offNotFound : false } : lookupBarcode(read, deps);
+    submitted || !read ? { found: barcodeFood, offNotFound: submitted ? offNotFound : false } : lookupBarcode(read, deps, deadline);
 
   switch (route) {
     case "barcode": {
@@ -346,8 +362,9 @@ async function labelScan(
   const name = (x.product?.name || db?.name || FALLBACK_PRODUCT_NAME).slice(0, MAX_NAME);
   const brand = x.product?.brand || db?.brand || null;
   const ingredients = x.ingredients ?? db?.ingredients ?? [];
-  const allergens = union(toOffAllergenTags(x.allergensDeclared ?? []), toOffAllergenTags(db?.allergens ?? []));
-  const mayContain = union(toOffAllergenTags(x.mayContain ?? []), toOffAllergenTags(db?.mayContain ?? []));
+  // A DB food's OFF tags the allergen map doesn't know (en:celery, ...) are kept as-is, as buildResult does (review N6).
+  const allergens = union(toOffAllergenTags(x.allergensDeclared ?? []), toOffAllergenTags(db?.allergens ?? []), (db?.allergens ?? []).filter(isOffTag));
+  const mayContain = union(toOffAllergenTags(x.mayContain ?? []), toOffAllergenTags(db?.mayContain ?? []), (db?.mayContain ?? []).filter(isOffTag));
   const additives = union(toOffAdditiveTags(x.additives ?? []), db?.additives ?? []);
   const { gradeCategory } = classify({ source: "crowd", name, categories, per100: merged.per100 });
 

@@ -2,22 +2,31 @@
 // same email must not reset this month's AI scans or today's 25/day cap. The tombstone keeps only an
 // HMAC of the normalised email plus usage counts — no plain PII — and survives the user row's deletion.
 import { createHmac } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
-import type { Tx } from "@/lib/db/client";
+import { eq, lt, sql } from "drizzle-orm";
+import { db, type Db, type Tx } from "@/lib/db/client";
 import { creditTombstone } from "@/lib/db/schema";
+import { tombstonePepper } from "@/lib/env";
 import { chargedScansToday, utcDayStart } from "@/lib/rate-limit";
 import type { PlanKey } from "./plans";
 import { allowanceFor, currentPeriod } from "./logic";
 
 /**
  * HMAC-SHA256 of the trimmed, lower-cased email. Keyed by CREDIT_TOMBSTONE_PEPPER, falling back to
- * BETTER_AUTH_SECRET (rotating whichever is used orphans existing tombstones — they then simply stop
- * matching, which fails open to a normal fresh grant).
+ * BETTER_AUTH_SECRET (lib/env.ts tombstonePepper; rotating whichever is used orphans existing
+ * tombstones — they then simply stop matching, which fails open to a normal fresh grant).
  */
 export function emailHash(email: string): string {
-  const pepper = process.env.CREDIT_TOMBSTONE_PEPPER || process.env.BETTER_AUTH_SECRET;
-  if (!pepper) throw new Error("CREDIT_TOMBSTONE_PEPPER or BETTER_AUTH_SECRET must be set");
-  return createHmac("sha256", pepper).update(email.trim().toLowerCase()).digest("hex");
+  return createHmac("sha256", tombstonePepper()).update(email.trim().toLowerCase()).digest("hex");
+}
+
+/**
+ * Deletes tombstones from before the current period (review N5): carriedUsage only ever reads the
+ * current period and UTC day, so older rows are dead weight — and still pseudonymous personal data.
+ * The privacy page promises they're kept only until the end of the month they were made.
+ */
+export async function pruneTombstones(now: Date, ex: Db | Tx = db): Promise<number> {
+  const rows = await ex.delete(creditTombstone).where(lt(creditTombstone.period, currentPeriod(now))).returning({ h: creditTombstone.emailHash });
+  return rows.length;
 }
 
 export const utcDay = (now: Date): string => utcDayStart(now.getTime()).toISOString().slice(0, 10);

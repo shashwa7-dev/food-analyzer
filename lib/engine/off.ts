@@ -27,7 +27,15 @@ interface OffApiResponse { status?: number; product?: OffRow }
  */
 export type OffLookup = { status: "found"; rec: SourceRecord } | { status: "not_found" } | { status: "unavailable" };
 
-export async function lookupOffByBarcode(code: string, fetchImpl: typeof fetch = fetch): Promise<OffLookup> {
+export interface OffLookupOptions {
+  /** Request timeout, capped at the default 6 s (review N1: the model-read path passes what's left of the scan deadline). */
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+}
+
+export async function lookupOffByBarcode(code: string, opts: OffLookupOptions = {}): Promise<OffLookup> {
+  const { fetchImpl = fetch } = opts;
+  const timeoutMs = Math.max(0, Math.min(TIMEOUT_MS, opts.timeoutMs ?? TIMEOUT_MS));
   // Untrusted input (a scanned/typed barcode) — validate and normalise (EAN-8/EAN-13/UPC-A check
   // digit) before it ever reaches a URL, instead of interpolating the raw string.
   const normalised = normaliseBarcode(code);
@@ -40,7 +48,7 @@ export async function lookupOffByBarcode(code: string, fetchImpl: typeof fetch =
   try {
     res = await fetchImpl(url, {
       headers: { "User-Agent": `EATRi8/2.0 (${contactEmail})` },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     // Network error, DNS failure, or our own timeout firing — all treated as "couldn't look it up".
@@ -67,6 +75,6 @@ export async function lookupOffByBarcode(code: string, fetchImpl: typeof fetch =
 
 /** lookupOffByBarcode, collapsed to "a usable record or null". */
 export async function fetchOffByBarcode(code: string, fetchImpl: typeof fetch = fetch): Promise<SourceRecord | null> {
-  const r = await lookupOffByBarcode(code, fetchImpl);
+  const r = await lookupOffByBarcode(code, { fetchImpl });
   return r.status === "found" ? r.rec : null;
 }

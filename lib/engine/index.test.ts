@@ -427,7 +427,7 @@ describe("runAi — a barcode the model read off the photo", () => {
     const barcodeOnly: Extraction = { images: [{ index: 0, kind: "barcode", quality: [] }], barcodeText: NAMKEEN_CODE };
     const d = deps({ extract: extractReturning(barcodeOnly), lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: OFF_REC })), cacheOffFood: vi.fn(async () => food({ id: "f-off" })) });
     const out = await runAi(input(), d, DEADLINE, null);
-    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
+    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE, { timeoutMs: 6000 });
     expect(d.cacheOffFood).toHaveBeenCalledWith(OFF_REC);
     expect(out.result).toMatchObject({ foodId: "f-off", inputKind: "barcode", confidence: "high" });
     expect(out.crowdCandidate).toBeNull();
@@ -444,7 +444,7 @@ describe("runAi — a barcode the model read off the photo", () => {
   it("label + OFF definitively has no product: the crowd candidate may carry the barcode", async () => {
     const d = deps({ extract: extractReturning(labelNamkeen) });
     const out = await runAi(input(), d, DEADLINE, null);
-    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
+    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE, { timeoutMs: 6000 });
     expect(out.crowdCandidate?.barcode).toBe(NAMKEEN_CODE);
   });
 
@@ -464,6 +464,41 @@ describe("runAi — a barcode the model read off the photo", () => {
     expect(missed.crowdCandidate!.barcode).toBe(NAMKEEN_CODE);
     expect(d.lookupOffByBarcode).not.toHaveBeenCalled();
     expect(d.findFoodByBarcode).not.toHaveBeenCalled();
+  });
+});
+
+describe("runAi — the model-read OFF lookup is bounded by the scan deadline (review N1)", () => {
+  it("too little time left: OFF is never called and the code is treated as unavailable (no crowd barcode)", async () => {
+    // remaining = deadline - now - 3000 reserve = 900 ms < 1000 ms minimum
+    const d = deps({ extract: extractReturning(labelNamkeen), now: () => DEADLINE - 3900 });
+    const out = await runAi(input(), d, DEADLINE, null);
+    expect(d.lookupOffByBarcode).not.toHaveBeenCalled();
+    expect(d.findFoodByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE); // our own DB is still asked
+    expect(out.crowdCandidate).not.toBeNull();
+    expect(out.crowdCandidate!.barcode).toBeNull();
+  });
+
+  it("some time left: the OFF timeout is what remains after the reserve, capped at 6 s", async () => {
+    const d = deps({ extract: extractReturning(labelNamkeen), now: () => DEADLINE - 5500 });
+    await runAi(input(), d, DEADLINE, null);
+    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE, { timeoutMs: 2500 });
+  });
+
+  it("resolveBarcode (before any model call) keeps the default OFF timeout", async () => {
+    const d = deps();
+    await resolveBarcode(input({ barcode: NAMKEEN_CODE }), d);
+    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
+  });
+});
+
+describe("runAi — label merged with a DB food keeps its unmapped OFF tags (review N6)", () => {
+  it("an en:celery tag on the barcode food survives the merge", async () => {
+    const labelNoCode = { ...labelNamkeen, barcodeText: undefined };
+    const dbFood = food({ allergens: ["en:peanuts", "en:celery"], mayContain: ["en:milk", "en:lupin"] });
+    const out = await runAi(input({ barcode: NAMKEEN_CODE }), deps({ extract: extractReturning(labelNoCode) }), DEADLINE, dbFood, false);
+    expect(out.result.allergens).toEqual(expect.arrayContaining(["en:peanuts", "en:celery"]));
+    expect(out.result.mayContain).toEqual(expect.arrayContaining(["en:milk", "en:lupin"]));
+    expect(out.crowdCandidate?.allergens).toEqual(expect.arrayContaining(["en:celery"]));
   });
 });
 

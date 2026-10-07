@@ -45,7 +45,8 @@ export default function PrivacyPage() {
         <p className="text-sm text-subtle">
           You can delete your account at any time from Me → Delete account. This removes your profile and diary. We keep only a
           one-way, keyed hash of your email with how many AI scans you used this month and today, so deleting and signing up again
-          doesn&apos;t reset your allowance. It contains no readable email or other details.
+          doesn&apos;t reset your allowance. It contains no readable email or other details. We keep that record until the end of
+          the month it was made.
         </p>
       </section>
       <section className="flex flex-col gap-2">

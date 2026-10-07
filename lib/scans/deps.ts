@@ -12,7 +12,7 @@ const NAME_MATCH_CANDIDATES = 10;
 export function realDeps(userId: string): ScanDeps {
   return {
     findFoodByBarcode: (code) => findFoodByBarcode(code),
-    lookupOffByBarcode: (code) => lookupOffByBarcode(code),
+    lookupOffByBarcode: (code, opts) => lookupOffByBarcode(code, opts),
     // Upsert on (source, source_ref) — an OFF row's sourceRef is its barcode; a crowd row holding the code gives it up.
     cacheOffFood: (rec) => cacheOffFood(toFoodDraft(rec, [])),
     // Visibility is the scanning user's (shared foods + their own custom foods).

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseEnv, proGatesEnforced } from "./env";
 
 const base = {
@@ -45,5 +45,38 @@ describe("PRO_GATES_ENFORCED", () => {
   it("proGatesEnforced reads it fresh", () => {
     expect(proGatesEnforced({})).toBe(false);
     expect(proGatesEnforced({ PRO_GATES_ENFORCED: "true" })).toBe(true);
+  });
+});
+
+describe("tombstonePepper (review N5)", () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.resetModules(); });
+  // A fresh module per test, so the warn-once flag starts unset.
+  const load = async () => (await import("./env")).tombstonePepper;
+  const SECRET = "s".repeat(32);
+
+  it("prefers CREDIT_TOMBSTONE_PEPPER, silently", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const pepper = await load();
+    expect(pepper({ CREDIT_TOMBSTONE_PEPPER: "p".repeat(16), BETTER_AUTH_SECRET: SECRET, NODE_ENV: "production" })).toBe("p".repeat(16));
+    expect(warn).not.toHaveBeenCalled();
+  });
+  it("falls back to BETTER_AUTH_SECRET, warning once in production", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const pepper = await load();
+    const raw = { CREDIT_TOMBSTONE_PEPPER: "", BETTER_AUTH_SECRET: SECRET, NODE_ENV: "production" };
+    expect(pepper(raw)).toBe(SECRET);
+    expect(pepper(raw)).toBe(SECRET);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith("CREDIT_TOMBSTONE_PEPPER is not set; using BETTER_AUTH_SECRET");
+  });
+  it("doesn't warn outside production", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect((await load())({ BETTER_AUTH_SECRET: SECRET, NODE_ENV: "development" })).toBe(SECRET);
+    expect(warn).not.toHaveBeenCalled();
+  });
+  it("rejects a short pepper and a missing fallback", async () => {
+    const pepper = await load();
+    expect(() => pepper({ CREDIT_TOMBSTONE_PEPPER: "short", BETTER_AUTH_SECRET: SECRET })).toThrow(/CREDIT_TOMBSTONE_PEPPER/);
+    expect(() => pepper({})).toThrow(/CREDIT_TOMBSTONE_PEPPER or BETTER_AUTH_SECRET/);
   });
 });

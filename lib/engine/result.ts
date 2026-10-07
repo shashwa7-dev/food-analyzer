@@ -57,7 +57,7 @@ export function toOffAllergenTags(keys: string[]): string[] {
   return [...out];
 }
 
-const isOffTag = (t: string) => /^[a-z]{2}:/.test(t);
+export const isOffTag = (t: string) => /^[a-z]{2}:/.test(t);
 const union = (...lists: string[][]): string[] => [...new Set(lists.flat())];
 
 const NOT_GRADED = "Not graded: the label gives values per serving but no serving weight, so we can't compare it per 100 g.";

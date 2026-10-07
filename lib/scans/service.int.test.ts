@@ -4,6 +4,7 @@ import { createUser, resetDb, testDb } from "@/tests/helpers/db";
 import { creditTxn, food, profile, scan } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
 import { getBalance } from "@/lib/credits/ledger";
+import { deleteAccount } from "@/lib/profile/service";
 import { EngineError } from "@/lib/engine/errors";
 import type { ExtractOutput } from "@/lib/engine";
 import { sanitiseExtraction, type EngineImage, type Extraction } from "@/lib/engine/schema";
@@ -270,6 +271,34 @@ describe("AI scans", () => {
 });
 
 // --- limits & concurrency ------------------------------------------------------------------------
+
+describe("deleting the account after using the whole allowance (review N11)", () => {
+  it("signing up again in the same period grants 0 and the next AI scan is 402", async () => {
+    const u = await createUser();
+    expect(await credits(u)).toBe(20);
+    for (let i = 0; i < 20; i++) {
+      const j = jobs();
+      const r = await createScan(u, aiInput(), deps(u, { extract: extracting(labelNamkeen) }), j.schedule);
+      expect(r.status).toBe(202);
+      await j.runAll(); // finish it, so the stuck sweep never refunds it
+      advance(15_000); // stay under the 5-per-60 s rate limit
+    }
+    expect(await credits(u)).toBe(0);
+
+    await deleteAccount(u, new Date(clock));
+    await createUser(u); // same id → same email, same period and UTC day
+
+    expect(await credits(u)).toBe(0);
+    const [grant] = await txns(u);
+    expect(grant).toMatchObject({ type: "grant", amount: 0, balanceAfter: 0, meta: { carriedOver: 20 } });
+    const j = jobs();
+    const r = await createScan(u, aiInput(), deps(u, { extract: extracting(labelNamkeen) }), j.schedule);
+    expect(r.status).toBe(402);
+    expect(body(r).error).toEqual({ code: "NO_CREDITS", message: SCAN_MESSAGES.NO_CREDITS });
+    expect(await scansOf(u)).toHaveLength(0);
+    expect(j.count).toBe(0);
+  });
+});
 
 describe("rate limits and daily caps", () => {
   it("double POST within a second (different keys) → two scans, each charged once, balance −2", async () => {
@@ -703,7 +732,7 @@ describe("crowd foods and barcodes", () => {
     const a = await createUser();
     const lookup = vi.fn(async () => ({ status: "not_found" as const }));
     await labelScanBy(a, { lookupOffByBarcode: lookup });
-    expect(lookup).toHaveBeenCalledWith(NAMKEEN_CODE);
+    expect(lookup).toHaveBeenCalledWith(NAMKEEN_CODE, { timeoutMs: 6000 }); // bounded by the scan deadline (review N1)
     const [crowd] = await testDb().select().from(food).where(eq(food.source, "crowd"));
     expect(crowd!.barcode).toBe(NAMKEEN_CODE);
   });

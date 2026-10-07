@@ -102,7 +102,7 @@ describe("fetchOffByBarcode", () => {
 
 describe("lookupOffByBarcode (final review I3: only a definitive miss lets a crowd row claim a barcode)", () => {
   const status = async (res: () => Response | Promise<Response>, code = "8901491101837") =>
-    (await lookupOffByBarcode(code, vi.fn(async () => res()))).status;
+    (await lookupOffByBarcode(code, { fetchImpl: vi.fn(async () => res()) })).status;
 
   it("found for a usable product", async () => {
     expect(await status(() => okJson({ status: 1, product: PRODUCT }))).toBe("found");
@@ -118,5 +118,18 @@ describe("lookupOffByBarcode (final review I3: only a definitive miss lets a cro
     expect(await status(() => okJson({ status: 1 }))).toBe("unavailable");
     expect(await status(() => okJson({ status: 1, product: { code: "8901491101837", product_name: "x", nutriments: {} } }))).toBe("unavailable");
     expect(await status(() => okJson({ status: 1, product: PRODUCT }), "12?x=1")).toBe("unavailable");
+  });
+});
+
+describe("lookupOffByBarcode timeoutMs (review N1)", () => {
+  // A fetch that never answers on its own: it settles only when the request's signal aborts.
+  const hanging = vi.fn((_url: string | URL | Request, init?: RequestInit) =>
+    new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason))));
+
+  it("aborts after the given timeout and reports unavailable", async () => {
+    const started = Date.now();
+    const r = await lookupOffByBarcode("8901491101837", { timeoutMs: 30, fetchImpl: hanging as unknown as typeof fetch });
+    expect(r.status).toBe("unavailable");
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 });
