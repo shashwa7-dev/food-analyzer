@@ -12,6 +12,7 @@ import { MODE_HINT, type ScanMode } from "@/lib/scans/modes";
 import type { ScanView } from "@/lib/scans/service";
 import type { Meal } from "@/lib/nutrition/types";
 import { backAction, readInAppNav } from "@/lib/nav/back";
+import { creditsState } from "@/lib/credits/display";
 import { cn } from "@/lib/utils";
 import { Camera, type CameraState } from "./camera";
 import { getBarcodeReader } from "./barcode-reader";
@@ -375,9 +376,12 @@ export function ScanFlow({ meal, date, initialBarcode, initialMode }: {
               <span className="size-12" aria-hidden />
             ) : (
               <Link href="/me/credits" aria-label={`${credits} AI scan${credits === 1 ? "" : "s"} left`}
-                className="num grid h-12 min-w-12 place-items-center rounded-3xl bg-viewfinder/50 px-2.5 text-center text-[12px] leading-[1.1] font-semibold">
-                <Sparkles className="size-4" aria-hidden />
-                {credits}
+                className={cn(
+                  "num inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold shadow-[0_4px_14px_rgb(0_0_0/0.25)]",
+                  creditsState(credits) === "ok" ? "bg-brand text-brand-ink" : "bg-warn text-brand-ink",
+                )}>
+                <Sparkles className="size-4 shrink-0" aria-hidden />
+                {credits} left
               </Link>
             )}
           </div>
