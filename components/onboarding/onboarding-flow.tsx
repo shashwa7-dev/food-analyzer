@@ -14,11 +14,11 @@ import { IconTile } from "@/components/ui/icon-tile";
 import { BackButton } from "@/components/nav/back-button";
 import { ALL_FIELDS, MORE_FIELDS, PRIMARY_FIELDS, ProChip, TargetField, toTextRecord, type FieldKey } from "@/components/me/target-fields";
 import { cn } from "@/lib/utils";
-import { PRESETS, targetsFor } from "@/lib/nutrition/targets";
+import { targetsFor } from "@/lib/nutrition/targets";
 import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
 import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
 import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
-import { parseTarget } from "@/lib/profile/parse-target";
+import { targetsToSave } from "@/lib/profile/targets-gate";
 import { saveProfile } from "@/app/(app)/me/actions";
 import { authClient } from "@/lib/auth-client";
 
@@ -151,35 +151,28 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
     });
   }
 
-  /** Targets stored only where they differ from the goal's preset; undefined when a field doesn't parse. */
-  function buildTargetsOverride(): Partial<DailyTargets> | null | undefined {
-    if (!fields || !customTargets) return initial.targets ?? null;
-    const preset = PRESETS[goal];
-    const out: Partial<DailyTargets> = {};
-    const bad = new Set<FieldKey>();
-    for (const f of ALL_FIELDS) {
-      const v = parseTarget(fields[f.key]);
-      if (v === null) continue;
-      if (Number.isNaN(v)) bad.add(f.key);
-      else if (v !== preset[f.key]) (out as Record<string, number>)[f.key] = v;
-    }
-    if (bad.size) {
-      setInvalid(bad);
-      // An error in a hidden field must be visible.
-      if (MORE_FIELDS.some((f) => bad.has(f.key))) setShowAll(true);
-      return undefined;
-    }
-    return Object.keys(out).length ? out : null;
+  /**
+   * The targets to save: overrides only where they differ from the goal's preset. Without the targets
+   * step's fields, or when the plan can't set custom targets (the fields are read-only), targets are
+   * left out so the stored value stays as it is. `ok: false` when a field doesn't parse.
+   */
+  function buildTargetsOverride(): { ok: true; targets?: Partial<DailyTargets> | null } | { ok: false } {
+    const res = targetsToSave(fields, goal, customTargets);
+    if (res.ok) return res;
+    setInvalid(res.bad);
+    // An error in a hidden field must be visible.
+    if (MORE_FIELDS.some((f) => res.bad.has(f.key))) setShowAll(true);
+    return { ok: false };
   }
 
   async function finish() {
-    const targets = buildTargetsOverride();
-    if (targets === undefined) {
+    const built = buildTargetsOverride();
+    if (!built.ok) {
       setStep(3);
       return;
     }
     setPending(true);
-    const res = await saveProfile({ goal, diet, allergies: Array.from(allergies), targets, onboarded: true })
+    const res = await saveProfile({ goal, diet, allergies: Array.from(allergies), ...("targets" in built ? { targets: built.targets } : {}), onboarded: true })
       .catch(() => ({ ok: false as const, message: "Couldn't save. Try again." }));
     if (!res.ok) {
       toast.error(res.message);

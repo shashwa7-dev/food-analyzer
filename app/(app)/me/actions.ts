@@ -5,15 +5,24 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { requireUser } from "@/lib/session";
 import { allows } from "@/lib/credits/plans";
+import { gatedTargetsWrite } from "@/lib/profile/targets-gate";
 import { deleteAccount, ProfileUpdateSchema, updateProfile } from "@/lib/profile/service";
 
 export async function saveProfile(input: unknown): Promise<{ ok: true } | { ok: false; message: string }> {
   const { userId, profile } = await requireUser();
   const parsed = ProfileUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Some values are out of range." };
-  // Custom daily targets are Pro-only once PRO_GATES_ENFORCED is on; going back to the presets (null) is always allowed.
-  if (parsed.data.targets && !allows(profile.plan, "customTargets")) return { ok: false, message: "Custom targets are part of Pro." };
-  await updateProfile(userId, parsed.data);
+  const data = { ...parsed.data };
+  // Custom daily targets are Pro-only once PRO_GATES_ENFORCED is on. Going back to the presets (null, or
+  // the goal's own values) is always allowed, and so is re-sending the targets already stored, so a
+  // Basic user who set targets before the gates can still finish a redone onboarding.
+  if (data.targets && !allows(profile.plan, "customTargets")) {
+    const write = gatedTargetsWrite(data.targets, profile.targets, data.goal ?? profile.goal);
+    if (write === "custom") return { ok: false, message: "Custom targets are part of Pro." };
+    if (write === "unchanged") delete data.targets;
+    else data.targets = null;
+  }
+  await updateProfile(userId, data);
   revalidatePath("/", "layout");
   return { ok: true };
 }
