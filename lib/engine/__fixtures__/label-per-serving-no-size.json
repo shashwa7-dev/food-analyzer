@@ -1,0 +1,24 @@
+{
+  "images": [
+    { "index": 0, "kind": "nutrition_panel", "quality": ["cropped"] }
+  ],
+  "product": {
+    "name": "Masala Oats",
+    "brand": "Morning Grain",
+    "categoryGuess": "Breakfast cereal"
+  },
+  "facts": {
+    "basis": "per_serving",
+    "energyKcal": 160,
+    "protein": 4.4,
+    "carbs": 25,
+    "sugars": 1.4,
+    "fat": 4.6,
+    "satFat": 1.1,
+    "fibre": 3.2,
+    "sodiumMg": 420
+  },
+  "ingredients": ["Rolled oats (68%)", "Dehydrated vegetables", "Spices and condiments", "Salt", "Sugar", "Edible vegetable oil"],
+  "allergensDeclared": ["gluten"],
+  "printedLanguage": "en"
+}

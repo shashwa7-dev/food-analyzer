@@ -1,0 +1,49 @@
+{
+  "images": [
+    { "index": 0, "kind": "front", "quality": [] },
+    { "index": 1, "kind": "nutrition_panel", "quality": ["glare"] },
+    { "index": 2, "kind": "ingredients", "quality": [] }
+  ],
+  "barcodeText": "8901491101837",
+  "product": {
+    "name": "Aloo Bhujia",
+    "brand": "Shree Rama",
+    "variant": "Classic",
+    "categoryGuess": "Namkeen / savoury snack",
+    "packSize": { "value": 200, "unit": "g" }
+  },
+  "facts": {
+    "basis": "per_100g",
+    "servingSize": { "value": 30, "unit": "g" },
+    "energyKcal": 554,
+    "energyKj": 2318,
+    "protein": 11,
+    "carbs": 51.7,
+    "sugars": 2,
+    "addedSugars": 0,
+    "fat": 34,
+    "satFat": 15.2,
+    "transFat": 0.1,
+    "fibre": 4.1,
+    "sodiumMg": 1050,
+    "saltG": 2.63
+  },
+  "ingredients": [
+    "Gram flour (besan)",
+    "Edible vegetable oil (palmolein)",
+    "Potato (dehydrated)",
+    "Moth bean flour",
+    "Salt",
+    "Red chilli powder",
+    "Black pepper",
+    "Dried mint leaves",
+    "Ginger powder",
+    "Clove",
+    "Nutmeg",
+    "Acidity regulator (INS 330)"
+  ],
+  "allergensDeclared": [],
+  "mayContain": ["peanut", "tree_nut", "milk"],
+  "additives": ["INS 330"],
+  "printedLanguage": "en"
+}
