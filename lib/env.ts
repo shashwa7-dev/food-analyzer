@@ -11,6 +11,10 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: nonEmpty,
   GOOGLE_CLIENT_SECRET: nonEmpty,
   OFF_CONTACT_EMAIL: optional,
+  GOOGLE_GENERATIVE_AI_API_KEY: optional,
+  MODEL_FAST: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default("gemini-3.5-flash-lite")),
+  MODEL_STRONG: z.preprocess((v) => (v === "" ? undefined : v), z.string().min(1).default("gemini-3.5-flash")),
+  DAILY_AI_SCAN_CAP: z.preprocess((v) => (v === "" ? undefined : v), z.coerce.number().int().min(0).default(300)),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

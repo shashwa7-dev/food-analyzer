@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  check, customType, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, smallint, text, timestamp, uniqueIndex, uuid,
+  boolean, check, customType, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, smallint, text, timestamp, uniqueIndex, uuid,
 } from "drizzle-orm/pg-core";
 import type { DailyTargets, Nutrients, Portion, Provenance, NutrientKey, ScoreComponent } from "@/lib/nutrition/types";
 import { user } from "./auth-schema";
@@ -15,6 +15,10 @@ export const foodKindEnum = pgEnum("food_kind", ["dish", "generic", "packaged", 
 export const gradeCategoryEnum = pgEnum("grade_category", ["general", "beverage", "water", "fat_oil", "cheese", "dish", "none"]);
 export const basisEnum = pgEnum("basis", ["per_100g", "per_100ml"]);
 export const mealEnum = pgEnum("meal", ["breakfast", "lunch", "dinner", "snack"]);
+export const scanStatusEnum = pgEnum("scan_status", ["queued", "processing", "done", "failed"]);
+export const scanInputKindEnum = pgEnum("scan_input_kind", ["barcode", "label", "front", "meal"]);
+export const creditTxnTypeEnum = pgEnum("credit_txn_type", ["grant", "debit", "refund", "expire", "purchase"]);
+export const confidenceEnum = pgEnum("confidence", ["high", "medium", "low"]);
 
 export const profile = pgTable("profile", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
@@ -51,6 +55,7 @@ export const food = pgTable("food", {
   gradePortionGrams: smallint("grade_portion_grams"),
   ingredients: text("ingredients").array().notNull().default(sql`'{}'::text[]`),
   allergens: text("allergens").array().notNull().default(sql`'{}'::text[]`),
+  mayContain: text("may_contain").array().notNull().default(sql`'{}'::text[]`),
   additives: text("additives").array().notNull().default(sql`'{}'::text[]`),
   categories: text("categories").array().notNull().default(sql`'{}'::text[]`),
   countries: text("countries").array().notNull().default(sql`'{}'::text[]`),
@@ -80,13 +85,58 @@ export const food = pgTable("food", {
   index("food_countries_gin").using("gin", t.countries),
 ]);
 
+export const scan = pgTable("scan", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  status: scanStatusEnum("status").notNull(),
+  inputKind: scanInputKindEnum("input_kind"),
+  barcode: text("barcode"),
+  imageCount: smallint("image_count").notNull().default(0),
+  foodId: uuid("food_id").references(() => food.id, { onDelete: "set null" }),
+  result: jsonb("result").$type<import("@/lib/engine/result").ScanResult>(),
+  confidence: confidenceEnum("confidence"),
+  errorCode: text("error_code"),
+  thumbnailKey: text("thumbnail_key"),
+  engineVersion: text("engine_version").notNull(),
+  modelId: text("model_id"),
+  tokensIn: integer("tokens_in"),
+  tokensOut: integer("tokens_out"),
+  costMicros: integer("cost_micros"),
+  charged: boolean("charged").notNull().default(false),
+  clientRequestId: text("client_request_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  doneAt: timestamp("done_at", { withTimezone: true }),
+}, (t) => [
+  index("scan_user_created_idx").on(t.userId, t.createdAt),
+  index("scan_created_idx").on(t.createdAt),
+  uniqueIndex("scan_user_client_request_uq").on(t.userId, t.clientRequestId),
+]);
+
+export const creditTxn = pgTable("credit_txn", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  type: creditTxnTypeEnum("type").notNull(),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  balanceAfter: integer("balance_after").notNull(),
+  scanId: uuid("scan_id").references(() => scan.id, { onDelete: "set null" }),
+  meta: jsonb("meta").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("credit_txn_user_created_idx").on(t.userId, t.createdAt)]);
+
+export const waitlist = pgTable("waitlist", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const foodLog = pgTable("food_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   date: date("date").notNull(),
   meal: mealEnum("meal").notNull(),
   foodId: uuid("food_id").references(() => food.id, { onDelete: "set null" }),
-  scanId: uuid("scan_id"),
+  scanId: uuid("scan_id").references(() => scan.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   portion: jsonb("portion").$type<Portion>().notNull(),
   nutrients: jsonb("nutrients").$type<Nutrients>().notNull(),

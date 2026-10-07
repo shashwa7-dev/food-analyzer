@@ -22,6 +22,7 @@ export function createDb(url: string): Db {
 }
 
 export type Db = NodePgDatabase<typeof fullSchema>;
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 const MISSING_URL = "DATABASE_URL is missing or invalid. Set it to a postgres:// connection string (see .env.example).";
 

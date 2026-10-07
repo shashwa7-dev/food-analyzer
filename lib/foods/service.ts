@@ -12,10 +12,9 @@ import { targetsFor } from "@/lib/nutrition/targets";
 import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
-import type { FoodHit } from "./types";
+import type { FoodHit, FoodRow } from "./types";
 
-export type { FoodHit };
-export type FoodRow = typeof food.$inferSelect;
+export type { FoodHit, FoodRow };
 
 export function toHit(f: Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade" | "source" | "portions" | "defaultPortion" | "per100">): FoodHit {
   const p = f.portions[f.defaultPortion] ?? f.portions[0]!;
@@ -93,7 +92,7 @@ export async function foodDetail(userId: string, id: string): Promise<{ food: Fo
   const perPortion = portion.grams ? nutrientsFor(f.per100, portion.grams) : f.per100;
   const g: GradeResult = { grade: f.grade as Grade | null, value: f.gradeValue, components: f.gradeComponents };
   const reasons = explain({ source: f.source, name: f.name, grade: g, per100: f.per100, basis: f.basis, perPortion, portionLabel: portion.label, targets });
-  const flags = personalise({ name: f.name, allergens: f.allergens, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
+  const flags = personalise({ name: f.name, allergens: f.allergens, mayContain: f.mayContain, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
     profile: { allergies: prof.allergies, diet: prof.diet, goal: prof.goal, targets } });
   const alternatives = f.kind === "packaged" && f.grade && f.grade > "B" && f.categories.length
     ? (await db.select(HIT_COLUMNS).from(food)

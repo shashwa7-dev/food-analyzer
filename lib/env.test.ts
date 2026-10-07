@@ -22,4 +22,14 @@ describe("parseEnv", () => {
   it("rejects a short auth secret", () => {
     expect(() => parseEnv({ ...base, BETTER_AUTH_SECRET: "short" })).toThrow(/BETTER_AUTH_SECRET/);
   });
+  it("defaults the model and scan-cap vars, leaving the Gemini key optional", () => {
+    const parsed = parseEnv({ ...base, GOOGLE_GENERATIVE_AI_API_KEY: "", MODEL_FAST: "", MODEL_STRONG: "", DAILY_AI_SCAN_CAP: "" });
+    expect(parsed.GOOGLE_GENERATIVE_AI_API_KEY).toBeUndefined();
+    expect(parsed.MODEL_FAST).toBe("gemini-3.5-flash-lite");
+    expect(parsed.MODEL_STRONG).toBe("gemini-3.5-flash");
+    expect(parsed.DAILY_AI_SCAN_CAP).toBe(300);
+  });
+  it("coerces a numeric DAILY_AI_SCAN_CAP", () => {
+    expect(parseEnv({ ...base, DAILY_AI_SCAN_CAP: "50" }).DAILY_AI_SCAN_CAP).toBe(50);
+  });
 });
