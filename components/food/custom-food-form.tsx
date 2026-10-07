@@ -199,13 +199,18 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
       const message = e instanceof ApiError ? e.message : "Couldn't save that. Try again.";
       // The API names the field for a plausibility issue; show the message under it.
       const field = e instanceof ApiError && e.field && isFormField(e.field) ? (e.field as FieldId) : null;
-      setError({ message, field });
-      if (field && MICRO_FORM_KEYS.includes(field)) setMicrosOpen(true);
+      // Rendered first (a folded vitamin or mineral opens its section), then focused like a client-side error.
+      flushSync(() => {
+        setError({ message, field });
+        if (field && MICRO_FORM_KEYS.includes(field)) setMicrosOpen(true);
+      });
+      if (field) focusField(field);
       toast.error(message);
     },
   });
 
   const fieldId = (f: FieldId) => `${uid}-${f}`;
+  const focusField = (f: FieldId) => formRef.current?.querySelector<HTMLInputElement>(`#${CSS.escape(fieldId(f))}`)?.focus();
   const fieldError = (f: FieldId) => (error?.field === f ? error.message : null);
   /** Typing in the field that was flagged clears its message. */
   const edit = (f: FieldId, set: (v: string) => void) => (v: string) => {
@@ -226,7 +231,7 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
         setError(problem);
         // A flagged vitamin or mineral opens its section, so the field can be focused and fixed.
         if (problem?.field && MICRO_FORM_KEYS.includes(problem.field)) flushSync(() => setMicrosOpen(true));
-        if (problem?.field) formRef.current?.querySelector<HTMLInputElement>(`#${CSS.escape(fieldId(problem.field))}`)?.focus();
+        if (problem?.field) focusField(problem.field);
         if (!problem) save.mutate();
       }}
     >

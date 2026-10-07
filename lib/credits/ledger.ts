@@ -244,7 +244,7 @@ function toActivityItem(r: ActivityRow): ActivityItem {
     const carried = typeof r.meta?.carriedOver === "number" ? r.meta.carriedOver : 0;
     return { ...base, title: grantTitle(r), meta: carried ? `${carried} already used this month` : "Monthly AI scans", scanId: null, linkable: false, inputKind: null };
   }
-  if (r.kind === "refund") return { ...base, title: scanTitle(r), meta: "Refunded automatically" };
+  if (r.kind === "refund") return { ...base, title: scanTitle(r), meta: "Credit returned" };
   const detail = r.grade ? `grade ${r.grade}` : r.item_count ? `${r.item_count} ${r.item_count === 1 ? "item" : "items"}` : null;
   const meta = [inputKindLabel(r.input_kind) ?? "AI scan", detail, r.deleted ? "deleted" : null].filter(Boolean).join(" · ");
   return { ...base, title: scanTitle(r), meta };

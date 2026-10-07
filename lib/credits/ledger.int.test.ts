@@ -295,7 +295,7 @@ describe("credits/ledger", () => {
       expect(nextCursor).toBeNull();
       expect(items.map((i) => i.kind)).toEqual(["used", "refund", "used", "free", "grant"]);
       expect(items.map((i) => i.title)).toEqual(["Aloo Bhujia", "Couldn't read photo", "Masala Peanuts", "Amul Taaza Milk", "October allowance"]);
-      expect(items.map((i) => i.meta)).toEqual(["Label · grade E · deleted", "Refunded automatically", "Label · grade D", "Barcode · grade B", "Monthly AI scans"]);
+      expect(items.map((i) => i.meta)).toEqual(["Label · grade E · deleted", "Credit returned", "Label · grade D", "Barcode · grade B", "Monthly AI scans"]);
       expect(items.map((i) => i.amount)).toEqual([-1, 1, -1, 0, 20]);
       expect(items.map((i) => i.scanId)).toEqual([ids.gone, ids.meal, ids.peanuts, ids.milk, null]);
       expect(items.map((i) => i.linkable)).toEqual([false, true, true, true, false]);
