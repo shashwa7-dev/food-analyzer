@@ -1,0 +1,1 @@
+ALTER TABLE "scan" ADD COLUMN "error_message" text;

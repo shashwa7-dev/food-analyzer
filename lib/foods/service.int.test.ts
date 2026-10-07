@@ -5,7 +5,7 @@ import { db } from "@/lib/db/client";
 import { food, profile } from "@/lib/db/schema";
 import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
-import { createCustomFood, deleteCustomFood, findFoodByBarcode, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoods, updateCustomFood } from "./service";
+import { createCustomFood, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
 
 const rules = parseHouseholdCsv("keyword,label,grams\nrice,1 katori,150\n");
 const rec = (sourceRef: string, name: string, per100 = { energyKcal: 130, protein: 2.7, carbs: 28, fat: 0.3 }, source: "indb" | "fndds" = "indb") =>
@@ -143,5 +143,47 @@ describe("findFoodByBarcode", () => {
 
     await db.update(food).set({ deletedAt: new Date() }).where(eq(food.id, off.id));
     expect(await findFoodByBarcode("111")).toBeNull();
+  });
+});
+
+describe("searchFoodRows (engine name matching)", () => {
+  beforeEach(resetDb);
+
+  it("returns full food rows in the same order and with the same visibility as searchFoods", async () => {
+    await upsertFoods([rec("1", "Rice, white, boiled"), rec("5", "Jeera rice"), { ...rec("6", "Rice, raw, milled", undefined, "fndds"), kind: "ingredient" }]);
+    const a = await createUser(); const b = await createUser();
+    const mine = await createCustomFood(a, { name: "Rice bowl", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 150, protein: 3, carbs: 30, fat: 1 } });
+    const rows = await searchFoodRows(a, "rice", "IN", 10);
+    const hits = await searchFoods(a, "rice", "IN", 10);
+    expect(rows.map((r) => r.id)).toEqual(hits.map((h) => h.id));
+    expect(rows[0]!.per100.energyKcal).toBeTypeOf("number");
+    expect(rows[0]!.portions.length).toBeGreaterThan(0);
+    expect(rows.some((r) => r.id === mine.id)).toBe(true);
+    expect((await searchFoodRows(b, "rice", "IN", 10)).some((r) => r.id === mine.id)).toBe(false);
+    expect(await searchFoodRows(a, "r", "IN", 10)).toEqual([]);
+  });
+});
+
+describe("findAlternatives", () => {
+  beforeEach(resetDb);
+
+  const off = (code: string, name: string, per100: { energyKcal: number; protein: number; carbs: number; fat: number; sugars?: number; satFat?: number; sodiumMg?: number; fibre?: number }, countries = ["IN"]) =>
+    toFoodDraft({ source: "off", sourceRef: code, barcode: code, name, basis: "per_100g", per100, portions: [], categories: ["en:snacks"], countries }, []);
+
+  it("returns better-graded foods in the same category and country, excluding the food itself", async () => {
+    await upsertFoods([
+      off("1", "Fried chips", { energyKcal: 560, protein: 6, carbs: 50, fat: 37, satFat: 15, sodiumMg: 900, sugars: 2 }),
+      off("2", "Roasted chana", { energyKcal: 360, protein: 20, carbs: 50, fat: 5, satFat: 1, sodiumMg: 50, sugars: 2, fibre: 15 }),
+      off("3", "US roasted chana", { energyKcal: 360, protein: 20, carbs: 50, fat: 5, satFat: 1, sodiumMg: 50, sugars: 2, fibre: 15 }, ["US"]),
+    ]);
+    const u = await createUser();
+    const [chips] = await db.select().from(food).where(eq(food.sourceRef, "1"));
+    expect(chips!.grade! > "B").toBe(true);
+    const alts = await findAlternatives(u, { categories: ["en:snacks"], country: "IN", grade: chips!.grade as "C" | "D" | "E", excludeId: chips!.id });
+    expect(alts.map((a) => a.name)).toEqual(["Roasted chana"]);
+    expect(await findAlternatives(u, { categories: ["en:snacks"], country: "IN", grade: null })).toEqual([]);
+    expect(await findAlternatives(u, { categories: [], country: "IN", grade: "E" })).toEqual([]);
+    // foodDetail uses the same query.
+    expect((await foodDetail(u, chips!.id))!.alternatives.map((a) => a.name)).toEqual(["Roasted chana"]);
   });
 });

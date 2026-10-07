@@ -96,6 +96,8 @@ export const scan = pgTable("scan", {
   result: jsonb("result").$type<import("@/lib/engine/result").ScanResult>(),
   confidence: confidenceEnum("confidence"),
   errorCode: text("error_code"),
+  /** The engine's own user-safe sentence when more specific than the code's fixed message (lib/scans/messages.ts). */
+  errorMessage: text("error_message"),
   thumbnailKey: text("thumbnail_key"),
   engineVersion: text("engine_version").notNull(),
   modelId: text("model_id"),

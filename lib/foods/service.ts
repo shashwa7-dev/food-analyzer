@@ -1,4 +1,4 @@
-import { and, arrayOverlaps, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, arrayOverlaps, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { food, userFoodStats } from "@/lib/db/schema";
@@ -27,6 +27,34 @@ const HIT_COLUMNS = { id: food.id, name: food.name, brand: food.brand, kind: foo
 const QUALIFIER = "(cooked|boiled|plain|nfs|raw)";
 const GENERIC_QUALIFIERS = `^(${QUALIFIER} )+|( ${QUALIFIER})+$`;
 
+function searchWhere(userId: string, raw: string, canon: string) {
+  return and(visibleFoodWhere(userId), sql`(${food.searchText} @@ websearch_to_tsquery('simple', ${raw})
+      OR ${food.searchText} @@ websearch_to_tsquery('simple', ${canon})
+      OR ${raw} <% ${food.searchName} OR ${canon} <% ${food.searchName})`);
+}
+
+function searchOrder(userId: string, raw: string, canon: string, country: string) {
+  return [
+    sql`(COALESCE(${food.ownerId} = ${userId}, false) OR ${userFoodStats.uses} IS NOT NULL) DESC`,
+    // 1. exact name; 2. exact after dropping a generic qualifier ("Rice, cooked, NFS", "Banana, raw",
+    // "Plain dosa") or an exact curated staple alias ("Boiled rice (Uble chawal)" for "chawal"). Hits on
+    // the words the user typed rank above hits on the canonical expansion ("chawal" → "rice").
+    sql`CASE WHEN ${food.normName} = ${raw} THEN 0
+      WHEN regexp_replace(${food.normName}, ${GENERIC_QUALIFIERS}, '', 'g') = ${raw} OR ${raw} = ANY(${food.aliases}) THEN 1
+      WHEN ${food.normName} = ${canon} THEN 2
+      WHEN regexp_replace(${food.normName}, ${GENERIC_QUALIFIERS}, '', 'g') = ${canon} OR ${canon} = ANY(${food.aliases}) THEN 3
+      ELSE 4 END`,
+    sql`(${food.kind} <> 'ingredient') DESC`,
+    // 3. whole-name similarity, so "Rice upma" doesn't beat "Rice, white, cooked" on a shared prefix.
+    sql`GREATEST(similarity(${food.normName}, ${raw}), similarity(${food.normName}, ${canon})) DESC`,
+    sql`(${country} = ANY(${food.countries})) DESC`,
+    sql`CASE ${food.source} WHEN 'custom' THEN 0 WHEN 'crowd' THEN 1 WHEN ${country === "IN" ? sql`'indb'` : sql`'fndds'`} THEN 2 WHEN 'off' THEN 3 ELSE 4 END`,
+    desc(food.popularity),
+    sql`length(${food.name})`,
+    food.id, // total order, so equal-ranked hits come back in a stable order
+  ];
+}
+
 export async function searchFoods(userId: string, q: string, country: string, limit = 20): Promise<FoodHit[]> {
   const raw = normalise(q);
   const canon = canonicalQuery(q);
@@ -35,29 +63,25 @@ export async function searchFoods(userId: string, q: string, country: string, li
     await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.3`);
     const rows = await tx.select(HIT_COLUMNS).from(food)
       .leftJoin(userFoodStats, and(eq(userFoodStats.foodId, food.id), eq(userFoodStats.userId, userId)))
-      .where(and(visibleFoodWhere(userId), sql`(${food.searchText} @@ websearch_to_tsquery('simple', ${raw})
-          OR ${food.searchText} @@ websearch_to_tsquery('simple', ${canon})
-          OR ${raw} <% ${food.searchName} OR ${canon} <% ${food.searchName})`))
-      .orderBy(
-        sql`(COALESCE(${food.ownerId} = ${userId}, false) OR ${userFoodStats.uses} IS NOT NULL) DESC`,
-        // 1. exact name; 2. exact after dropping a generic qualifier ("Rice, cooked, NFS", "Banana, raw",
-        // "Plain dosa") or an exact curated staple alias ("Boiled rice (Uble chawal)" for "chawal"). Hits on
-        // the words the user typed rank above hits on the canonical expansion ("chawal" → "rice").
-        sql`CASE WHEN ${food.normName} = ${raw} THEN 0
-          WHEN regexp_replace(${food.normName}, ${GENERIC_QUALIFIERS}, '', 'g') = ${raw} OR ${raw} = ANY(${food.aliases}) THEN 1
-          WHEN ${food.normName} = ${canon} THEN 2
-          WHEN regexp_replace(${food.normName}, ${GENERIC_QUALIFIERS}, '', 'g') = ${canon} OR ${canon} = ANY(${food.aliases}) THEN 3
-          ELSE 4 END`,
-        sql`(${food.kind} <> 'ingredient') DESC`,
-        // 3. whole-name similarity, so "Rice upma" doesn't beat "Rice, white, cooked" on a shared prefix.
-        sql`GREATEST(similarity(${food.normName}, ${raw}), similarity(${food.normName}, ${canon})) DESC`,
-        sql`(${country} = ANY(${food.countries})) DESC`,
-        sql`CASE ${food.source} WHEN 'custom' THEN 0 WHEN 'crowd' THEN 1 WHEN ${country === "IN" ? sql`'indb'` : sql`'fndds'`} THEN 2 WHEN 'off' THEN 3 ELSE 4 END`,
-        desc(food.popularity),
-        sql`length(${food.name})`,
-      )
+      .where(searchWhere(userId, raw, canon))
+      .orderBy(...searchOrder(userId, raw, canon, country))
       .limit(limit);
     return rows.map(toHit);
+  });
+}
+
+/** searchFoods' ranking and visibility, returning full rows — the scan engine's name matching (EngineDeps.searchFoods). */
+export async function searchFoodRows(userId: string, name: string, country: string, limit = 10): Promise<FoodRow[]> {
+  const raw = normalise(name);
+  const canon = canonicalQuery(name);
+  if (raw.length < 2) return [];
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.3`);
+    return tx.select(getTableColumns(food)).from(food)
+      .leftJoin(userFoodStats, and(eq(userFoodStats.foodId, food.id), eq(userFoodStats.userId, userId)))
+      .where(searchWhere(userId, raw, canon))
+      .orderBy(...searchOrder(userId, raw, canon, country))
+      .limit(limit);
   });
 }
 
@@ -91,6 +115,23 @@ export async function findFoodByBarcode(barcode: string): Promise<FoodRow | null
   return row ?? null;
 }
 
+/**
+ * Better-graded visible foods sharing a category with the given food, in the given country (spec §7.4).
+ * Shared by the food detail page and the scan engine (EngineDeps.alternatives).
+ */
+export async function findAlternatives(
+  userId: string,
+  f: { categories: string[]; country: string; grade: Grade | null; excludeId?: string },
+  limit = 5,
+): Promise<FoodHit[]> {
+  if (!f.grade || f.categories.length === 0) return [];
+  const rows = await db.select(HIT_COLUMNS).from(food)
+    .where(and(visibleFoodWhere(userId), arrayOverlaps(food.categories, f.categories), sql`${f.country} = ANY(${food.countries})`,
+      sql`${food.grade} < ${f.grade}`, f.excludeId ? sql`${food.id} <> ${f.excludeId}` : undefined))
+    .orderBy(food.grade, desc(food.popularity), food.id).limit(limit);
+  return rows.map(toHit);
+}
+
 export async function foodDetail(userId: string, id: string): Promise<{ food: FoodRow; reasons: Reason[]; flags: Flag[]; alternatives: FoodHit[]; ingredientsKnown: boolean } | null> {
   const f = await getFoodForUser(userId, id);
   if (!f) return null;
@@ -103,9 +144,7 @@ export async function foodDetail(userId: string, id: string): Promise<{ food: Fo
   const flags = personalise({ name: f.name, allergens: f.allergens, mayContain: f.mayContain, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
     profile: { allergies: prof.allergies, diet: prof.diet, goal: prof.goal, targets } });
   const alternatives = f.kind === "packaged" && f.grade && f.grade > "B" && f.categories.length
-    ? (await db.select(HIT_COLUMNS).from(food)
-        .where(and(visibleFoodWhere(userId), arrayOverlaps(food.categories, f.categories), sql`${prof.country} = ANY(${food.countries})`, sql`${food.grade} < ${f.grade}`, sql`${food.id} <> ${f.id}`))
-        .orderBy(food.grade, desc(food.popularity)).limit(5)).map(toHit)
+    ? await findAlternatives(userId, { categories: f.categories, country: prof.country, grade: f.grade as Grade, excludeId: f.id })
     : [];
   return { food: f, reasons, flags, alternatives, ingredientsKnown: f.ingredients.length > 0 };
 }

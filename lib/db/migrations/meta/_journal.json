@@ -29,6 +29,13 @@
       "when": 1791355467526,
       "tag": "0003_daily_ai_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791363698968,
+      "tag": "0004_scan_error_message",
+      "breakpoints": true
     }
   ]
 }
