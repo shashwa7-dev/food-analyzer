@@ -21,7 +21,7 @@ export interface ScanResult {
   reasons: Reason[];
   flags: Flag[];
   ingredients: string[];
-  items?: { name: string; grams: number; nutrients: Nutrients; provenance: Provenance }[];
+  items?: { name: string; grams: number; foodId?: string; nutrients: Nutrients; provenance: Provenance }[];
   alternatives: FoodHit[];
   hints: string[];
   confidence: "high" | "medium" | "low";
@@ -67,7 +67,7 @@ export function buildResult(args: {
   mayContain: string[];
   additives: string[];
   nova: number | null;
-  items?: { name: string; grams: number; nutrients: Nutrients; provenance: Provenance }[];
+  items?: { name: string; grams: number; foodId?: string; nutrients: Nutrients; provenance: Provenance }[];
   alternatives: FoodHit[];
   tip?: string;
   hints: string[];

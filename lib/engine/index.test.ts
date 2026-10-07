@@ -259,6 +259,12 @@ describe("runAi — label", () => {
     expect(out.result.alternatives).toEqual([HIT]);
   });
 
+  it("captures every additive code in one entry", async () => {
+    const multi = { ...labelNamkeen, additives: ["Emulsifiers (INS 322, INS 471)", "E621"] };
+    const out = await runAi(input(), deps({ extract: extractReturning(multi) }), DEADLINE, null);
+    expect(out.crowdCandidate?.additives).toEqual(["en:e322", "en:e471", "en:e621"]);
+  });
+
   it("ingredients-only with no DB match → UNREADABLE_IMAGE", async () => {
     const ingOnly: Extraction = { images: [{ index: 0, kind: "ingredients", quality: [] }], ingredients: ["Sugar", "Cocoa"] };
     const err = await engineError(runAi(input(), deps({ extract: extractReturning(ingOnly) }), DEADLINE, null));
@@ -291,8 +297,21 @@ describe("runAi — front of pack", () => {
     expect((await engineError(runAi(input(), d, DEADLINE, null))).code).toBe("UNREADABLE_IMAGE");
   });
 
-  it("unmatched with no facts → UNREADABLE_IMAGE", async () => {
+  it("unmatched with no facts → UNREADABLE_IMAGE with the unknown-product message", async () => {
     const d = deps({ extract: extractReturning(frontOnly) });
+    const err = await engineError(runAi(input(), d, DEADLINE, null));
+    expect(err.code).toBe("UNREADABLE_IMAGE");
+    expect(err.message).toBe("We don't know this product yet — add a photo of the nutrition label.");
+  });
+
+  it("with a brand, only matches packaged foods (never dishes or ingredients)", async () => {
+    const d = deps({ extract: extractReturning(frontOnly), searchFoods: vi.fn(async () => [food({ kind: "dish" }), food({ kind: "ingredient" })]) });
+    expect((await engineError(runAi(input(), d, DEADLINE, null))).code).toBe("UNREADABLE_IMAGE");
+  });
+
+  it("without a brand, still never matches an ingredient", async () => {
+    const noBrand = { ...frontOnly, product: { name: "Aloo Bhujia" } };
+    const d = deps({ extract: extractReturning(noBrand), searchFoods: vi.fn(async () => [food({ kind: "ingredient", brand: null })]) });
     expect((await engineError(runAi(input(), d, DEADLINE, null))).code).toBe("UNREADABLE_IMAGE");
   });
 
@@ -326,6 +345,7 @@ describe("runAi — meal", () => {
       ["Steamed rice", 200, "reference"],
       ["Fried kachri papad", 15, "estimate"],
     ]);
+    expect(items.map((i) => i.foodId)).toEqual(["f-dal", "f-rice", undefined]);
     expect(items[0]!.nutrients.energyKcal).toBe(165); // 110 × 1.5 from the catalogue, not the model estimate
     expect(items[1]!.nutrients.energyKcal).toBe(260); // skipped the raw-ingredient hit
     expect(items[2]!.nutrients.energyKcal).toBe(78);
@@ -336,6 +356,40 @@ describe("runAi — meal", () => {
     expect(out.result.grade).not.toBeNull();
     expect(out.crowdCandidate).toBeNull();
     expect(d.alternatives).not.toHaveBeenCalled();
+  });
+
+  const oneItem = (name: string, grams: number, energyKcal: number): Extraction => ({
+    images: [{ index: 0, kind: "meal", quality: [] }],
+    meal: { items: [{ name, grams, estimate: { energyKcal, protein: 6, carbs: 18, fat: 5 } }] },
+  });
+
+  it("rejects a weak name match (\"dal\" vs \"Dal makhani\") and uses the estimate", async () => {
+    const makhani = food({ id: "f-makhani", name: "Dal makhani", brand: null, kind: "dish", gradeCategory: "dish", per100: { energyKcal: 120, protein: 5, carbs: 12, fat: 6 } });
+    const out = await runAi(input(), deps({ extract: extractReturning(oneItem("dal", 150, 160)), searchFoods: vi.fn(async () => [makhani]) }), DEADLINE, null);
+    expect(out.result.items![0]!.provenance).toBe("estimate");
+    expect(out.result.items![0]!.foodId).toBeUndefined();
+    expect(out.result.items![0]!.nutrients.energyKcal).toBe(160);
+    expect(out.result.confidence).toBe("low");
+  });
+
+  it("rejects a packaged hit (\"Biryani masala\" spice mix)", async () => {
+    const masala = food({ id: "f-masala", name: "Biryani masala", brand: "Spice Co", kind: "packaged", per100: { energyKcal: 300, protein: 10, carbs: 40, fat: 10 } });
+    const out = await runAi(input(), deps({ extract: extractReturning(oneItem("Biryani masala", 300, 480)), searchFoods: vi.fn(async () => [masala]) }), DEADLINE, null);
+    expect(out.result.items![0]!.provenance).toBe("estimate");
+  });
+
+  it("rejects a hit whose kcal for the item's grams is outside 0.5–2× the model estimate", async () => {
+    const dense = food({ id: "f-dense", name: "Dal tadka", brand: null, kind: "dish", gradeCategory: "dish", per100: { energyKcal: 400, protein: 20, carbs: 50, fat: 13 } });
+    const out = await runAi(input(), deps({ extract: extractReturning(oneItem("Dal tadka", 150, 165)), searchFoods: vi.fn(async () => [dense]) }), DEADLINE, null);
+    expect(out.result.items![0]!.provenance).toBe("estimate"); // 600 kcal vs 165 estimate
+  });
+
+  it("accepts an exact-name dish hit within the kcal range", async () => {
+    const dalTadka = food({ id: "f-dal", name: "Dal tadka", brand: null, kind: "dish", gradeCategory: "dish", per100: { energyKcal: 110, protein: 5.6, carbs: 13, fat: 4 } });
+    const out = await runAi(input(), deps({ extract: extractReturning(oneItem("Dal tadka", 150, 200)), searchFoods: vi.fn(async () => [dalTadka]) }), DEADLINE, null);
+    expect(out.result.items![0]).toMatchObject({ provenance: "reference", foodId: "f-dal" });
+    expect(out.result.items![0]!.nutrients.energyKcal).toBe(165);
+    expect(out.result.confidence).toBe("medium");
   });
 
   it("doesn't look up a barcode read off a meal photo", async () => {

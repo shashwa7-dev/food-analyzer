@@ -25,7 +25,8 @@ Nutrition facts panel:
 
 Meal and dish photos (no packaging, a plate or container of food):
 - List each distinct food item visible with your best estimate of its grams and its nutrient estimate (energy,
-  protein, carbs, fat, and fibre/sugars/sodium if you can estimate them). These are estimates, not transcriptions —
+  protein, carbs, fat, and fibre/sugars/sodium if you can estimate them). Each item's nutrient estimate is for the
+  whole item at the grams you state (not per 100 g). These are estimates, not transcriptions —
   say so implicitly by only filling in meal.items, never facts, for a meal photo.
 
 Front-of-pack only (no nutrition panel or ingredients list visible):

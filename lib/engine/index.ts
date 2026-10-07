@@ -85,12 +85,16 @@ const HINT_RETAKE = "Some numbers look off — retake the label photo";
 const HINT_NO_SERVING = "No serving size printed — log by grams";
 const HINT_BACK = "Add a photo of the back for exact facts";
 const NAME_MATCH_MIN = 0.8;
+const MEAL_MATCH_MIN = 0.6;
+const MEAL_KCAL_RATIO_MIN = 0.5;
+const MEAL_KCAL_RATIO_MAX = 2;
 const FALLBACK_PRODUCT_NAME = "Packaged food";
 const MAX_NAME = 120;
 const REQUIRED_KEYS = ["energyKcal", "protein", "carbs", "fat"] as const;
 const GRADES: readonly string[] = ["A", "B", "C", "D", "E"];
 
 const unreadable = () => new EngineError("UNREADABLE_IMAGE", "Couldn't read the photo. Try again with the label in focus and well lit.");
+const unknownProduct = () => new EngineError("UNREADABLE_IMAGE", "We don't know this product yet — add a photo of the nutrition label.");
 const notFood = () => new EngineError("NOT_FOOD", "That doesn't look like food. Try a photo of the label or your plate.");
 
 function hasCoreFacts(per100: Partial<Nutrients> | null | undefined): per100 is Nutrients {
@@ -132,7 +136,12 @@ async function matchByName(product: NonNullable<Extraction["product"]>, deps: En
   const hits = await deps.searchFoods({ name: product.name, ...(product.brand && { brand: product.brand }), country });
   return (
     hits.find(
-      (h) => hasCoreFacts(h.per100) && brandsMatch(product.brand, h.brand) && nameSimilarity(product.name, h.name, product.brand, h.brand) >= NAME_MATCH_MIN,
+      (h) =>
+        h.kind !== "ingredient" &&
+        // A branded front of pack is a packaged product: never match it to a recipe or generic food.
+        (!product.brand || h.kind === "packaged") &&
+        hasCoreFacts(h.per100) &&
+        brandsMatch(product.brand, h.brand) && nameSimilarity(product.name, h.name, product.brand, h.brand) >= NAME_MATCH_MIN,
     ) ?? null
   );
 }
@@ -148,8 +157,8 @@ function toOffAdditiveTags(list: string[]): string[] {
       out.add(s);
       continue;
     }
-    const m = s.match(/(?:^|[^a-z0-9])(?:e|ins)?\s*-?\s*(\d{3,4}[a-z]?)(?![0-9])/);
-    if (m?.[1]) out.add(`en:e${m[1]}`);
+    // Every code in the entry: "Emulsifiers (INS 322, INS 471)" → en:e322, en:e471.
+    for (const m of s.matchAll(/(?:^|[^a-z0-9])(?:e|ins)?\s*-?\s*(\d{3,4}[a-z]?)(?![0-9])/g)) if (m[1]) out.add(`en:e${m[1]}`);
   }
   return [...out];
 }
@@ -339,7 +348,7 @@ async function frontScan(x: Extraction, profile: Profile, deps: EngineDeps): Pro
   if (match) return { result: await resultFromFood(match, "front", "medium", [HINT_BACK], profile, deps), crowdCandidate: null };
 
   const est = toPer100(x.facts);
-  if (!est) throw unreadable();
+  if (!est) throw unknownProduct();
   const provenance: Partial<Record<NutrientKey, Provenance>> = Object.fromEntries(
     NUTRIENT_KEYS.filter((k) => est.per100[k] !== undefined).map((k) => [k, "estimate" as const]),
   );
@@ -388,6 +397,20 @@ function mealName(items: MealItem[]): string {
   return s.length > MAX_NAME ? `${s.slice(0, MAX_NAME - 1)}…` : s;
 }
 
+/**
+ * A catalogue hit replaces the model's estimate for a meal item only when it is plausibly the
+ * same food: a dish or generic food (not a packaged product or raw ingredient), a close name
+ * match, and calories for the item's grams within 0.5–2× the model's own estimate.
+ */
+function acceptMealHit(item: NonNullable<Extraction["meal"]>["items"][number], hit: FoodLike): boolean {
+  if (hit.kind !== "dish" && hit.kind !== "generic") return false;
+  if (!hasCoreFacts(hit.per100)) return false;
+  if (nameSimilarity(item.name, hit.name) < MEAL_MATCH_MIN) return false;
+  const kcal = (hit.per100.energyKcal * item.grams) / 100;
+  const est = item.estimate.energyKcal;
+  return kcal >= est * MEAL_KCAL_RATIO_MIN && kcal <= est * MEAL_KCAL_RATIO_MAX;
+}
+
 async function mealScan(x: Extraction, profile: Profile, deps: EngineDeps): Promise<ScanResult> {
   const raw = x.meal?.items ?? [];
   if (raw.length === 0) throw unreadable();
@@ -395,9 +418,9 @@ async function mealScan(x: Extraction, profile: Profile, deps: EngineDeps): Prom
   const items: MealItem[] = await Promise.all(
     raw.map(async (it): Promise<MealItem> => {
       const hits = await deps.searchFoods({ name: it.name, country: profile.country });
-      const hit = hits.find((h) => h.kind !== "ingredient" && hasCoreFacts(h.per100));
+      const hit = hits.find((h) => acceptMealHit(it, h));
       return hit
-        ? { name: it.name, grams: it.grams, nutrients: nutrientsFor(hit.per100, it.grams), provenance: "reference" }
+        ? { name: it.name, grams: it.grams, foodId: hit.id, nutrients: nutrientsFor(hit.per100, it.grams), provenance: "reference" }
         : { name: it.name, grams: it.grams, nutrients: cleanNutrients(it.estimate), provenance: "estimate" };
     }),
   );
