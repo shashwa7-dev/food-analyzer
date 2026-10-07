@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createUser, resetDb, testDb } from "@/tests/helpers/db";
 import { creditTxn, profile, scan } from "@/lib/db/schema";
+import { InvalidError } from "@/lib/errors";
 import {
-  NoCreditsError, ScanNotFoundError, debitForScan, ensureCurrentPeriod, getBalance, listTransactions, refundScan,
+  NoCreditsError, ScanNotFoundError, countActivity, debitForScan, ensureCurrentPeriod, getBalance, listActivity, periodBalances, refundScan,
 } from "./ledger";
 
 const NOW = new Date("2026-10-05T00:00:00Z");
@@ -261,42 +262,120 @@ describe("credits/ledger", () => {
     });
   });
 
-  describe("listTransactions", () => {
-    it("lists a user's transactions most-recent first, limited", async () => {
-      const u = await createUser();
+  describe("listActivity", () => {
+    type ScanInsert = typeof scan.$inferInsert;
+    async function addScan(userId: string, v: Partial<ScanInsert> & { name?: string; grade?: string }) {
+      const { name, grade, ...rest } = v;
+      const result = name ? ({ name, grade: grade ?? null } as unknown as ScanInsert["result"]) : undefined;
+      const [row] = await testDb().insert(scan).values({ userId, status: "done", imageCount: 1, engineVersion: "e1", result, ...rest }).returning();
+      return row!.id;
+    }
+    const charge = (userId: string, scanId: string) => testDb().transaction((tx) => debitForScan(tx, userId, scanId, NOW));
+
+    /** The demo-like month: grant, a free barcode, a label scan, a failed-and-refunded meal photo, a later-deleted scan. */
+    async function seedMonth(u: string) {
       await getBalance(u, NOW);
-      const scanId = await insertScan(u);
-      await testDb().transaction((tx) => debitForScan(tx, u, scanId, NOW));
+      const milk = await addScan(u, { inputKind: "barcode", barcode: "8901262010016", charged: false, name: "Amul Taaza Milk", grade: "B" });
+      const peanuts = await addScan(u, { inputKind: "label", name: "Masala Peanuts", grade: "D" });
+      await charge(u, peanuts);
+      const meal = await addScan(u, { inputKind: "meal", status: "failed", errorCode: "UNREADABLE" });
+      await charge(u, meal);
+      await testDb().transaction((tx) => refundScan(tx, u, meal));
+      const gone = await addScan(u, { inputKind: "label", name: "Aloo Bhujia", grade: "E" });
+      await charge(u, gone);
+      await testDb().update(scan).set({ deletedAt: new Date() }).where(eq(scan.id, gone));
+      return { milk, peanuts, meal, gone };
+    }
 
-      const txns = await listTransactions(u);
-      expect(txns).toHaveLength(2);
-      expect(txns[0]!.type).toBe("debit");
-      expect(txns[1]!.type).toBe("grant");
+    it("lists grants, used scans, free barcodes and refunds newest first, hiding a refunded scan's debit", async () => {
+      const u = await createUser();
+      const ids = await seedMonth(u);
 
-      const limited = await listTransactions(u, 1);
-      expect(limited).toHaveLength(1);
+      const { items, nextCursor } = await listActivity(u, "all");
+      expect(nextCursor).toBeNull();
+      expect(items.map((i) => i.kind)).toEqual(["used", "refund", "used", "free", "grant"]);
+      expect(items.map((i) => i.title)).toEqual(["Aloo Bhujia", "Couldn't read photo", "Masala Peanuts", "Amul Taaza Milk", "October allowance"]);
+      expect(items.map((i) => i.meta)).toEqual(["Label · grade E · deleted", "Refunded automatically", "Label · grade D", "Barcode · grade B", "Monthly AI scans"]);
+      expect(items.map((i) => i.amount)).toEqual([-1, 1, -1, 0, 20]);
+      expect(items.map((i) => i.scanId)).toEqual([ids.gone, ids.meal, ids.peanuts, ids.milk, null]);
+      expect(items.map((i) => i.linkable)).toEqual([false, true, true, true, false]);
+      for (const i of items) expect(Number.isNaN(Date.parse(i.at))).toBe(false);
     });
 
-    it("orders a tied grant/expire pair from the same reset with grant first", async () => {
+    it("filters to used, free or refund rows", async () => {
       const u = await createUser();
-      await testDb().update(profile).set({ allowancePeriod: "2026-09", credits: 7 }).where(eq(profile.userId, u));
-      await ensureCurrentPeriod(u, NOW);
+      const ids = await seedMonth(u);
 
-      const txns = await listTransactions(u);
-      expect(txns).toHaveLength(2);
-      expect(txns[0]!.type).toBe("grant");
-      expect(txns[1]!.type).toBe("expire");
-      expect(txns[0]!.createdAt.getTime()).toBe(txns[1]!.createdAt.getTime());
+      expect((await listActivity(u, "used")).items.map((i) => i.scanId)).toEqual([ids.gone, ids.peanuts]);
+      const free = await listActivity(u, "free");
+      expect(free.items.map((i) => [i.kind, i.title])).toEqual([["free", "Amul Taaza Milk"]]);
+      const refunds = await listActivity(u, "refunds");
+      expect(refunds.items.map((i) => [i.kind, i.scanId])).toEqual([["refund", ids.meal]]);
     });
 
-    it("clamps limit to the 1-100 range", async () => {
+    it("leaves the grade out of meta when there is none, and counts a meal photo's items instead", async () => {
       const u = await createUser();
       await getBalance(u, NOW);
+      const front = await addScan(u, { inputKind: "front", name: "Mystery Bar" });
+      await charge(u, front);
+      const thali = await addScan(u, { inputKind: "meal", name: "Thali photo" });
+      await testDb().update(scan).set({ result: sql`jsonb_build_object('name', 'Thali photo', 'grade', null, 'items', '[1,2,3,4]'::jsonb)` }).where(eq(scan.id, thali));
+      await charge(u, thali);
 
-      const zero = await listTransactions(u, 0);
-      expect(zero).toHaveLength(1);
-      const many = await listTransactions(u, 9999);
-      expect(many.length).toBeLessThanOrEqual(100);
+      const { items } = await listActivity(u, "used");
+      expect(items.map((i) => i.meta)).toEqual(["Meal photo · 4 items", "Front of pack"]);
+    });
+
+    it("never shows another user's rows", async () => {
+      const u = await createUser();
+      const other = await createUser();
+      await seedMonth(other);
+      await getBalance(u, NOW);
+
+      const { items } = await listActivity(u, "all");
+      expect(items.map((i) => i.kind)).toEqual(["grant"]);
+      expect(await countActivity(u, NOW)).toEqual({ used: 0, free: 0, refunded: 0 });
+    });
+
+    it("pages 30 at a time with a keyset cursor that never skips or repeats rows sharing a timestamp", async () => {
+      const u = await createUser();
+      await getBalance(u, NOW);
+      // One statement: every row gets the same now(), so only the cursor's tie-breakers keep pages apart.
+      await testDb().insert(scan).values(Array.from({ length: 32 }, (_, i) => ({
+        userId: u, status: "done" as const, imageCount: 0, engineVersion: "e1", inputKind: "barcode" as const, barcode: `89000000000${i}`,
+        result: { name: `Pack ${i}`, grade: "C" } as unknown as ScanInsert["result"],
+      })));
+
+      const p1 = await listActivity(u, "all");
+      expect(p1.items).toHaveLength(30);
+      expect(p1.nextCursor).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z~1~[0-9a-f-]{36}$/);
+      const p2 = await listActivity(u, "all", p1.nextCursor!);
+      expect(p2.nextCursor).toBeNull();
+      expect(p2.items.map((i) => i.kind)).toEqual(["free", "free", "grant"]);
+      const all = [...p1.items, ...p2.items].map((i) => i.id);
+      expect(new Set(all).size).toBe(33);
+    });
+
+    it("rejects a malformed cursor", async () => {
+      const u = await createUser();
+      await expect(listActivity(u, "all", "nope")).rejects.toThrow(InvalidError);
+      await expect(listActivity(u, "all", "2026-10-05T00:00:00.000000Z~2~00000000-0000-0000-0000-000000000000")).rejects.toThrow(InvalidError);
+    });
+
+    it("counts this period's used, free and refunded scans for the stat tiles", async () => {
+      const u = await createUser();
+      await seedMonth(u);
+      expect(await countActivity(u, new Date())).toEqual({ used: 2, free: 1, refunded: 1 });
+    });
+
+    it("lists this period's balance changes oldest first, the grant before a debit in its own transaction", async () => {
+      const u = await createUser();
+      const first = await insertScan(u);
+      await testDb().transaction((tx) => debitForScan(tx, u, first)); // grants, then debits, in one transaction
+
+      const b = await periodBalances(u);
+      expect(b.map((r) => [r.type, r.balanceAfter])).toEqual([["grant", 20], ["debit", 19]]);
+      expect(b[0]!.at).toBe(b[1]!.at);
     });
   });
 });

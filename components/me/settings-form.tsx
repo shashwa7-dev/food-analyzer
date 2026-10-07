@@ -1,138 +1,167 @@
 "use client";
-import { useState } from "react";
-import Link from "next/link";
+// The Me page's settings, one section per sheet (spec §6.13): Goal (with the daily targets), Diet,
+// Allergies and Country. Every section saves through the same server action (saveProfile), then
+// refreshes the page so the settings list shows the stored values.
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { authClient } from "@/lib/auth-client";
 import { PRESETS, targetsFor } from "@/lib/nutrition/targets";
-import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
+import { allergensForDiet, ALLERGEN_KEYS, type AllergenKey } from "@/lib/nutrition/personalise";
 import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
-import { GOALS, GOAL_LABEL, DIETS, DIET_LABEL, ALLERGEN_LABELS } from "@/lib/profile/options";
-import { saveProfile, deleteAccountAction } from "@/app/(app)/me/actions";
+import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
+import { saveProfile } from "@/app/(app)/me/actions";
 
-const COUNTRIES: [string, string][] = [
+export const COUNTRIES: [string, string][] = [
   ["IN", "India"], ["US", "United States"], ["GB", "United Kingdom"],
   ["AE", "UAE"], ["CA", "Canada"], ["AU", "Australia"], ["SG", "Singapore"],
 ];
+export const countryName = (code: string) => COUNTRIES.find(([k]) => k === code)?.[1] ?? code;
+
 const PRIMARY_FIELDS = [
-  { key: "energyKcal", label: "Calories (kcal)" },
-  { key: "protein", label: "Protein (g)" },
+  { key: "energyKcal", label: "Calories", unit: "kcal" },
+  { key: "protein", label: "Protein", unit: "g" },
 ] as const;
 const MORE_FIELDS = [
-  { key: "carbs", label: "Carbs (g)" },
-  { key: "fat", label: "Fat (g)" },
-  { key: "fibre", label: "Fibre (g)" },
-  { key: "sugarsMax", label: "Sugar limit (g)" },
-  { key: "sodiumMgMax", label: "Sodium limit (mg)" },
-  { key: "satFatMax", label: "Saturated fat limit (g)" },
+  { key: "carbs", label: "Carbs", unit: "g" },
+  { key: "fat", label: "Fat", unit: "g" },
+  { key: "fibre", label: "Fibre", unit: "g" },
+  { key: "sugarsMax", label: "Sugar limit", unit: "g" },
+  { key: "sodiumMgMax", label: "Sodium limit", unit: "mg" },
+  { key: "satFatMax", label: "Sat. fat limit", unit: "g" },
 ] as const;
 const ALL_FIELDS = [...PRIMARY_FIELDS, ...MORE_FIELDS];
 type FieldKey = (typeof ALL_FIELDS)[number]["key"];
 
-function toTextRecord(preset: DailyTargets): Record<FieldKey, string> {
+function toTextRecord(t: DailyTargets): Record<FieldKey, string> {
   const out = {} as Record<FieldKey, string>;
-  for (const f of ALL_FIELDS) out[f.key] = String(preset[f.key]);
+  for (const f of ALL_FIELDS) out[f.key] = String(t[f.key]);
   return out;
 }
 
-export interface SettingsInitial {
-  goal: Goal;
-  diet: Diet;
-  allergies: string[];
-  targets: Partial<DailyTargets> | null;
-  country: string;
+const knownAllergies = (list: string[]) => list.filter((a): a is AllergenKey => (ALLERGEN_KEYS as readonly string[]).includes(a));
+
+/** Saves a profile patch through the shared server action; toasts the outcome and refreshes the page on success. */
+function useProfileSave(onDone: () => void) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  async function save(payload: Record<string, unknown>) {
+    setPending(true);
+    const res = await saveProfile(payload).catch(() => ({ ok: false as const, message: "Couldn't save. Try again." }));
+    setPending(false);
+    if (!res.ok) {
+      toast.error(res.message);
+      return;
+    }
+    toast.success("Saved.");
+    router.refresh();
+    onDone();
+  }
+  return { pending, save };
 }
 
-type Section = "goal" | "diet" | "allergies" | "targets" | "country" | null;
-
-function chipClass(selected: boolean) {
-  return cn(
-    "min-h-11 rounded-md border border-line bg-surface px-3.5 text-sm font-medium",
-    selected && "border-ink bg-ink text-bg",
-  );
-}
-
-function Row({ label, value, open, onToggle, children }: { label: string; value: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+/** Cancel and Save, the sheet's one main action (mock-c1 sheet footer). */
+function SheetActions({ pending, dirty, onCancel, onSave }: { pending: boolean; dirty: boolean; onCancel: () => void; onSave: () => void }) {
   return (
-    <div className="border-b border-line py-1 last:border-b-0">
-      <button type="button" onClick={onToggle} className="flex min-h-11 w-full items-center justify-between gap-3 py-2 text-left">
-        <span className="text-sm">{label}</span>
-        <span className="flex items-center gap-1.5 text-sm text-subtle">
-          {value}
-          <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} aria-hidden />
-        </span>
-      </button>
-      {open && <div className="pb-3">{children}</div>}
+    <div className="grid shrink-0 grid-cols-[1fr_1.3fr] gap-2.5 pt-1">
+      <Button type="button" variant="ghost-sunken" shape="pill" size="xl" className="h-[54px] min-w-0 px-4" disabled={pending} onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button type="button" shape="pill" size="xl" className="h-[54px] min-w-0 px-4" disabled={!dirty || pending} onClick={onSave}>
+        {pending ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Check aria-hidden />}
+        {pending ? "Saving…" : "Save"}
+      </Button>
     </div>
   );
 }
 
-export function SettingsForm({ initial }: { initial: SettingsInitial }) {
-  const router = useRouter();
-  const [open, setOpen] = useState<Section>(null);
-  const [goal, setGoal] = useState(initial.goal);
-  const [diet, setDiet] = useState(initial.diet);
-  const [allergies, setAllergies] = useState<Set<AllergenKey>>(
-    () => new Set(initial.allergies.filter((a): a is AllergenKey => (ALLERGEN_KEYS as readonly string[]).includes(a))),
+/** A single-choice list in one card: 54 px rows, a check on the chosen one. */
+function OptionList<K extends string>({ label, options, value, onPick }: {
+  label: string; options: { key: K; title: string; desc?: string }[]; value: K; onPick: (key: K) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="shrink-0 overflow-hidden rounded-[20px] bg-surface shadow-card">
+      {options.map((o) => {
+        const on = o.key === value;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onPick(o.key)}
+            className="flex min-h-[54px] w-full items-center gap-3 px-4 py-2 text-left transition-colors not-first:border-t not-first:border-line hover:bg-sunken/60"
+          >
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className={cn("block truncate font-[550] text-ink", on && "font-semibold")}>{o.title}</span>
+              {o.desc && <span className="block truncate text-[12.5px] text-subtle">{o.desc}</span>}
+            </span>
+            <span
+              className={cn(
+                "grid size-6 shrink-0 place-items-center rounded-full border-[1.5px]",
+                on ? "border-transparent bg-action text-action-ink" : "border-line",
+              )}
+              aria-hidden
+            >
+              {on && <Check className="size-3.5" strokeWidth={3} />}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
-  const [country, setCountry] = useState(initial.country);
-  const [targets, setTargets] = useState(initial.targets);
-  const [draftAllergies, setDraftAllergies] = useState<Set<AllergenKey>>(allergies);
-  const [fields, setFields] = useState<Record<FieldKey, string>>(() => toTextRecord(targetsFor(initial.goal, initial.targets)));
+}
+
+function SubHead({ children }: { children: ReactNode }) {
+  return <h3 className="m-0 px-1 text-[12px] font-[650] tracking-[0.06em] text-subtle uppercase">{children}</h3>;
+}
+
+function TargetField({ label, unit, value, onChange }: { label: string; unit: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1.5">
+      <span className="truncate px-1 text-[13px] font-medium text-subtle">{label}</span>
+      <span className="flex h-[52px] items-center gap-2 rounded-2xl border border-line bg-surface px-3.5 focus-within:ring-2 focus-within:ring-brand-deep">
+        <input
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label={`${label} (${unit})`}
+          className="num h-full w-full min-w-0 bg-transparent text-base font-semibold text-ink outline-none!"
+        />
+        <span className="shrink-0 text-[13px] text-subtle">{unit}</span>
+      </span>
+    </label>
+  );
+}
+
+/** Goal plus the daily targets it sets; targets are stored only where they differ from the goal's preset. */
+export function GoalSection({ goal, targets, onDone }: { goal: Goal; targets: Partial<DailyTargets> | null; onDone: () => void }) {
+  const { pending, save } = useProfileSave(onDone);
+  const [draftGoal, setDraftGoal] = useState(goal);
+  const [fields, setFields] = useState(() => toTextRecord(targetsFor(goal, targets)));
+  const [edited, setEdited] = useState<Set<FieldKey>>(() => new Set());
   const [showAll, setShowAll] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
-  const [deleting, setDeleting] = useState(false);
+  const initial = toTextRecord(targetsFor(goal, targets));
+  const dirty = draftGoal !== goal || ALL_FIELDS.some((f) => fields[f.key] !== initial[f.key]);
 
-  async function save(payload: Record<string, unknown>) {
-    setPending(true);
-    const res = await saveProfile(payload);
-    setPending(false);
-    if (!res.ok) {
-      toast.error(res.message);
-      return false;
-    }
-    toast.success("Saved.");
-    router.refresh();
-    return true;
+  function pickGoal(next: Goal) {
+    setDraftGoal(next);
+    // Fields the user hasn't typed in follow the new goal's targets; typed values stay.
+    const preset = toTextRecord(targetsFor(next, targets));
+    setFields((cur) => {
+      const out = { ...cur };
+      for (const f of ALL_FIELDS) if (!edited.has(f.key)) out[f.key] = preset[f.key];
+      return out;
+    });
   }
-
-  function toggle(section: Section) {
-    if (section === "allergies") setDraftAllergies(allergies);
-    if (section === "targets") setFields(toTextRecord(targetsFor(goal, targets)));
-    setOpen((cur) => (cur === section ? null : section));
+  function setField(key: FieldKey, v: string) {
+    setFields((cur) => ({ ...cur, [key]: v }));
+    setEdited((cur) => new Set(cur).add(key));
   }
-
-  async function pickGoal(key: Goal) {
-    if (!(await save({ goal: key }))) return;
-    setGoal(key);
-    setOpen(null);
-  }
-  async function pickDiet(key: Diet) {
-    if (!(await save({ diet: key }))) return;
-    setDiet(key);
-    const allowed = new Set(allergensForDiet(key));
-    setAllergies((prev) => new Set(Array.from(prev).filter((a) => allowed.has(a))));
-    setDraftAllergies((prev) => new Set(Array.from(prev).filter((a) => allowed.has(a))));
-    setOpen(null);
-  }
-  async function pickCountry(key: string) {
-    if (!(await save({ country: key }))) return;
-    setCountry(key);
-    setOpen(null);
-  }
-  async function saveAllergies() {
-    if (!(await save({ allergies: Array.from(draftAllergies) }))) return;
-    setAllergies(draftAllergies);
-    setOpen(null);
-  }
-  async function saveTargets() {
-    const preset = PRESETS[goal];
+  function submit() {
+    const preset = PRESETS[draftGoal];
     const out: Partial<DailyTargets> = {};
     for (const f of ALL_FIELDS) {
       const raw = fields[f.key];
@@ -141,187 +170,85 @@ export function SettingsForm({ initial }: { initial: SettingsInitial }) {
       if (!Number.isFinite(v)) continue;
       if (v !== preset[f.key]) (out as Record<string, number>)[f.key] = v;
     }
-    const next = Object.keys(out).length ? out : null;
-    if (!(await save({ targets: next }))) return;
-    setTargets(next);
-    setOpen(null);
+    void save({ goal: draftGoal, targets: Object.keys(out).length ? out : null });
   }
-
-  async function signOut() {
-    await authClient.signOut();
-    router.replace("/");
-  }
-
-  async function confirmDelete() {
-    setDeleting(true);
-    const res = await deleteAccountAction(confirmText);
-    setDeleting(false);
-    if (res && !res.ok) toast.error(res.message);
-  }
-
-  const effective = targetsFor(goal, targets);
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="rounded-lg border border-line bg-surface p-1 px-3">
-        <Row label="Goal" value={GOAL_LABEL[goal]} open={open === "goal"} onToggle={() => toggle("goal")}>
-          <div className="flex flex-wrap gap-2">
-            {GOALS.map(([key, label]) => (
-              <button key={key} type="button" aria-pressed={goal === key} disabled={pending} onClick={() => void pickGoal(key)} className={chipClass(goal === key)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </Row>
-        <Row label="Diet" value={DIET_LABEL[diet]} open={open === "diet"} onToggle={() => toggle("diet")}>
-          <div className="flex flex-wrap gap-2">
-            {DIETS.map(([key, label]) => (
-              <button key={key} type="button" aria-pressed={diet === key} disabled={pending} onClick={() => void pickDiet(key)} className={chipClass(diet === key)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </Row>
-        <Row
-          label="Allergies"
-          value={allergies.size ? Array.from(allergies).map((a) => ALLERGEN_LABELS[a]).join(", ") : "None"}
-          open={open === "allergies"}
-          onToggle={() => toggle("allergies")}
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-2">
-              {allergensForDiet(diet).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  aria-pressed={draftAllergies.has(key)}
-                  onClick={() =>
-                    setDraftAllergies((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(key)) next.delete(key);
-                      else next.add(key);
-                      return next;
-                    })
-                  }
-                  className={chipClass(draftAllergies.has(key))}
-                >
-                  {ALLERGEN_LABELS[key]}
-                </button>
-              ))}
-            </div>
-            <Button type="button" className="h-11 self-start px-4" disabled={pending} onClick={() => void saveAllergies()}>
-              {pending ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </Row>
-        <Row
-          label="Daily targets"
-          value={`${effective.energyKcal.toLocaleString("en-IN")} kcal · ${effective.protein} g protein`}
-          open={open === "targets"}
-          onToggle={() => toggle("targets")}
-        >
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              {PRIMARY_FIELDS.map((f) => (
-                <label key={f.key} className="flex flex-col gap-1.5 text-sm font-medium">
-                  {f.label}
-                  <input
-                    inputMode="decimal"
-                    value={fields[f.key]}
-                    onChange={(e) => setFields((v) => ({ ...v, [f.key]: e.target.value }))}
-                    className="num min-h-11 rounded-md border border-line bg-surface px-3 text-base outline-none focus-visible:border-accent"
-                  />
-                </label>
-              ))}
-            </div>
-            <button type="button" onClick={() => setShowAll((s) => !s)} className="self-start text-sm font-semibold text-accent underline-offset-2 hover:underline">
-              {showAll ? "Hide other targets" : "Show all targets"}
-            </button>
-            {showAll && (
-              <div className="grid grid-cols-2 gap-3">
-                {MORE_FIELDS.map((f) => (
-                  <label key={f.key} className="flex flex-col gap-1.5 text-sm font-medium">
-                    {f.label}
-                    <input
-                      inputMode="decimal"
-                      value={fields[f.key]}
-                      onChange={(e) => setFields((v) => ({ ...v, [f.key]: e.target.value }))}
-                      className="num min-h-11 rounded-md border border-line bg-surface px-3 text-base outline-none focus-visible:border-accent"
-                    />
-                  </label>
-                ))}
-              </div>
-            )}
-            <Button type="button" className="h-11 self-start px-4" disabled={pending} onClick={() => void saveTargets()}>
-              {pending ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </Row>
-        <Row label="Country" value={COUNTRIES.find(([k]) => k === country)?.[1] ?? country} open={open === "country"} onToggle={() => toggle("country")}>
-          <div className="flex flex-wrap gap-2">
-            {COUNTRIES.map(([key, label]) => (
-              <button key={key} type="button" aria-pressed={country === key} disabled={pending} onClick={() => void pickCountry(key)} className={chipClass(country === key)}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </Row>
-      </section>
-
-      <section className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface px-3">
-        <Link href="/onboarding?redo=1" className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm">
-          <span>Set up again</span>
-          <span className="flex items-center gap-1.5 text-subtle"><ChevronRight className="size-4" aria-hidden /></span>
-        </Link>
-        <Link href="/about/data" className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm">
-          <span>Data sources</span>
-          <span className="flex items-center gap-1.5 text-subtle">INDB · USDA · OFF<ChevronRight className="size-4" aria-hidden /></span>
-        </Link>
-        <Link href="/privacy" className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm">
-          <span>Privacy</span>
-          <ChevronRight className="size-4 text-subtle" aria-hidden />
-        </Link>
-        <Link href="/terms" className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm">
-          <span>Terms</span>
-          <ChevronRight className="size-4 text-subtle" aria-hidden />
-        </Link>
-      </section>
-
-      <Button type="button" variant="outline" className="h-11" onClick={() => void signOut()}>
-        Sign out
-      </Button>
-
-      <Button type="button" variant="ghost" className="h-11 text-bad hover:text-bad" onClick={() => setDeleteOpen(true)}>
-        Delete account
-      </Button>
-
-      <Dialog
-        open={deleteOpen}
-        onOpenChange={(v) => {
-          setDeleteOpen(v);
-          if (!v) setConfirmText("");
-        }}
+    <>
+      <OptionList label="Goal" options={GOALS.map(([key, title, desc]) => ({ key, title, desc }))} value={draftGoal} onPick={pickGoal} />
+      <SubHead>Daily targets</SubHead>
+      <div className="grid shrink-0 grid-cols-2 gap-2.5">
+        {PRIMARY_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} onChange={(v) => setField(f.key, v)} />)}
+        {showAll && MORE_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} onChange={(v) => setField(f.key, v)} />)}
+      </div>
+      <button
+        type="button"
+        onClick={() => setShowAll((s) => !s)}
+        aria-expanded={showAll}
+        className="-my-1.5 inline-flex min-h-11 items-center gap-1 self-start rounded-full px-1 text-[13px] font-semibold whitespace-nowrap text-brand-deep"
       >
-        <DialogContent>
-          <DialogTitle>Delete your account?</DialogTitle>
-          <DialogDescription>
-            This permanently deletes your profile and diary. This can&apos;t be undone. Type <strong>DELETE</strong> to confirm.
-          </DialogDescription>
-          <input
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="DELETE"
-            aria-label="Type DELETE to confirm"
-            className="min-h-11 rounded-md border border-line bg-surface px-3 text-base outline-none focus-visible:border-accent"
-          />
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" className="h-11" />}>Cancel</DialogClose>
-            <Button type="button" variant="destructive" className="h-11" disabled={confirmText !== "DELETE" || deleting} onClick={() => void confirmDelete()}>
-              {deleting ? "Deleting…" : "Delete account"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        {showAll ? "Fewer targets" : "All targets"}
+        <ChevronDown className={cn("size-4 transition-transform", showAll && "rotate-180")} aria-hidden />
+      </button>
+      <SheetActions pending={pending} dirty={dirty} onCancel={onDone} onSave={submit} />
+    </>
+  );
+}
+
+export function DietSection({ diet, onDone }: { diet: Diet; onDone: () => void }) {
+  const { pending, save } = useProfileSave(onDone);
+  const [draft, setDraft] = useState(diet);
+  return (
+    <>
+      <OptionList label="Diet" options={DIETS.map(([key, title]) => ({ key, title }))} value={draft} onPick={setDraft} />
+      <p className="m-0 px-1 text-[12.5px] leading-snug text-subtle">We flag foods that don&apos;t fit your diet when you scan or add them.</p>
+      <SheetActions pending={pending} dirty={draft !== diet} onCancel={onDone} onSave={() => void save({ diet: draft })} />
+    </>
+  );
+}
+
+export function AllergiesSection({ diet, allergies, onDone }: { diet: Diet; allergies: string[]; onDone: () => void }) {
+  const { pending, save } = useProfileSave(onDone);
+  const start = knownAllergies(allergies);
+  const [draft, setDraft] = useState<Set<AllergenKey>>(() => new Set(start));
+  const dirty = draft.size !== start.length || start.some((a) => !draft.has(a));
+  const toggle = (key: AllergenKey) =>
+    setDraft((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  return (
+    <>
+      <div role="group" aria-label="Allergies" className="flex shrink-0 flex-wrap gap-2">
+        {allergensForDiet(diet).map((key) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={draft.has(key)}
+            onClick={() => toggle(key)}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-[14px] font-semibold whitespace-nowrap text-ink transition-colors aria-pressed:border-transparent aria-pressed:bg-action aria-pressed:text-action-ink"
+          >
+            {draft.has(key) && <Check className="size-4" aria-hidden />}
+            {ALLERGEN_LABELS[key]}
+          </button>
+        ))}
+      </div>
+      <p className="m-0 px-1 text-[12.5px] leading-snug text-subtle">Foods that contain or may contain these get a warning. Your diet already covers the ones not listed.</p>
+      <SheetActions pending={pending} dirty={dirty} onCancel={onDone} onSave={() => void save({ allergies: Array.from(draft) })} />
+    </>
+  );
+}
+
+export function CountrySection({ country, onDone }: { country: string; onDone: () => void }) {
+  const { pending, save } = useProfileSave(onDone);
+  const [draft, setDraft] = useState(country);
+  return (
+    <>
+      <OptionList label="Country" options={COUNTRIES.map(([key, title]) => ({ key, title }))} value={draft} onPick={setDraft} />
+      <p className="m-0 px-1 text-[12.5px] leading-snug text-subtle">Search ranks foods and packs sold in your country first.</p>
+      <SheetActions pending={pending} dirty={draft !== country} onCancel={onDone} onSave={() => void save({ country: draft })} />
+    </>
   );
 }

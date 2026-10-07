@@ -1,38 +1,40 @@
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { getBalance } from "@/lib/credits/ledger";
-import { SettingsForm } from "@/components/me/settings-form";
+import { initialsOf } from "@/lib/initials";
+import { dayMonth } from "@/lib/progress/copy";
+import { CreditStrip } from "@/components/credits/credit-strip";
+import { SettingsList } from "@/components/me/settings-list";
+import { AccountFooter } from "@/components/me/account-footer";
 
 const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
 
+/**
+ * Me (spec §6.13, mock "Me (simplified)"): who you are, scans left, four settings, sign out. One
+ * column, centred at 560 px on desktop.
+ */
 export default async function MePage() {
-  const { userId, profile } = await requireUser();
+  const { userId, profile, name, email } = await requireUser();
   const balance = await getBalance(userId);
+  // The allowance resets at 00:00 UTC on the 1st, so the reset day is read in UTC.
+  const resetsLabel = dayMonth(balance.periodResetsAt.toISOString().slice(0, 10));
+
   return (
-    <div className="flex flex-col gap-4">
-      <header>
-        <div className="text-sm text-subtle">Signed in with Google</div>
-        <h1 className="title text-[30px]">Me</h1>
-      </header>
-      <Link href="/me/credits" className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
-        <div>
-          <div className="text-sm text-subtle">Plan</div>
-          <div className="title mt-1 text-lg">
-            {PLAN_LABEL[profile.plan]} · {balance.credits} / {balance.allowance} AI scans left
-          </div>
+    <div className="mx-auto grid w-full max-w-[560px] gap-[18px] md:pt-1.5">
+      <h1 className="m-0 text-[30px] font-[650] leading-[1.05] tracking-[-0.04em] text-ink">Me</h1>
+      <div className="flex items-center gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-soft font-bold text-brand-deep" aria-hidden>
+          {initialsOf(name ?? "You")}
+        </span>
+        <div className="min-w-0 leading-[1.3]">
+          <p className="m-0 truncate text-[17px] font-bold text-ink">{name || "You"}</p>
+          <p className="m-0 truncate text-[13.5px] text-subtle">{email}</p>
         </div>
-        <ChevronRight className="size-5 shrink-0 text-subtle" aria-hidden />
-      </Link>
-      <SettingsForm
-        initial={{
-          goal: profile.goal,
-          diet: profile.diet,
-          allergies: profile.allergies,
-          targets: profile.targets ?? null,
-          country: profile.country,
-        }}
+      </div>
+      <CreditStrip credits={balance.credits} allowance={balance.allowance} planLabel={PLAN_LABEL[profile.plan]} resetsLabel={resetsLabel} />
+      <SettingsList
+        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: profile.targets ?? null, country: profile.country }}
       />
+      <AccountFooter />
     </div>
   );
 }

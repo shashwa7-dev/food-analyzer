@@ -1,9 +1,13 @@
-import { desc, eq, gte, sql, and } from "drizzle-orm";
+import { eq, gte, sql, and } from "drizzle-orm";
+import { z } from "zod";
 import { db, type Tx } from "@/lib/db/client";
 import { creditTxn, profile, scan } from "@/lib/db/schema";
 import type { PlanKey } from "./plans";
 import { allowanceFor, currentPeriod, nextPeriodStart } from "./logic";
 import { carriedUsage } from "./tombstone";
+import type { ActivityFilter, ActivityItem } from "./activity";
+import { InvalidError } from "@/lib/errors";
+import { inputKindLabel } from "@/lib/scans/history";
 
 export class NoCreditsError extends Error {
   constructor() {
@@ -145,21 +149,139 @@ export async function refundScan(tx: Tx, userId: string, scanId: string): Promis
   return true;
 }
 
-// Within one reset transaction, `expire` and `grant` rows share the same `created_at`
-// (Postgres `now()` is stable per transaction) — rank `grant` first since it's the newer
-// logical event, then `debit`/`refund`/`purchase`, then `expire` last.
-const TYPE_RANK = sql`CASE ${creditTxn.type}
-  WHEN 'grant' THEN 0
-  WHEN 'debit' THEN 1
-  WHEN 'refund' THEN 1
-  WHEN 'purchase' THEN 1
-  WHEN 'expire' THEN 2
-  ELSE 3 END`;
+// --- Activity (credits page, spec §6.14) ------------------------------------------------------------
 
-export async function listTransactions(userId: string, limit = 50) {
-  const clampedLimit = Math.min(100, Math.max(1, Math.trunc(limit)));
-  return db.select().from(creditTxn)
-    .where(eq(creditTxn.userId, userId))
-    .orderBy(desc(creditTxn.createdAt), TYPE_RANK, desc(creditTxn.id))
-    .limit(clampedLimit);
+const ACTIVITY_PAGE = 30;
+const MONTH_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/**
+ * One union of everything the activity list shows: grants, purchases, debits and refunds from
+ * `credit_txn` (joined to their scan for its name, grade and input kind), plus free barcode scans
+ * from `scan` (found products only, not deleted). A debit whose scan was refunded is left out: the
+ * refund row stands for that scan, and it never counted against the month. `seq` breaks timestamp
+ * ties so that newest-first lists a month's first debit above the grant made in its transaction.
+ */
+const activityItems = (userId: string) => sql`
+  SELECT t.id, CASE t.type WHEN 'debit' THEN 'used' WHEN 'refund' THEN 'refund' ELSE 'grant' END AS kind,
+    t.type::text AS txn_type, t.amount, t.scan_id, t.created_at AS at, t.idempotency_key AS key, t.meta,
+    s.id IS NOT NULL AND s.deleted_at IS NULL AS linkable, s.deleted_at IS NOT NULL AS deleted,
+    s.status::text AS status, s.input_kind::text AS input_kind,
+    s.result->>'name' AS name, s.result->>'grade' AS grade,
+    CASE WHEN jsonb_typeof(s.result->'items') = 'array' THEN jsonb_array_length(s.result->'items') END AS item_count,
+    CASE WHEN t.type IN ('grant', 'purchase') THEN 0 ELSE 1 END AS seq
+  FROM credit_txn t
+  LEFT JOIN scan s ON s.id = t.scan_id AND s.user_id = t.user_id
+  WHERE t.user_id = ${userId}
+    AND t.type IN ('grant', 'purchase', 'debit', 'refund')
+    AND NOT (t.type = 'debit' AND EXISTS (
+      SELECT 1 FROM credit_txn r WHERE r.user_id = t.user_id AND r.type = 'refund' AND r.scan_id = t.scan_id))
+  UNION ALL
+  SELECT s.id, 'free', 'free', 0, s.id, s.created_at, NULL, NULL,
+    TRUE, FALSE, s.status::text, s.input_kind::text,
+    s.result->>'name', s.result->>'grade', NULL, 1
+  FROM scan s
+  WHERE s.user_id = ${userId} AND s.charged = FALSE AND s.barcode IS NOT NULL AND s.status = 'done'
+    AND s.result IS NOT NULL AND s.deleted_at IS NULL`;
+
+const KIND_FOR_FILTER: Record<Exclude<ActivityFilter, "all">, ActivityItem["kind"]> = { used: "used", free: "free", refunds: "refund" };
+
+// Keyset cursor "<at, microseconds>~<seq>~<id>". credit_txn.created_at comes from the DB's now(), so
+// it carries microseconds a JS Date would drop; the cursor keeps Postgres' own text of it.
+const CursorSchema = z.string().max(120).transform((c, ctx) => {
+  const [at, seq, id] = c.split("~");
+  if (!at || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(at) || (seq !== "0" && seq !== "1") || !z.uuid().safeParse(id).success) {
+    ctx.addIssue({ code: "custom", message: "Invalid cursor." });
+    return z.NEVER;
+  }
+  return { at, seq: Number(seq), id: id! };
+});
+
+type ActivityRow = {
+  id: string; kind: ActivityItem["kind"]; txn_type: string; amount: number; scan_id: string | null; at: Date | string; at_text: string;
+  key: string | null; meta: Record<string, unknown> | null; linkable: boolean; deleted: boolean; status: string | null;
+  input_kind: string | null; name: string | null; grade: string | null; item_count: number | null; seq: number;
+};
+
+function grantTitle(r: ActivityRow): string {
+  if (r.txn_type === "purchase") return "Credit purchase";
+  const m = /:(\d{4})-(\d{2})$/.exec(r.key ?? "");
+  const month = m ? Number(m[2]) - 1 : new Date(r.at).getUTCMonth();
+  return `${MONTH_LONG[month]} allowance`;
+}
+
+function scanTitle(r: ActivityRow): string {
+  if (r.name) return r.name;
+  if (r.status === "failed") return "Couldn't read photo";
+  if (r.status === "queued" || r.status === "processing") return "Scan in progress";
+  return "AI scan";
+}
+
+function toActivityItem(r: ActivityRow): ActivityItem {
+  const base = {
+    id: r.id, kind: r.kind, at: new Date(r.at).toISOString(), amount: r.amount, scanId: r.scan_id,
+    linkable: r.scan_id !== null && r.linkable, inputKind: r.input_kind as ActivityItem["inputKind"],
+  };
+  if (r.kind === "grant") {
+    const carried = typeof r.meta?.carriedOver === "number" ? r.meta.carriedOver : 0;
+    return { ...base, title: grantTitle(r), meta: carried ? `${carried} already used this month` : "Monthly AI scans", scanId: null, linkable: false, inputKind: null };
+  }
+  if (r.kind === "refund") return { ...base, title: scanTitle(r), meta: "Refunded automatically" };
+  const detail = r.grade ? `grade ${r.grade}` : r.item_count ? `${r.item_count} ${r.item_count === 1 ? "item" : "items"}` : null;
+  const meta = [inputKindLabel(r.input_kind) ?? "AI scan", detail, r.deleted ? "deleted" : null].filter(Boolean).join(" · ");
+  return { ...base, title: scanTitle(r), meta };
+}
+
+/**
+ * GET /credits/activity — the user's credit activity, newest first, 30 a page. `filter` narrows to
+ * used scans, free barcode scans or refunds. Throws InvalidError on a malformed cursor.
+ */
+export async function listActivity(userId: string, filter: ActivityFilter, cursor?: string): Promise<{ items: ActivityItem[]; nextCursor: string | null }> {
+  let c: { at: string; seq: number; id: string } | null = null;
+  if (cursor) {
+    const parsed = CursorSchema.safeParse(cursor);
+    if (!parsed.success) throw new InvalidError("Invalid cursor.");
+    c = parsed.data;
+  }
+  const kind = filter === "all" ? null : KIND_FOR_FILTER[filter];
+  const { rows } = await db.execute(sql`
+    SELECT a.*, to_char(a.at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at_text
+    FROM (${activityItems(userId)}) a
+    WHERE TRUE
+      ${kind ? sql`AND a.kind = ${kind}` : sql``}
+      ${c ? sql`AND (a.at, a.seq, a.id) < (${c.at}::timestamptz, ${c.seq}, ${c.id}::uuid)` : sql``}
+    ORDER BY a.at DESC, a.seq DESC, a.id DESC
+    LIMIT ${ACTIVITY_PAGE + 1}`);
+  const list = rows as ActivityRow[];
+  const page = list.slice(0, ACTIVITY_PAGE);
+  const last = page.at(-1);
+  return {
+    items: page.map(toActivityItem),
+    nextCursor: list.length > ACTIVITY_PAGE && last ? `${last.at_text}~${last.seq}~${last.id}` : null,
+  };
+}
+
+/** This period's counts for the credits page's stat tiles: AI scans used (refunded ones excluded), free barcode scans, refunds. */
+export async function countActivity(userId: string, now: Date = new Date()): Promise<{ used: number; free: number; refunded: number }> {
+  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const { rows } = await db.execute(sql`
+    SELECT count(*) FILTER (WHERE a.kind = 'used')::int AS used,
+      count(*) FILTER (WHERE a.kind = 'free')::int AS free,
+      count(*) FILTER (WHERE a.kind = 'refund')::int AS refunded
+    FROM (${activityItems(userId)}) a
+    WHERE a.at >= ${since.toISOString()}::timestamptz`);
+  const r = rows[0] as { used: number; free: number; refunded: number } | undefined;
+  return { used: r?.used ?? 0, free: r?.free ?? 0, refunded: r?.refunded ?? 0 };
+}
+
+/**
+ * Every balance change this period, oldest first, for the balance chart. A reset writes the old
+ * period's expiry and the new grant in one transaction (same timestamp), and the month's first debit
+ * can share it too, so ties order expire → grant → the rest.
+ */
+export async function periodBalances(userId: string, now: Date = new Date()): Promise<{ at: string; balanceAfter: number; type: string }[]> {
+  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const rows = await db.select({ at: creditTxn.createdAt, balanceAfter: creditTxn.balanceAfter, type: creditTxn.type }).from(creditTxn)
+    .where(and(eq(creditTxn.userId, userId), gte(creditTxn.createdAt, since)))
+    .orderBy(creditTxn.createdAt, sql`CASE ${creditTxn.type} WHEN 'expire' THEN 0 WHEN 'grant' THEN 1 ELSE 2 END`, creditTxn.id);
+  return rows.map((r) => ({ at: r.at.toISOString(), balanceAfter: r.balanceAfter, type: r.type }));
 }

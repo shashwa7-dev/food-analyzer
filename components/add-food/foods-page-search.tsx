@@ -1,11 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { AddFoodSheet } from "@/components/add-food/add-food-sheet";
 import { FoodSearch } from "@/components/add-food/food-search";
-import { backAction, readInAppNav } from "@/lib/nav/back";
+import { BackButton } from "@/components/nav/back-button";
 import type { FoodHit } from "@/lib/foods/types";
 import type { Meal } from "@/lib/nutrition/types";
 
@@ -17,28 +15,14 @@ import type { Meal } from "@/lib/nutrition/types";
 export function FoodsPageSearch({ title, subtitle, meal, date, backHref }: {
   title: string; subtitle: string | null; meal: Meal; date: string; backHref: string;
 }) {
-  const router = useRouter();
   const [hit, setHit] = useState<FoodHit | null>(null);
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState(0);
 
-  const back = () => {
-    const action = backAction(readInAppNav(), backHref);
-    if (action.kind === "back") router.back();
-    else router.push(action.href);
-  };
-
   return (
     <div data-no-phone-nav className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
       <div className="flex items-center justify-between gap-2.5">
-        <button
-          type="button"
-          onClick={back}
-          aria-label="Back"
-          className="grid size-11 shrink-0 place-items-center rounded-full border border-line bg-surface text-ink transition-colors hover:bg-sunken"
-        >
-          <ChevronLeft className="size-5" aria-hidden />
-        </button>
+        <BackButton fallback={backHref} />
         <div className="min-w-0 text-center leading-[1.2]">
           <h1 className="m-0 truncate text-[17px] font-semibold whitespace-nowrap text-ink">{title}</h1>
           {subtitle && <p className="m-0 truncate text-[12.5px] text-subtle">{subtitle}</p>}

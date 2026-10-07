@@ -5,17 +5,20 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { AlertCircle, Loader2, ScanLine, Search } from "lucide-react";
+import { AlertCircle, ChevronRight, Loader2, ScanLine, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { relativeDate } from "@/lib/dates";
 import { confidenceLabel, inputKindLabel } from "@/lib/scans/history";
 import type { ScanListItem } from "@/lib/scans/service";
 import { GradeBadge } from "@/components/grade-badge";
+import { Button } from "@/components/ui/button";
+import { IconTile } from "@/components/ui/icon-tile";
 
 type Page = { scans: ScanListItem[]; nextCursor: string | null };
 type Grade = "A" | "B" | "C" | "D" | "E";
 const GRADES: readonly Grade[] = ["A", "B", "C", "D", "E"];
+const GRADE_DOT: Record<Grade, string> = { A: "bg-grade-a", B: "bg-grade-b", C: "bg-grade-c", D: "bg-grade-d", E: "bg-grade-e" };
 
 function useDebounced<T>(v: T, ms: number) {
   const [d, setD] = useState(v);
@@ -30,34 +33,43 @@ function isRunning(status: ScanListItem["status"]) {
   return status === "queued" || status === "processing";
 }
 
+/** A History row (mock-c1 `.arow`): a white card with the grade badge (or a status tile), the name and one meta line. */
 function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
   const running = isRunning(s.status);
   const failed = s.status === "failed" || s.errorCode !== null; // BARCODE_NOT_FOUND rows are done with no result
   const title = running ? "Analysing…" : failed ? (s.errorCode === "BARCODE_NOT_FOUND" ? "Barcode not found" : "Scan failed") : s.name ?? "Scan";
   const meta = [relativeDate(s.createdAt, tz, now), inputKindLabel(s.inputKind), !running && !failed ? confidenceLabel(s.confidence) : null].filter((v): v is string => !!v);
   return (
-    <li className="border-b border-line last:border-b-0">
-      <Link href={`/scans/${s.id}`} className="flex min-h-14 items-center gap-3.5 px-3.5 py-3">
+    <li>
+      <Link href={`/scans/${s.id}`} className="flex min-h-[64px] items-center gap-3 rounded-[18px] bg-surface px-3 py-2.5 shadow-card transition-colors hover:bg-sunken/40">
         {running ? (
-          <span className="grid size-[30px] shrink-0 place-items-center rounded-sm bg-sunken text-subtle" aria-hidden>
-            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
-          </span>
+          <IconTile size="md"><Loader2 className="animate-spin motion-reduce:animate-none" /></IconTile>
         ) : failed ? (
-          <span className="grid size-[30px] shrink-0 place-items-center rounded-sm bg-sunken text-bad" aria-hidden>
-            <AlertCircle className="size-[18px]" />
-          </span>
+          <IconTile size="md" tone="bad"><AlertCircle /></IconTile>
         ) : (
-          <GradeBadge grade={s.grade} />
+          <GradeBadge grade={s.grade} size="md" />
         )}
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate text-[15px] font-semibold text-ink">
             {title}
             {s.brand && !running && !failed && <span className="font-normal text-subtle"> · {s.brand}</span>}
           </span>
-          {meta.length > 0 && <span className="block text-sm text-subtle">{meta.join(" · ")}</span>}
+          {meta.length > 0 && <span className="mt-0.5 block truncate text-[12.5px] text-subtle">{meta.join(" · ")}</span>}
         </span>
+        <ChevronRight className="size-[18px] shrink-0 text-subtle" aria-hidden />
       </Link>
     </li>
+  );
+}
+
+/** A filter pill (mock-c1 `.tabs`): 44 px hit area around a smaller pill; the active one in the action colour. */
+function FilterPill({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" aria-pressed={on} onClick={onClick} className="group/f flex min-h-11 shrink-0 items-center outline-none!">
+      <span className="inline-flex min-w-9 items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-[13px] font-semibold whitespace-nowrap text-subtle transition-colors group-hover/f:text-ink group-focus-visible/f:ring-2 group-focus-visible/f:ring-brand-deep group-aria-pressed/f:border-transparent group-aria-pressed/f:bg-action group-aria-pressed/f:text-action-ink">
+        {children}
+      </span>
+    </button>
   );
 }
 
@@ -106,64 +118,51 @@ export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; 
   const scans = query.data?.pages.flatMap((p) => p.scans) ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
-      <label className="flex min-h-[52px] items-center gap-2.5 rounded-md border border-line bg-surface px-3.5">
-        <Search className="size-5 text-subtle" aria-hidden />
+    <div className="flex flex-col gap-3">
+      <label className="flex h-[52px] items-center gap-2.5 rounded-[18px] border border-line bg-surface pr-1 pl-4 focus-within:border-transparent focus-within:ring-2 focus-within:ring-brand-deep">
+        <Search className="size-5 shrink-0 text-subtle" aria-hidden />
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search your scans"
-          className="min-w-0 flex-1 bg-transparent text-base outline-none"
+          className="h-full min-w-0 flex-1 bg-transparent text-base font-medium text-ink outline-none! placeholder:font-normal placeholder:text-subtle"
           autoComplete="off"
           aria-label="Search your scans"
         />
       </label>
-      <div className="flex gap-2 overflow-x-auto pb-0.5">
-        <button
-          type="button"
-          aria-pressed={grade === undefined}
-          onClick={() => setGrade(undefined)}
-          className={cn(
-            "min-h-11 shrink-0 rounded-full border px-3.5 text-sm font-semibold",
-            grade === undefined ? "border-transparent bg-accent text-accent-ink" : "border-line bg-surface text-ink",
-          )}
-        >
-          All
-        </button>
+      <div role="group" aria-label="Grade" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
+        <FilterPill on={grade === undefined} onClick={() => setGrade(undefined)}>All</FilterPill>
         {GRADES.map((g) => (
-          <button
-            key={g}
-            type="button"
-            aria-pressed={grade === g}
-            onClick={() => setGrade((cur) => (cur === g ? undefined : g))}
-            className={cn(
-              "min-h-11 min-w-11 shrink-0 rounded-full border px-3.5 text-sm font-semibold",
-              grade === g ? "border-transparent bg-accent text-accent-ink" : "border-line bg-surface text-ink",
-            )}
-          >
+          <FilterPill key={g} on={grade === g} onClick={() => setGrade((cur) => (cur === g ? undefined : g))}>
+            <span className={cn("size-2 rounded-full", GRADE_DOT[g])} aria-hidden />
             {g}
-          </button>
+          </FilterPill>
         ))}
       </div>
 
       {query.isLoading ? (
-        <p className="text-sm text-subtle">Loading…</p>
+        <p className="m-0 inline-flex items-center gap-2 px-1 py-2 text-sm text-subtle"><Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />Loading…</p>
       ) : query.isError ? (
-        <p role="alert" className="text-sm text-bad">Couldn’t load your scans. Try again.</p>
+        <p role="alert" className="m-0 px-1 py-2 text-sm text-bad">Couldn’t load your scans. Try again.</p>
       ) : scans.length === 0 ? (
         filtered ? (
-          <p className="text-sm text-subtle">No scans match your search.</p>
+          <p className="m-0 px-1 py-2 text-sm text-subtle">No scans match your search.</p>
         ) : (
-          <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-5 shadow-card">
-            <p>No scans yet — scan a barcode or a label to see it here.</p>
-            <Link href="/scan" className="flex min-h-12 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 font-semibold text-accent-ink">
-              <ScanLine className="size-[18px]" aria-hidden /> Scan
-            </Link>
+          <div className="flex flex-col items-center gap-3 rounded-[24px] bg-surface px-5 py-7 text-center shadow-card">
+            <IconTile tone="brand" size="lg"><ScanLine /></IconTile>
+            <div className="leading-snug">
+              <b className="block text-[17px] font-semibold text-ink">No scans yet</b>
+              <p className="m-0 mt-1 text-sm text-subtle">Scan a barcode, a label or a meal to see it here.</p>
+            </div>
+            <Button render={<Link href="/scan" />} nativeButton={false} shape="pill" size="lg" className="mt-1 px-6">
+              <ScanLine aria-hidden />
+              Scan food
+            </Button>
           </div>
         )
       ) : (
-        <ul className="flex flex-col overflow-hidden rounded-lg border border-line bg-surface">
+        <ul className="m-0 grid list-none gap-1.5 p-0">
           {scans.map((s) => (
             <ScanRow key={s.id} s={s} tz={tz} now={now} />
           ))}
@@ -171,14 +170,10 @@ export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; 
       )}
 
       {query.hasNextPage && (
-        <button
-          type="button"
-          onClick={() => query.fetchNextPage()}
-          disabled={query.isFetchingNextPage}
-          className="min-h-12 rounded-lg border border-line bg-surface font-semibold text-accent disabled:opacity-50"
-        >
+        <Button type="button" variant="ghost-sunken" shape="pill" size="lg" className="w-full" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>
+          {query.isFetchingNextPage && <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden />}
           {query.isFetchingNextPage ? "Loading…" : "Load more"}
-        </button>
+        </Button>
       )}
     </div>
   );
