@@ -32,7 +32,7 @@ function isRunning(status: ScanListItem["status"]) {
 
 function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
   const running = isRunning(s.status);
-  const failed = s.status === "failed";
+  const failed = s.status === "failed" || s.errorCode !== null; // BARCODE_NOT_FOUND rows are done with no result
   const title = running ? "Analysing…" : failed ? (s.errorCode === "BARCODE_NOT_FOUND" ? "Barcode not found" : "Scan failed") : s.name ?? "Scan";
   const meta = [relativeDate(s.createdAt, tz, now), inputKindLabel(s.inputKind), !running && !failed ? confidenceLabel(s.confidence) : null].filter((v): v is string => !!v);
   return (

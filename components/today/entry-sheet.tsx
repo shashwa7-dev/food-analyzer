@@ -71,6 +71,11 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
             View food
           </Link>
         )}
+        {!linked.isSuccess && entry.scanId && (
+          <Link href={`/scans/${entry.scanId}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-accent">
+            View scan
+          </Link>
+        )}
       </div>
       {freeGrams ? (
         <label className="flex items-center justify-between gap-3 text-sm text-subtle">

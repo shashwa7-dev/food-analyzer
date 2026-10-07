@@ -8,7 +8,7 @@ import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { CreditsPill } from "@/components/credits/credits-pill";
 import { MAX_IMAGES } from "@/lib/scans/upload";
-import { SCAN_MESSAGES, scanErrorAction, scanErrorMessage } from "@/lib/scans/messages";
+import { RETRY_ACTION, SCAN_MESSAGES, scanErrorAction, scanErrorMessage } from "@/lib/scans/messages";
 import type { ScanView } from "@/lib/scans/service";
 import type { Meal } from "@/lib/nutrition/types";
 import { Camera, type CameraState } from "./camera";
@@ -29,14 +29,14 @@ function newKey(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** POST /api/v1/scans as multipart, with a fresh Idempotency-Key per press. Never throws. */
-async function postScan(images: Blob[], barcode: string | null): Promise<PostResult> {
+/** POST /api/v1/scans as multipart with the given Idempotency-Key. Never throws. */
+async function postScan(images: Blob[], barcode: string | null, key: string): Promise<PostResult> {
   const form = new FormData();
   images.forEach((b, i) => form.append("images", b, `photo-${i + 1}.jpg`));
   if (barcode) form.append("barcode", barcode);
   let res: Response;
   try {
-    res = await fetch("/api/v1/scans", { method: "POST", body: form, headers: { "Idempotency-Key": newKey() } });
+    res = await fetch("/api/v1/scans", { method: "POST", body: form, headers: { "Idempotency-Key": key } });
   } catch {
     return { ok: false, code: "NETWORK", message: NETWORK_MESSAGE };
   }
@@ -66,6 +66,13 @@ export function ScanFlow({ meal, date, initialBarcode }: { meal: Meal | null; da
   const [capturing, setCapturing] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
   const me = useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/api/v1/me") });
+  // One Idempotency-Key per photo set + barcode: re-sending the same set after a dropped connection
+  // replays the scan the server may already have accepted instead of charging again.
+  const sendKey = useRef<{ sig: string; key: string } | null>(null);
+  function keyFor(sig: string): string {
+    if (sendKey.current?.sig !== sig) sendKey.current = { sig, key: newKey() };
+    return sendKey.current.key;
+  }
 
   const params = new URLSearchParams();
   if (meal) params.set("meal", meal);
@@ -82,7 +89,8 @@ export function ScanFlow({ meal, date, initialBarcode }: { meal: Meal | null; da
     if (submitting) return;
     setSubmitting(kind);
     setProblem(null);
-    const r = await postScan(kind === "photos" ? photos.map((p) => p.blob) : [], code);
+    const sent = kind === "photos" ? photos : [];
+    const r = await postScan(sent.map((p) => p.blob), code, keyFor(`${sent.map((p) => p.id).join(",")}|${code ?? ""}`));
     if (!r.ok) {
       setProblem({ code: r.code, message: r.message, kind });
       setSubmitting(null);
@@ -187,7 +195,8 @@ export function ScanFlow({ meal, date, initialBarcode }: { meal: Meal | null; da
   const full = n >= MAX_IMAGES;
   const detecting = !barcode && !submitting && !full;
   const live = camera === "live";
-  const action = problem ? scanErrorAction(problem.code) : null;
+  // A dropped connection: re-send the same photos (same key, so never a second charge).
+  const action = problem ? (problem.code === "NETWORK" ? RETRY_ACTION : scanErrorAction(problem.code)) : null;
 
   const pill = submitting === "barcode"
     ? <><Barcode className="size-4" aria-hidden /> Barcode found — looking it up</>

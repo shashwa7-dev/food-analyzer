@@ -8,6 +8,8 @@ import type { ScanView } from "@/lib/scans/service";
 import { activeStep, SCAN_STEPS, stepState } from "./progress-steps";
 
 export const POLL_EVERY_MS = 2_000;
+/** Past the server's 60 s maxDuration the job is likely dead; the stuck sweep will fail (and refund) it. */
+const SLOW_AFTER_MS = 65_000;
 const isRunning = (v: ScanView | undefined) => !v || v.status === "queued" || v.status === "processing";
 
 /**
@@ -71,7 +73,9 @@ export function ScanProgress({ scanId, onFinished }: { scanId: string; onFinishe
           })}
         </section>
       )}
-      <p className="text-sm text-subtle">Usually 5–15 seconds. You can leave this screen. The result will be in History.</p>
+      <p className="text-sm text-subtle">
+        {now - startedAt > SLOW_AFTER_MS ? "Still working — it'll be in History when it's ready." : "Usually 5–15 seconds. You can leave this screen. The result will be in History."}
+      </p>
     </div>
   );
 }
