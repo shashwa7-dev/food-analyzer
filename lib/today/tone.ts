@@ -42,10 +42,8 @@ export function limitRows(progress: TargetProgress[]): LimitRow[] {
 }
 
 /** The limits at 90% or more (near or over), worst first. */
-export function limitChips(progress: TargetProgress[]): LimitChip[] {
-  return limitRows(progress)
-    .filter((r): r is LimitChip => r.tone !== "ok")
-    .sort((a, b) => b.ratio - a.ratio);
+export function flaggedLimits(rows: LimitRow[]): LimitChip[] {
+  return rows.filter((r): r is LimitChip => r.tone !== "ok").sort((a, b) => b.ratio - a.ratio);
 }
 
 const grouped = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 1 });
@@ -70,7 +68,7 @@ export type LimitsSummary = {
 };
 
 export function limitsSummary(rows: LimitRow[]): LimitsSummary {
-  const flagged = rows.filter((r): r is LimitChip => r.tone !== "ok").sort((a, b) => b.ratio - a.ratio);
+  const flagged = flaggedLimits(rows);
   const worst = flagged[0];
   if (!worst) return { badge: null, tip: null };
   const over = flagged.filter((r) => r.tone === "over").length;

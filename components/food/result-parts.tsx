@@ -176,7 +176,7 @@ function FlagChip({ icon: Icon, tone, children }: { icon: LucideIcon; tone: stri
   );
 }
 
-const SODIUM_TONE = { low: "text-ok", medium: "text-warn", high: "text-bad" } as const;
+const SODIUM_TONE = { low: "text-ok", medium: "text-warn-ink", high: "text-bad" } as const;
 
 /**
  * Allergen, sodium and diet as short icon chips for a glance, then the allergen and diet sentences in

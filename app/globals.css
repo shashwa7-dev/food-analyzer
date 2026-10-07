@@ -110,7 +110,7 @@ body {
   font-family: var(--font-sans); font-size: 15px; line-height: 1.5; letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
 }
-/* --shadow-card is "none" in dark mode (surfaces barely differ from bg there), but a
+/* --shadow-card is only a hairline ring in dark mode (no drop shadow), but a
    toast floats above everything and needs a real shadow in both themes. */
 /* Toasts float above the phone nav (72 px bar + 12 px margin + safe area); no nav from 900 px. */
 :root { --toast-bottom: calc(96px + env(safe-area-inset-bottom)); }
