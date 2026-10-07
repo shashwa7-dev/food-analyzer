@@ -9,7 +9,14 @@ import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutriti
 
 export type ProfileRow = typeof profile.$inferSelect;
 
+/**
+ * The user's profile, created with defaults on first use. Read first, so the usual case (every page
+ * render calls this, Today several times) is one SELECT and never a write on a GET (review M10); the
+ * insert runs only when the row is missing, and ON CONFLICT keeps a concurrent first visit safe.
+ */
 export async function ensureProfile(userId: string, country?: string): Promise<ProfileRow> {
+  const [existing] = await db.select().from(profile).where(eq(profile.userId, userId));
+  if (existing) return existing;
   await db
     .insert(profile)
     .values({ userId, ...(country ? { country } : {}) })
