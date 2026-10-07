@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanMicros, microsFromINDB, microsFromOFF } from "./micros-map";
+import { cleanMicros, microsFromINDB, microsFromOFF, vitaminEMaxForFat } from "./micros-map";
 import { toSourceRecordOFF } from "./off-map";
 
 describe("cleanMicros", () => {
@@ -13,14 +13,26 @@ describe("INDB micros", () => {
   const row = {
     cholesterol_mg: 121.19, calcium_mg: 17.75, iron_mg: 0.64, potassium_mg: 120, magnesium_mg: 10, zinc_mg: 1.1, phosphorus_mg: 180,
     vita_ug: 65.56, carotenoids_ug: 52.05, vitd2_ug: 0.09, vitd3_ug: 0.28, vitk1_ug: 0.57, vitk2_ug: 4.84, folate_ug: 16.4,
-    vitb1_mg: 0.05, vitb2_mg: 0.4, vitb3_mg: 0.07, vitb6_mg: 0.12, vitc_mg: 0, vite_mg: 1.03,
+    vitb1_mg: 0.05, vitb2_mg: 0.4, vitb3_mg: 0.07, vitb6_mg: 0.12, vitc_mg: 0, vite_mg: 1.03, fat_g: 10.6,
   }; // Boiled egg (Ubla anda)
 
-  it("maps the INDB columns, summing D2 + D3 and K1 + K2", () => {
+  it("maps the INDB columns, vitamin D as D3 only and K as K1 + K2", () => {
     const m = microsFromINDB(row);
-    expect(m).toMatchObject({ cholesterolMg: 121, calciumMg: 17.8, ironMg: 0.64, vitaminDUg: 0.37, vitaminKUg: 5.41, folateUg: 16.4, thiaminMg: 0.05, niacinMg: 0.07 });
+    expect(m).toMatchObject({ cholesterolMg: 121, calciumMg: 17.8, ironMg: 0.64, vitaminDUg: 0.28, vitaminKUg: 5.41, folateUg: 16.4, thiaminMg: 0.05, niacinMg: 0.07, vitaminEMg: 1.03 });
     expect(m.vitaminCMg).toBeUndefined(); // 0 means nothing here
     expect(m.vitaminB12Ug).toBeUndefined(); // INDB has no B12 column
+  });
+
+  it("gives a plant dish no vitamin D: its D2 is left out and it has no D3", () => {
+    expect(microsFromINDB({ vitd2_ug: 7.11, vitd3_ug: 0 }).vitaminDUg).toBeUndefined(); // matar paneer
+    expect(microsFromINDB({ vitd2_ug: 31.2 }).vitaminDUg).toBeUndefined(); // rajgira ladoo
+  });
+
+  it("drops vitamin E past what the dish's fat could hold", () => {
+    expect(vitaminEMaxForFat(10)).toBe(9);
+    expect(microsFromINDB({ vite_mg: 24.6, fat_g: 10 }).vitaminEMg).toBeUndefined();
+    expect(microsFromINDB({ vite_mg: 8, fat_g: 10 }).vitaminEMg).toBe(8);
+    expect(microsFromINDB({ vite_mg: 2, fat_g: 0 }).vitaminEMg).toBe(2); // greens: up to 3 mg without fat
   });
 
   it("uses retinol for vitamin A only where carotenoids can't move it more than a tenth (animal foods)", () => {
@@ -31,6 +43,12 @@ describe("INDB micros", () => {
 });
 
 describe("OFF micros", () => {
+  it("drops an OFF micro under 1 % of its Daily Value as noise", () => {
+    expect(microsFromOFF({ cholesterol_100g: 0.0024, "vitamin-d_100g": 0.00000000004, iron_100g: 0.0002, calcium_100g: 0.014 }))
+      .toEqual({ ironMg: 0.2, calciumMg: 14 }); // 2.4 mg of 300 (0.8 %) and 4e-5 µg go; iron 0.2 of 18 (1.1 %) stays
+    expect(microsFromOFF({ calcium_100g: 0.0129 })).toEqual({}); // 12.9 mg is 0.99 % of 1,300 mg
+  });
+
   it("scales OFF's grams to mg and µg", () => {
     expect(microsFromOFF({ calcium_100g: 0.12, iron_100g: 0.0021, "vitamin-a_100g": 0.00006, "vitamin-d_100g": 0.0000012, "vitamin-b12_100g": 0.0000004, "vitamin-pp_100g": 0.0035, folates_100g: 0.00005 }))
       .toEqual({ calciumMg: 120, ironMg: 2.1, vitaminAUg: 60, vitaminDUg: 1.2, vitaminB12Ug: 0.4, niacinMg: 3.5, folateUg: 50 });

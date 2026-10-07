@@ -77,17 +77,20 @@ describe("plausibility bounds", () => {
       expect(Object.keys(MICRO_MAX).sort()).toEqual([...MICRO_KEYS].sort());
     });
 
-    it("keeps the richest real foods: cod liver oil, Kakadu plum, dried basil, yeast extract", () => {
-      expect(implausibleMicroKeys({ vitaminAUg: 30_000, vitaminDUg: 250 })).toEqual([]);
-      expect(implausibleMicroKeys({ vitaminCMg: 5_300 })).toEqual([]);
-      expect(implausibleMicroKeys({ vitaminKUg: 1_700 })).toEqual([]);
-      expect(implausibleMicroKeys({ niacinMg: 130, folateUg: 3_000, vitaminB12Ug: 500 })).toEqual([]);
-      expect(implausibleMicroKeys({ calciumMg: 1_200, ironMg: 124, cholesterolMg: 2_300 })).toEqual([]);
+    it("keeps the richest real foods: beef liver, yeast extract, oysters, thyme, brains", () => {
+      expect(implausibleMicroKeys({ vitaminAUg: 9_400, vitaminB12Ug: 83 })).toEqual([]); // beef liver
+      expect(implausibleMicroKeys({ folateUg: 5_880, niacinMg: 128, thiaminMg: 23.4, riboflavinMg: 17.5 })).toEqual([]); // yeast extract
+      expect(implausibleMicroKeys({ zincMg: 98.9, ironMg: 124, cholesterolMg: 3_080, calciumMg: 1_380 })).toEqual([]);
+      expect(implausibleMicroKeys({ vitaminCMg: 1_680, vitaminKUg: 1_640, vitaminEMg: 149, potassiumMg: 6_040, magnesiumMg: 611 })).toEqual([]);
     });
 
-    it("drops a 1,000× unit slip (mg typed as g, µg as mg)", () => {
-      expect(implausibleMicroKeys({ calciumMg: 120_000 })).toEqual(["calciumMg"]); // 120 g calcium per 100 g
-      expect(implausibleMicroKeys({ vitaminDUg: 2_500 })).toEqual(["vitaminDUg"]); // 2.5 mg read as µg ×1000
+    it("drops a 1,000x unit slip: milk-like 2 mg iron typed as 2,000 mg", () => {
+      expect(implausibleMicroKeys({ ironMg: 2_000 })).toEqual(["ironMg"]); // OFF Mango Pickle
+      expect(implausibleMicroKeys({ ironMg: 1_300 })).toEqual(["ironMg"]); // OFF honey
+      expect(implausibleMicroKeys({ zincMg: 1_220, calciumMg: 26_800 })).toEqual(["calciumMg", "zincMg"]); // OFF Cavins chaas
+      expect(implausibleMicroKeys({ vitaminCMg: 7_000 })).toEqual(["vitaminCMg"]); // OFF ginger garlic paste
+      expect(implausibleMicroKeys({ vitaminAUg: 36_000 })).toEqual(["vitaminAUg"]); // OFF cow milk
+      expect(implausibleMicroKeys({ vitaminDUg: 450 })).toEqual(["vitaminDUg"]); // OFF refined oil (IU read as µg)
       expect(implausibleMicroKeys({ vitaminB12Ug: 2_400 })).toEqual(["vitaminB12Ug"]);
       expect(implausibleMicroKeys({ ironMg: -1, zincMg: Number.NaN })).toEqual(["ironMg", "zincMg"]);
     });

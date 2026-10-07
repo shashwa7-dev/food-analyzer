@@ -18,31 +18,32 @@ export const PER100_MAX: Record<NutrientKey, number> = {
 };
 
 /**
- * Bounds for the micros (lib/nutrition/types.ts MICRO_KEYS), per 100 g/ml in each key's own unit. Each
- * sits a few times above the richest real food (the comment), so the values a food can hold pass while
- * the usual source error, a unit slip of 1,000× (OFF stores minerals and vitamins in grams; a label read
- * in mg typed as g, or µg as mg), lands far past it. Minerals never exceed half the food's weight
- * (50,000 mg); potassium and calcium allow salt substitutes and mineral powders.
+ * Bounds for the micros (lib/nutrition/types.ts MICRO_KEYS), per 100 g/ml in each key's own unit: the
+ * richest real food we know of (the comment; USDA FoodData Central unless noted), rounded up a little.
+ * They are deliberately tight. Open Food Facts is full of 1,000x slips (a label's mg typed as g, or µg as
+ * mg: Mango Pickle with 2,000 mg iron, a chaas with 1,220 mg zinc and 26,800 mg calcium), and a loose
+ * bound shows those as confident numbers. A value past its bound is unknown, never clamped. The cost is
+ * that a few true outliers (supplement tablets, salt substitutes, cod liver oil) show no value at all.
  */
 export const MICRO_MAX: Record<MicroKey, number> = {
-  cholesterolMg: 5_000, // dried egg yolk ~2,300 mg
-  potassiumMg: 50_000, // potassium-chloride salt substitute ~52 % K is the one real outlier: past half the weight is not food
-  calciumMg: 40_000, // calcium carbonate is 40 % Ca
-  ironMg: 2_000, // dried thyme ~124 mg; fortified premixes higher
-  magnesiumMg: 20_000,
-  zincMg: 2_000, // oysters ~90 mg
-  phosphorusMg: 25_000,
-  vitaminAUg: 50_000, // cod liver oil ~30,000 µg RAE
-  vitaminCMg: 10_000, // Kakadu plum ~5,300 mg
-  vitaminDUg: 1_000, // cod liver oil ~250 µg
-  vitaminEMg: 1_000, // wheat germ oil ~150 mg
-  vitaminKUg: 5_000, // dried basil ~1,700 µg
-  thiaminMg: 100, // nutritional yeast ~40 mg
-  riboflavinMg: 100,
-  niacinMg: 500, // yeast extract ~130 mg
-  vitaminB6Mg: 100,
-  folateUg: 10_000, // yeast extract ~3,000 µg
-  vitaminB12Ug: 1_000, // clams ~99 µg; fortified yeast spreads more
+  cholesterolMg: 3_100, // brains 3,080 mg; egg yolk 1,080 mg
+  potassiumMg: 6_100, // instant tea powder 6,040 mg; instant coffee 3,540 mg
+  calciumMg: 4_000, // dried herbs ~2,100 mg; dry milk 1,260 mg; processed cheese 1,380 mg
+  ironMg: 150, // dried thyme 124 mg; fortified infant cereal 64 mg
+  magnesiumMg: 1_000, // wheat bran 611 mg; cacao powder ~680 mg; hemp seeds ~700 mg
+  zincMg: 100, // canned oysters 98.9 mg
+  phosphorusMg: 2_500, // protein powder mixes 1,430 mg; dried egg yolk ~1,000 mg
+  vitaminAUg: 10_000, // beef liver 7,680-9,400 µg RAE
+  vitaminCMg: 3_000, // acerola ~1,680 mg; fortified drink powders 560 mg
+  vitaminDUg: 100, // fatty fish ~25 µg; fortified foods well under; cod liver oil (250) is left out
+  vitaminEMg: 150, // wheat germ oil 149 mg
+  vitaminKUg: 2_000, // dried basil ~1,700 µg; raw parsley 1,640 µg
+  thiaminMg: 70, // fortified nutritional yeast ~64 mg; yeast extract 23 mg
+  riboflavinMg: 70, // fortified nutritional yeast ~65 mg; yeast extract 17.5 mg
+  niacinMg: 150, // yeast extract 128 mg
+  vitaminB6Mg: 70, // fortified nutritional yeast ~64 mg
+  folateUg: 6_000, // yeast extract 5,880 µg DFE
+  vitaminB12Ug: 200, // fortified nutritional yeast ~160 µg; clams 99 µg; beef liver 83 µg
 };
 
 /**
