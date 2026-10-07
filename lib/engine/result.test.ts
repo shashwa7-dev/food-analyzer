@@ -30,6 +30,13 @@ describe("toOffAllergenTags", () => {
   it("drops unrecognised keys", () => {
     expect(toOffAllergenTags(["not-a-real-allergen"])).toEqual([]);
   });
+  it("passes known OFF tags through unchanged (idempotent), so catalogue allergens survive buildResult", () => {
+    expect(toOffAllergenTags(["en:milk", "peanut"])).toEqual(["en:milk", "en:peanuts"]);
+    expect(toOffAllergenTags(toOffAllergenTags(["milk"]))).toEqual(["en:milk"]);
+  });
+  it("de-duplicates", () => {
+    expect(toOffAllergenTags(["milk", "en:milk"])).toEqual(["en:milk"]);
+  });
 });
 
 describe("buildResult", () => {
@@ -68,6 +75,21 @@ describe("buildResult", () => {
     const milkFlag = result.flags.find((f) => f.type === "allergen" && f.key === "milk");
     expect(milkFlag).toBeDefined();
     expect(milkFlag?.severity).toBe("contains");
+  });
+
+  it("flags a catalogue allergen given as an OFF tag (barcode path)", () => {
+    const result = buildResult(
+      baseArgs({ allergens: ["en:peanuts"], profile: { allergies: ["peanut"], diet: "none", goal: "general", targets: PRESETS.general } }),
+    );
+    expect(result.flags.find((f) => f.type === "allergen" && f.key === "peanut")?.severity).toBe("contains");
+  });
+
+  it("uses a stored grade when given instead of recomputing (stored neutral grade everywhere)", () => {
+    const stored = { grade: "B" as const, value: 70, components: [] };
+    const result = buildResult(baseArgs({ precomputedGrade: stored }));
+    expect(result.grade).toBe("B");
+    expect(result.gradeValue).toBe(70);
+    expect(result.components).toEqual([]);
   });
 
   it("passes through tip and servingUnknown", () => {
