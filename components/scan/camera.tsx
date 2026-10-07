@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useEffectEvent, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useEffectEvent, useState, type RefObject } from "react";
 import { CameraOff } from "lucide-react";
 import { getBarcodeReader } from "./barcode-reader";
 import { fitWithin } from "./compress";
@@ -13,18 +13,17 @@ export const SAMPLE_EVERY_MS = 300;
 const SAMPLE_EDGE_PX = 1280;
 
 /**
- * Live rear-camera preview with the corner frame and hint. While `detecting`, samples a frame every
+ * Live rear-camera preview filling its (positioned) parent. While `detecting`, samples a frame every
  * 300 ms and reports the first valid barcode. The stream (and so the sampler) stops while the tab is
  * hidden and restarts when it is visible again; all tracks are stopped on unmount. When the camera is
- * denied or missing, renders a message instead (the photo buttons outside stay available).
+ * denied or missing, renders a message instead (the shutter and gallery button stay available).
+ * The scanner chrome (brackets, hint, modes, shutter) is drawn by the caller on top.
  */
-export function Camera({ videoRef, detecting, onBarcode, onStateChange, status }: {
+export function Camera({ videoRef, detecting, onBarcode, onStateChange }: {
   videoRef: RefObject<HTMLVideoElement | null>;
   detecting: boolean;
   onBarcode: (code: string) => void;
   onStateChange?: (state: CameraState) => void;
-  /** Pill shown at the bottom of the preview (barcode status). */
-  status?: ReactNode;
 }) {
   const [state, setState] = useState<CameraState>("starting");
   const report = useEffectEvent((s: CameraState) => {
@@ -87,7 +86,7 @@ export function Camera({ videoRef, detecting, onBarcode, onStateChange, status }
 
   const blocked = state === "denied" || state === "unavailable";
   return (
-    <div className="relative aspect-[3/4] max-h-[62dvh] w-full overflow-hidden rounded-lg bg-viewfinder text-on-media md:aspect-[4/3]">
+    <>
       <video
         ref={videoRef}
         playsInline
@@ -96,37 +95,19 @@ export function Camera({ videoRef, detecting, onBarcode, onStateChange, status }
         aria-label="Camera preview"
         className={`absolute inset-0 size-full object-cover ${blocked ? "hidden" : ""}`}
       />
-      {blocked ? (
-        <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
+      {blocked && (
+        <div role="status" className="absolute inset-x-0 top-1/2 flex -translate-y-[70%] flex-col items-center gap-3 px-8 text-center">
           <CameraOff className="size-8" aria-hidden />
-          <p className="max-w-72 text-base font-semibold">
+          <p className="m-0 max-w-72 text-base font-semibold">
             {state === "denied" ? "Camera access is off." : "No camera available here."}
           </p>
-          <p className="max-w-72 text-sm opacity-80">
+          <p className="m-0 max-w-72 text-sm opacity-80">
             {state === "denied"
-              ? "Allow the camera in your browser settings, or take a photo or choose one from your gallery below."
-              : "Take a photo or choose one from your gallery below."}
+              ? "Allow the camera in your browser settings, or use the shutter to take a photo, or choose one from your gallery."
+              : "Use the shutter to take a photo, or choose one from your gallery."}
           </p>
         </div>
-      ) : (
-        <>
-          <p className="absolute inset-x-0 top-3.5 text-center text-sm font-semibold [text-shadow:0_1px_3px_rgb(0_0_0)]">
-            {state !== "live" ? "Starting the camera…" : "Point at a barcode, a label or your plate"}
-          </p>
-          <div className="pointer-events-none absolute inset-x-[12%] inset-y-[16%]" aria-hidden>
-            <i className="absolute left-0 top-0 size-[34px] border-l-4 border-t-4 border-on-media" />
-            <i className="absolute right-0 top-0 size-[34px] border-r-4 border-t-4 border-on-media" />
-            <i className="absolute bottom-0 left-0 size-[34px] border-b-4 border-l-4 border-on-media" />
-            <i className="absolute bottom-0 right-0 size-[34px] border-b-4 border-r-4 border-on-media" />
-          </div>
-          {status && (
-            <div role="status" aria-live="polite"
-              className="absolute bottom-4 left-1/2 flex max-w-[calc(100%-32px)] -translate-x-1/2 items-center gap-2 rounded-full bg-on-media px-3.5 py-2 text-sm font-bold text-on-media-ink">
-              {status}
-            </div>
-          )}
-        </>
       )}
-    </div>
+    </>
   );
 }

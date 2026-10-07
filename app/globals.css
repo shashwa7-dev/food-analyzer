@@ -57,6 +57,14 @@
   --shadow-card: var(--shadow-card);
 }
 
+/* Scanner motion (spec §3 rule 8): only ever applied under motion-safe: */
+@theme {
+  --animate-laser: laser 2.4s ease-in-out infinite;
+  --animate-dot-pulse: dot-pulse 1.2s ease-in-out infinite alternate;
+  @keyframes laser { 0%, 100% { top: 14%; } 50% { top: 86%; } }
+  @keyframes dot-pulse { from { box-shadow: 0 0 0 5px var(--brand-soft); } to { box-shadow: 0 0 0 9px var(--brand-soft); } }
+}
+
 html, body { height: 100%; }
 body {
   background: var(--bg); color: var(--ink);
@@ -76,6 +84,7 @@ body {
 }
 .cn-toast { box-shadow: 0 2px 8px rgb(0 0 0 / .18), 0 8px 24px rgb(0 0 0 / .14) !important; }
 .bg-wash { background: linear-gradient(180deg, var(--wash-a) 0, var(--bg) 45%); }
+.scan-scrim { background: linear-gradient(180deg, color-mix(in srgb, var(--viewfinder) 50%, transparent) 0%, transparent 22%, transparent 60%, color-mix(in srgb, var(--viewfinder) 65%, transparent) 100%); }
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .title { font-weight: 600; letter-spacing: -0.032em; line-height: 1.1; text-wrap: balance; }
 .section-title { font-size: 17px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.3; }

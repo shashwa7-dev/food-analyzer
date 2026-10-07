@@ -1,24 +1,27 @@
-// The "Analysing" screen's steps. The server only reports queued/processing/done, so the steps are
-// cosmetic: they advance on a timer and stop on the last one until the scan actually finishes.
+// The Analysing card's steps (spec §6.10). The server only reports queued/processing/done, so the
+// steps are cosmetic: analysingStep (lib/scans/modes) picks the current one on a timer.
 
-export const SCAN_STEPS = ["Uploading photos", "Reading the label", "Checking the numbers", "Scoring for you"] as const;
-
-/** Elapsed ms at which each step after the first becomes active. */
-export const STEP_STARTS_MS = [1_500, 5_000, 10_000] as const;
-
-/**
- * Index of the active step after `elapsedMs`; never past the last step while running. When `done`,
- * returns SCAN_STEPS.length (every step ticked).
- */
-export function activeStep(elapsedMs: number, done: boolean): number {
-  if (done) return SCAN_STEPS.length;
-  let step = 0;
-  for (const start of STEP_STARTS_MS) if (elapsedMs >= start) step++;
-  return Math.min(step, SCAN_STEPS.length - 1);
-}
+export const SCAN_STEPS = [
+  "Reading the nutrition table",
+  "Matching ingredients and allergens",
+  "Grading for your goals",
+  "Finding better options",
+] as const;
 
 export type StepState = "done" | "active" | "wait";
 
-export function stepState(index: number, active: number): StepState {
-  return index < active ? "done" : index === active ? "active" : "wait";
+export function stepState(index: number, current: number): StepState {
+  return index < current ? "done" : index === current ? "active" : "wait";
+}
+
+/** Past the server's 60 s maxDuration the job is likely dead; the stuck sweep will fail (and refund) it. */
+export const SLOW_AFTER_MS = 65_000;
+
+/**
+ * Whether to show "Still working": timed from the scan's own `createdAt` (N10), so reopening a scan
+ * that has been running for a while says so at once; before the first poll lands, from `fallbackStart`.
+ */
+export function isSlow(createdAt: string | undefined, fallbackStart: number, now: number): boolean {
+  const started = createdAt ? Date.parse(createdAt) : NaN;
+  return now - (Number.isFinite(started) ? started : fallbackStart) > SLOW_AFTER_MS;
 }

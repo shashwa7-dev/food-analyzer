@@ -25,6 +25,7 @@ describe("foodIconKey", () => {
     expect(f("Banana")).toBe("fruit");
     expect(f("Gulab jamun")).toBe("snack");
     expect(f("Samosa")).toBe("snack");
+    expect(f("Masala Peanuts")).toBe("snack");
     expect(f("Masala dosa")).toBe("wheat");
     expect(f("Idli")).toBe("bowl");
     expect(f("Medu vada")).toBe("snack");

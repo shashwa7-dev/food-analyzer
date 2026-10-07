@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { encodeWithinBudget, fitWithin, PHOTO_TOO_LARGE_MESSAGE, UNSUPPORTED_PHOTO_MESSAGE } from "./compress";
 import { pickBarcode } from "./barcode-reader";
-import { activeStep, SCAN_STEPS, stepState } from "./progress-steps";
+import { analysingStep } from "@/lib/scans/modes";
+import { isSlow, SCAN_STEPS, SLOW_AFTER_MS, stepState } from "./progress-steps";
 
 const blobOf = (bytes: number) => new Blob([new Uint8Array(bytes)], { type: "image/jpeg" });
 
@@ -52,17 +53,28 @@ describe("pickBarcode", () => {
   });
 });
 
-describe("activeStep", () => {
-  it("advances on the timer and holds on the last step while running", () => {
-    expect(activeStep(0, false)).toBe(0);
-    expect(activeStep(1_500, false)).toBe(1);
-    expect(activeStep(6_000, false)).toBe(2);
-    expect(activeStep(10_000, false)).toBe(3);
-    expect(activeStep(120_000, false)).toBe(SCAN_STEPS.length - 1);
+describe("analysing steps", () => {
+  const states = (elapsed: number, done: boolean) => SCAN_STEPS.map((_, i) => stepState(i, analysingStep(elapsed, done)));
+  it("advances every 2 s and holds on grading while the scan runs", () => {
+    expect(states(0, false)).toEqual(["active", "wait", "wait", "wait"]);
+    expect(states(2_000, false)).toEqual(["done", "active", "wait", "wait"]);
+    expect(states(4_000, false)).toEqual(["done", "done", "active", "wait"]);
+    expect(states(120_000, false)).toEqual(["done", "done", "active", "wait"]);
   });
-  it("ticks every step once done, however early", () => {
-    expect(activeStep(200, true)).toBe(SCAN_STEPS.length);
-    expect(SCAN_STEPS.map((_, i) => stepState(i, activeStep(200, true)))).toEqual(["done", "done", "done", "done"]);
-    expect(SCAN_STEPS.map((_, i) => stepState(i, 1))).toEqual(["done", "active", "wait", "wait"]);
+  it("only reaches the last step once the scan is done, however early", () => {
+    expect(states(200, true)).toEqual(["done", "done", "done", "active"]);
+  });
+});
+
+describe("isSlow", () => {
+  const created = "2026-10-07T10:00:00.000Z";
+  const at = Date.parse(created);
+  it("times the 65 s from the scan's createdAt, not from when the screen opened", () => {
+    expect(isSlow(created, at + 60_000, at + SLOW_AFTER_MS + 1)).toBe(true);
+    expect(isSlow(created, at, at + SLOW_AFTER_MS - 1)).toBe(false);
+  });
+  it("falls back to the screen's start before the first poll (or on a bad date)", () => {
+    expect(isSlow(undefined, at, at + SLOW_AFTER_MS + 1)).toBe(true);
+    expect(isSlow("nope", at, at + 1_000)).toBe(false);
   });
 });
