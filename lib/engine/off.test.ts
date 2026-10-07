@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchOffByBarcode } from "./off";
+import { fetchOffByBarcode, lookupOffByBarcode } from "./off";
 
 // No network: fetchImpl is always an injected fake. Each fake mirrors the real OFF v2 API's
 // response shape closely enough to exercise fetchOffByBarcode's own branching.
@@ -97,5 +97,26 @@ describe("fetchOffByBarcode", () => {
     await fetchOffByBarcode("036000291452", fake); // valid UPC-A (12 digits) -> EAN-13 "0036000291452"
     const [url] = fake.mock.calls[0]!;
     expect(String(url)).toContain("/api/v2/product/0036000291452?");
+  });
+});
+
+describe("lookupOffByBarcode (final review I3: only a definitive miss lets a crowd row claim a barcode)", () => {
+  const status = async (res: () => Response | Promise<Response>, code = "8901491101837") =>
+    (await lookupOffByBarcode(code, vi.fn(async () => res()))).status;
+
+  it("found for a usable product", async () => {
+    expect(await status(() => okJson({ status: 1, product: PRODUCT }))).toBe("found");
+  });
+  it("not_found only for OFF's own definitive answers: 404, or 200 with status 0", async () => {
+    expect(await status(() => new Response("not found", { status: 404 }))).toBe("not_found");
+    expect(await status(() => okJson({ status: 0, status_verbose: "product not found" }))).toBe("not_found");
+  });
+  it("unavailable for timeouts, network/HTTP errors, bad bodies and unusable products", async () => {
+    expect(await status(() => { throw new TypeError("fetch failed"); })).toBe("unavailable");
+    expect(await status(() => new Response("busy", { status: 503 }))).toBe("unavailable");
+    expect(await status(() => new Response("not json {{{", { status: 200 }))).toBe("unavailable");
+    expect(await status(() => okJson({ status: 1 }))).toBe("unavailable");
+    expect(await status(() => okJson({ status: 1, product: { code: "8901491101837", product_name: "x", nutriments: {} } }))).toBe("unavailable");
+    expect(await status(() => okJson({ status: 1, product: PRODUCT }), "12?x=1")).toBe("unavailable");
   });
 });

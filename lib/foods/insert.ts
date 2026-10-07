@@ -1,5 +1,5 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/lib/db/client";
+import { and, eq, sql } from "drizzle-orm";
+import { db, type Db, type Tx } from "@/lib/db/client";
 import { food } from "@/lib/db/schema";
 import type { FoodDraft } from "./seed-map";
 import type { FoodRow } from "./types";
@@ -34,8 +34,25 @@ export async function upsertFoods(drafts: FoodDraft[]): Promise<number> {
 
 // Single-food upsert used to cache an OFF barcode-lookup hit (lib/engine/off.ts via the scan route):
 // one row in, the stored row back out (so the caller has its id).
-export async function upsertFood(draft: FoodDraft): Promise<FoodRow> {
+export async function upsertFood(draft: FoodDraft, ex: Db | Tx = db): Promise<FoodRow> {
   const row = { ...draft, searchText: sql`to_tsvector('simple', ${draft.searchName})` as unknown as string };
-  const [result] = await db.insert(food).values(row).onConflictDoUpdate({ target: [food.source, food.sourceRef], set: conflictSet() }).returning();
+  const [result] = await ex.insert(food).values(row).onConflictDoUpdate({ target: [food.source, food.sourceRef], set: conflictSet() }).returning();
   return result!;
+}
+
+/**
+ * Caches an OFF barcode hit. OFF's curated entry wins over a crowd food holding the same barcode (one
+ * made from a label photo, possibly misread or faked): the crowd row gives the barcode up — or is
+ * dropped when a barcode-less crowd twin already exists (the crowd dedupe index) — so a crowd row can
+ * never shadow OFF's product for that code.
+ */
+export async function cacheOffFood(draft: FoodDraft): Promise<FoodRow> {
+  return db.transaction(async (tx) => {
+    if (draft.barcode) {
+      await tx.execute(sql`DELETE FROM food f WHERE f.barcode = ${draft.barcode} AND f.source = 'crowd' AND EXISTS (
+        SELECT 1 FROM food t WHERE t.source = 'crowd' AND t.barcode IS NULL AND t.norm_name = f.norm_name AND t.norm_brand = f.norm_brand)`);
+      await tx.update(food).set({ barcode: null, updatedAt: new Date() }).where(and(eq(food.barcode, draft.barcode), eq(food.source, "crowd")));
+    }
+    return upsertFood(draft, tx);
+  });
 }

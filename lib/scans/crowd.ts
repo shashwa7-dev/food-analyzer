@@ -1,6 +1,9 @@
 // Scans → shared `crowd` foods (spec §3 "How scans become foods"). The engine only emits a
 // CrowdCandidate for a high-confidence, validated label scan with a product name, so there is no
 // confidence comparison here: a newer high-confidence label simply refreshes an existing crowd row.
+// A candidate carries a barcode only when OFF was asked and had no product for it (lib/engine runAi),
+// and a crowd row is never served as a free barcode answer (findFoodByBarcode skips crowd rows); an
+// OFF hit later takes the barcode back (lib/foods/insert.ts cacheOffFood).
 import { sql } from "drizzle-orm";
 import type { Tx } from "@/lib/db/client";
 import { food } from "@/lib/db/schema";

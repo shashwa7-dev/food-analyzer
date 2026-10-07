@@ -145,6 +145,11 @@ describe("findFoodByBarcode", () => {
     await db.update(food).set({ barcode: "222" }).where(eq(food.ownerId, a));
     expect(await findFoodByBarcode("222")).toBeNull();
 
+    // a crowd food (from one user's label photo) holding a barcode is never the barcode's answer either
+    await db.update(food).set({ source: "crowd", sourceRef: null }).where(eq(food.id, off.id));
+    expect(await findFoodByBarcode("111")).toBeNull();
+    await db.update(food).set({ source: "off", sourceRef: "111" }).where(eq(food.id, off.id));
+
     await db.update(food).set({ deletedAt: new Date() }).where(eq(food.id, off.id));
     expect(await findFoodByBarcode("111")).toBeNull();
   });

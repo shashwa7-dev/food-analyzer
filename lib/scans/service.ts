@@ -225,8 +225,8 @@ export async function createScan(userId: string, input: CreateScanInput, deps: S
   }
   if (res.kind === "limit") return res.result;
   if (res.created) {
-    const barcodeFood = outcome.barcodeFood;
-    schedule(() => completeScan(res.row.id, userId, engineInput, deps, { deadline, barcodeFood }));
+    const { barcodeFood, offNotFound } = outcome;
+    schedule(() => completeScan(res.row.id, userId, engineInput, deps, { deadline, barcodeFood, offNotFound }));
   }
   return ok(res.row);
 }
@@ -268,7 +268,7 @@ export async function completeScan(
   userId: string,
   input: EngineInput,
   deps: ScanDeps,
-  opts: { deadline: number; barcodeFood?: FoodLike | null },
+  opts: { deadline: number; barcodeFood?: FoodLike | null; offNotFound?: boolean },
 ): Promise<void> {
   try {
     const started = await db.update(scan).set({ status: "processing", startedAt: new Date(deps.now()) })
@@ -292,7 +292,7 @@ export async function completeScan(
 
   let ai: AiOutcome;
   try {
-    ai = await runAi(input, tracked, opts.deadline, opts.barcodeFood ?? null);
+    ai = await runAi(input, tracked, opts.deadline, opts.barcodeFood ?? null, opts.offNotFound ?? false);
   } catch (err) {
     await failSafely(scanId, userId, err, deps.now(), usage);
     return;

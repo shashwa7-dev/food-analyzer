@@ -110,11 +110,12 @@ export async function getFoodForUser(userId: string, id: string): Promise<FoodRo
   return row ?? null;
 }
 
-// Looks up a cached OFF-sourced (or any non-custom) food by barcode, for the barcode-scan path — not
-// scoped by userId: custom foods are always excluded (they're owner-private and not barcode-verified),
-// so every visible non-custom food here is already visible to everyone.
+// Looks up a curated (OFF/INDB/FNDDS) food by barcode, for the barcode-scan path — not scoped by
+// userId: custom foods are excluded (owner-private, not barcode-verified), and so are crowd foods: they
+// come from one user's label photo, so they are never served as a free high-confidence barcode answer
+// (a barcode scan of one goes to Open Food Facts, then the charged AI path).
 export async function findFoodByBarcode(barcode: string): Promise<FoodRow | null> {
-  const [row] = await db.select().from(food).where(and(eq(food.barcode, barcode), isNull(food.deletedAt), sql`${food.source} <> 'custom'`));
+  const [row] = await db.select().from(food).where(and(eq(food.barcode, barcode), isNull(food.deletedAt), sql`${food.source} NOT IN ('custom', 'crowd')`));
   return row ?? null;
 }
 

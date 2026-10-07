@@ -1,8 +1,8 @@
 // Production wiring of the engine's dependencies (EngineDeps) for one user's scan.
 import { env } from "@/lib/env";
 import { extract } from "@/lib/engine/model";
-import { fetchOffByBarcode } from "@/lib/engine/off";
-import { upsertFood } from "@/lib/foods/insert";
+import { lookupOffByBarcode } from "@/lib/engine/off";
+import { cacheOffFood } from "@/lib/foods/insert";
 import { toFoodDraft } from "@/lib/foods/seed-map";
 import { findAlternatives, findFoodByBarcode, searchFoodRows } from "@/lib/foods/service";
 import type { ScanDeps } from "./service";
@@ -12,9 +12,9 @@ const NAME_MATCH_CANDIDATES = 10;
 export function realDeps(userId: string): ScanDeps {
   return {
     findFoodByBarcode: (code) => findFoodByBarcode(code),
-    fetchOffByBarcode: (code) => fetchOffByBarcode(code),
-    // Single upsert on (source, source_ref) — an OFF row's sourceRef is its barcode.
-    cacheOffFood: (rec) => upsertFood(toFoodDraft(rec, [])),
+    lookupOffByBarcode: (code) => lookupOffByBarcode(code),
+    // Upsert on (source, source_ref) — an OFF row's sourceRef is its barcode; a crowd row holding the code gives it up.
+    cacheOffFood: (rec) => cacheOffFood(toFoodDraft(rec, [])),
     // Visibility is the scanning user's (shared foods + their own custom foods).
     searchFoods: ({ name, country }) => searchFoodRows(userId, name, country, NAME_MATCH_CANDIDATES),
     alternatives: (f) => findAlternatives(userId, f),

@@ -52,7 +52,7 @@ const offRec = (code: string, per100: SourceRecord["per100"] = { energyKcal: 554
 function deps(userId: string, overrides: Partial<ScanDeps> = {}): ScanDeps {
   return {
     ...realDeps(userId),
-    fetchOffByBarcode: vi.fn(async () => null), // never the network
+    lookupOffByBarcode: vi.fn(async () => ({ status: "not_found" as const })), // never the network
     extract: vi.fn(async () => { throw new Error("extract must not be called"); }),
     config: () => ({ aiEnabled: true, dailyAiScanCap: 300 }),
     now,
@@ -105,7 +105,7 @@ describe("barcode scans", () => {
 
   it("an OFF hit is cached as a food and returned free", async () => {
     const u = await createUser();
-    const d = deps(u, { fetchOffByBarcode: vi.fn(async () => offRec(OTHER_CODE)) });
+    const d = deps(u, { lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: offRec(OTHER_CODE) })) });
     const r = await createScan(u, { images: [], barcode: OTHER_CODE }, d, jobs().schedule);
     expect(r.status).toBe(200);
     const [cached] = await testDb().select().from(food).where(eq(food.barcode, OTHER_CODE));
@@ -183,7 +183,7 @@ describe("AI scans", () => {
     expect(rows[0]).toMatchObject({ id: offRow.id, source: "off", per100: offRow.per100, updatedAt: offRow.updatedAt });
     const [s] = await scansOf(u);
     expect(s!.status).toBe("done");
-    expect(s!.foodId).toBeNull(); // label result is scan-only; no crowd row was created
+    expect(s!.foodId).toBe(offRow.id); // no crowd row; the result links the curated food holding the barcode (M7)
     expect(body(r).scanId).toBe(s!.id);
   });
 
@@ -676,5 +676,79 @@ describe("per-serving label without a serving weight (Masala Oats, 160 kcal / 42
     const id = await scanOats(u);
     await expect(createCustomFoodFromScan(u, id)).rejects.toBeInstanceOf(InvalidError);
     expect(await testDb().select().from(food).where(eq(food.ownerId, u))).toHaveLength(0);
+  });
+});
+
+// --- Crowd barcode claims (final review I3) -------------------------------------------------------
+
+describe("crowd foods and barcodes", () => {
+  async function labelScanBy(u: string, over: Partial<ScanDeps> = {}) {
+    const j = jobs();
+    await createScan(u, aiInput(), deps(u, { extract: extracting(labelNamkeen), ...over }), j.schedule);
+    await j.runAll();
+  }
+
+  it("a model-read barcode is checked with OFF first; only a definitive miss lets the crowd row claim it", async () => {
+    const a = await createUser();
+    const lookup = vi.fn(async () => ({ status: "not_found" as const }));
+    await labelScanBy(a, { lookupOffByBarcode: lookup });
+    expect(lookup).toHaveBeenCalledWith(NAMKEEN_CODE);
+    const [crowd] = await testDb().select().from(food).where(eq(food.source, "crowd"));
+    expect(crowd!.barcode).toBe(NAMKEEN_CODE);
+  });
+
+  it("OFF down or timed out: the crowd food is created without the barcode", async () => {
+    const a = await createUser();
+    await labelScanBy(a, { lookupOffByBarcode: vi.fn(async () => ({ status: "unavailable" as const })) });
+    const [crowd] = await testDb().select().from(food).where(eq(food.source, "crowd"));
+    expect(crowd).toMatchObject({ name: "Aloo Bhujia", barcode: null });
+  });
+
+  it("OFF has the product a label photo's barcode points at: it is cached, no crowd row claims the code", async () => {
+    const a = await createUser();
+    await labelScanBy(a, { lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: offRec(NAMKEEN_CODE) })) });
+    const rows = await testDb().select().from(food).where(eq(food.barcode, NAMKEEN_CODE));
+    expect(rows.map((r) => r.source)).toEqual(["off"]);
+    const [s] = await scansOf(a);
+    expect(s!.foodId).toBe(rows[0]!.id);
+  });
+
+  it("a crowd row holding a barcode is never another user's free high-confidence barcode answer", async () => {
+    const a = await createUser(); const b = await createUser();
+    await labelScanBy(a); // OFF said no product → crowd row claims NAMKEEN_CODE
+    expect((await testDb().select().from(food).where(eq(food.barcode, NAMKEEN_CODE)))[0]!.source).toBe("crowd");
+
+    const free = await createScan(b, { images: [], barcode: NAMKEEN_CODE }, deps(b), jobs().schedule);
+    expect(body(free)).toMatchObject({ status: "done", errorCode: "BARCODE_NOT_FOUND", result: null });
+
+    const j = jobs();
+    const paid = await createScan(b, aiInput({ barcode: NAMKEEN_CODE }), deps(b, { extract: extracting(labelNamkeen) }), j.schedule);
+    expect(paid.status).toBe(202); // the charged AI path
+    expect(await credits(b)).toBe(19);
+  });
+
+  it("once OFF has the product, a barcode scan caches OFF's entry and the crowd row gives up the barcode", async () => {
+    const a = await createUser(); const b = await createUser();
+    await labelScanBy(a);
+    const [crowd] = await testDb().select().from(food).where(eq(food.source, "crowd"));
+
+    const r = await createScan(b, { images: [], barcode: NAMKEEN_CODE }, deps(b, { lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: offRec(NAMKEEN_CODE) })) }), jobs().schedule);
+    expect(r.status).toBe(200);
+    const holders = await testDb().select().from(food).where(eq(food.barcode, NAMKEEN_CODE));
+    expect(holders.map((h) => h.source)).toEqual(["off"]);
+    expect(body(r).result!.foodId).toBe(holders[0]!.id);
+    const [released] = await testDb().select().from(food).where(eq(food.id, crowd!.id));
+    expect(released!.barcode).toBeNull(); // still searchable by name, no longer the barcode's answer
+  });
+
+  it("a crowd row whose barcode-less twin exists is dropped when OFF takes the barcode", async () => {
+    const a = await createUser(); const b = await createUser();
+    await labelScanBy(a, { lookupOffByBarcode: vi.fn(async () => ({ status: "unavailable" as const })) }); // barcode-less twin
+    await labelScanBy(b); // barcoded crowd row, same name/brand
+    expect(await testDb().select().from(food).where(eq(food.source, "crowd"))).toHaveLength(2);
+    await createScan(b, { images: [], barcode: NAMKEEN_CODE }, deps(b, { lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: offRec(NAMKEEN_CODE) })) }), jobs().schedule);
+    const crowdRows = await testDb().select().from(food).where(eq(food.source, "crowd"));
+    expect(crowdRows).toHaveLength(1);
+    expect(crowdRows[0]!.barcode).toBeNull();
   });
 });

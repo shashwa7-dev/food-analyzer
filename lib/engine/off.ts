@@ -20,11 +20,18 @@ const TIMEOUT_MS = 6000;
 
 interface OffApiResponse { status?: number; product?: OffRow }
 
-export async function fetchOffByBarcode(code: string, fetchImpl: typeof fetch = fetch): Promise<SourceRecord | null> {
+/**
+ * found: OFF has a usable product. not_found: OFF answered definitively that it has no product for
+ * this code (404 / status 0). unavailable: anything else (timeout, network or HTTP error, bad JSON,
+ * or a product too incomplete to use) — "we don't know", never evidence that OFF lacks the product.
+ */
+export type OffLookup = { status: "found"; rec: SourceRecord } | { status: "not_found" } | { status: "unavailable" };
+
+export async function lookupOffByBarcode(code: string, fetchImpl: typeof fetch = fetch): Promise<OffLookup> {
   // Untrusted input (a scanned/typed barcode) — validate and normalise (EAN-8/EAN-13/UPC-A check
   // digit) before it ever reaches a URL, instead of interpolating the raw string.
   const normalised = normaliseBarcode(code);
-  if (!normalised) return null;
+  if (!normalised) return { status: "unavailable" };
 
   const contactEmail = process.env.OFF_CONTACT_EMAIL || "contact via app";
   const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(normalised)}?fields=${FIELDS}`;
@@ -37,20 +44,29 @@ export async function fetchOffByBarcode(code: string, fetchImpl: typeof fetch = 
     });
   } catch {
     // Network error, DNS failure, or our own timeout firing — all treated as "couldn't look it up".
-    return null;
+    return { status: "unavailable" };
   }
 
-  if (!res.ok) return null; // incl. 404 (unknown barcode)
+  if (res.status === 404) return { status: "not_found" }; // unknown barcode
+  if (!res.ok) return { status: "unavailable" };
 
   let body: OffApiResponse;
   try {
     body = (await res.json()) as OffApiResponse;
   } catch {
-    return null; // malformed JSON body
+    return { status: "unavailable" }; // malformed JSON body
   }
 
   // OFF's v2 API returns HTTP 200 with status: 0 (and no product) for a well-formed but unknown barcode.
-  if (body.status === 0 || !body.product) return null;
+  if (body.status === 0) return { status: "not_found" };
+  if (!body.product) return { status: "unavailable" }; // not a shape we recognise: no evidence either way
 
-  return toSourceRecordOFF(body.product);
+  const rec = toSourceRecordOFF(body.product);
+  return rec ? { status: "found", rec } : { status: "unavailable" }; // OFF has it, just not usable
+}
+
+/** lookupOffByBarcode, collapsed to "a usable record or null". */
+export async function fetchOffByBarcode(code: string, fetchImpl: typeof fetch = fetch): Promise<SourceRecord | null> {
+  const r = await lookupOffByBarcode(code, fetchImpl);
+  return r.status === "found" ? r.rec : null;
 }

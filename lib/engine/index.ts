@@ -16,6 +16,7 @@ import { NUTRIENT_KEYS, type DailyTargets, type Diet, type Goal, type Grade, typ
 import { normalise } from "@/lib/foods/normalise";
 import { defaultPortionIndex, type SourceRecord } from "@/lib/foods/seed-map";
 import type { FoodHit, FoodRow } from "@/lib/foods/types";
+import type { OffLookup } from "./off";
 
 export const ENGINE_VERSION = "2026.10-m2";
 
@@ -34,8 +35,9 @@ export interface ExtractOutput {
 }
 
 export interface EngineDeps {
+  /** A curated (OFF/INDB/FNDDS) food by barcode. Never a crowd row: those come from label photos, unverified. */
   findFoodByBarcode(code: string): Promise<FoodLike | null>;
-  fetchOffByBarcode(code: string): Promise<SourceRecord | null>;
+  lookupOffByBarcode(code: string): Promise<OffLookup>;
   cacheOffFood(rec: SourceRecord): Promise<FoodLike>;
   /** Our DB only (never a runtime OFF search). */
   searchFoods(q: { name: string; brand?: string; country: string }): Promise<FoodLike[]>;
@@ -54,7 +56,8 @@ export interface EngineInput {
 export type EngineOutcome =
   | { kind: "barcode_done"; result: ScanResult; foodId: string } // free
   | { kind: "barcode_not_found" } // free, no images
-  | { kind: "needs_ai"; barcodeFood: FoodLike | null }; // caller charges, then calls runAi
+  // caller charges, then calls runAi. offNotFound: OFF said definitively it has no product for the submitted barcode.
+  | { kind: "needs_ai"; barcodeFood: FoodLike | null; offNotFound: boolean };
 
 /** What lib/scans (Task 8) turns into a `crowd` FoodDraft. Never carries an image. */
 export interface CrowdCandidate {
@@ -223,18 +226,23 @@ function toPartialPer100(facts: Extraction["facts"]): (Omit<ConvertedFacts, "per
 export async function resolveBarcode(input: EngineInput, deps: EngineDeps): Promise<EngineOutcome> {
   const hasImages = input.images.length > 0;
   const code = input.barcode ? normaliseBarcode(input.barcode) : null;
-  if (!code) return input.barcode && !hasImages ? { kind: "barcode_not_found" } : { kind: "needs_ai", barcodeFood: null };
+  if (!code) return input.barcode && !hasImages ? { kind: "barcode_not_found" } : { kind: "needs_ai", barcodeFood: null, offNotFound: false };
 
-  let found = await deps.findFoodByBarcode(code);
-  if (!found) {
-    const rec = await deps.fetchOffByBarcode(code);
-    if (rec) found = await deps.cacheOffFood(rec);
-  }
+  const { found, offNotFound } = await lookupBarcode(code, deps);
   if (found && hasCoreFacts(found.per100)) {
     const result = await resultFromFood(found, "barcode", "high", [], input.profile, deps);
     return { kind: "barcode_done", result, foodId: found.id };
   }
-  return hasImages ? { kind: "needs_ai", barcodeFood: found ?? null } : { kind: "barcode_not_found" };
+  return hasImages ? { kind: "needs_ai", barcodeFood: found, offNotFound } : { kind: "barcode_not_found" };
+}
+
+/** Our curated foods first, then Open Food Facts (a hit is cached). */
+async function lookupBarcode(code: string, deps: EngineDeps): Promise<{ found: FoodLike | null; offNotFound: boolean }> {
+  const found = await deps.findFoodByBarcode(code);
+  if (found) return { found, offNotFound: false };
+  const off = await deps.lookupOffByBarcode(code);
+  if (off.status === "found") return { found: await deps.cacheOffFood(off.rec), offNotFound: false };
+  return { found: null, offNotFound: off.status === "not_found" };
 }
 
 // --- runAi (1 credit) -----------------------------------------------------------------------------
@@ -257,23 +265,31 @@ export function triage(x: Extraction): Route {
   return "barcode";
 }
 
-export async function runAi(input: EngineInput, deps: EngineDeps, deadline: number, barcodeFood: FoodLike | null = null): Promise<AiOutcome> {
+export async function runAi(
+  input: EngineInput,
+  deps: EngineDeps,
+  deadline: number,
+  barcodeFood: FoodLike | null = null,
+  /** From resolveBarcode: OFF said definitively it has no product for the submitted barcode. */
+  offNotFound = false,
+): Promise<AiOutcome> {
   const signal = AbortSignal.timeout(Math.max(0, deadline - deps.now()));
   const { data: x, usage, modelId, costMicros } = await deps.extract(input.images, { model: "fast", signal, deadline });
   const meta = { usage, modelId, costMicros };
   const route = triage(x);
 
   // A submitted, valid barcode was already looked up by resolveBarcode (its food, if any, is
-  // `barcodeFood`). Otherwise a barcode the model read off the photo gets one DB lookup — no OFF
-  // call at this stage.
+  // `barcodeFood`). A barcode the model read off the photo (label content: untrusted, maybe misread)
+  // gets the same lookup — our curated foods, then OFF — before it is used for anything.
   const submitted = input.barcode ? normaliseBarcode(input.barcode) : null;
   const read = x.barcodeText ? normaliseBarcode(x.barcodeText) : null;
   const barcode = submitted ?? read;
-  const lookupFood = async () => barcodeFood ?? (!submitted && read ? await deps.findFoodByBarcode(read) : null);
+  const lookupFood = async (): Promise<{ found: FoodLike | null; offNotFound: boolean }> =>
+    submitted || !read ? { found: barcodeFood, offNotFound: submitted ? offNotFound : false } : lookupBarcode(read, deps);
 
   switch (route) {
     case "barcode": {
-      const dbFood = await lookupFood();
+      const { found: dbFood } = await lookupFood();
       if (!dbFood || !hasCoreFacts(dbFood.per100)) throw unreadable();
       return { result: await resultFromFood(dbFood, "barcode", "high", [], input.profile, deps), crowdCandidate: null, ...meta };
     }
@@ -281,8 +297,14 @@ export async function runAi(input: EngineInput, deps: EngineDeps, deadline: numb
       return { ...(await frontScan(x, input.profile, deps)), ...meta };
     case "meal":
       return { result: await mealScan(x, input.profile, deps), crowdCandidate: null, ...meta };
-    case "label":
-      return { ...(await labelScan(x, input.profile, deps, await lookupFood(), barcode)), ...meta };
+    case "label": {
+      const { found, offNotFound: offMiss } = await lookupFood();
+      // A crowd row may claim a barcode only when OFF was asked and has no product for it. With a
+      // curated food holding the code, keeping it makes the crowd upsert a no-op (it never overwrites
+      // non-crowd rows); otherwise (OFF down or timed out) the crowd food stays barcode-less.
+      const crowdBarcode = found || offMiss ? barcode : null;
+      return { ...(await labelScan(x, input.profile, deps, found, crowdBarcode)), ...meta };
+    }
   }
 }
 
@@ -330,7 +352,8 @@ async function labelScan(
   const { gradeCategory } = classify({ source: "crowd", name, categories, per100: merged.per100 });
 
   const built = buildResult({
-    name, brand, foodId: null, kind: "packaged", inputKind: "label", basis, provenance: merged.provenance,
+    // Linked to the curated food holding the barcode, if any (final review M7): logging it bumps that food.
+    name, brand, foodId: barcodeFood?.id ?? null, kind: "packaged", inputKind: "label", basis, provenance: merged.provenance,
     // Per-serving values of unknown weight are never passed off as per-100 (no grams logging, no grade).
     ...(servingUnknown ? { per100: null, perServing: merged.per100 } : { per100: merged.per100 }),
     portions, defaultPortion, gradeCategory, gradePortionGrams: null, ingredients, allergens, mayContain, additives,

@@ -55,7 +55,7 @@ function extractReturning(data: Extraction): EngineDeps["extract"] {
 function deps(overrides: Partial<EngineDeps> = {}): EngineDeps {
   return {
     findFoodByBarcode: vi.fn(async () => null),
-    fetchOffByBarcode: vi.fn(async () => null),
+    lookupOffByBarcode: vi.fn(async () => ({ status: "not_found" as const })),
     cacheOffFood: vi.fn(async () => food()),
     searchFoods: vi.fn(async () => []),
     alternatives: vi.fn(async () => []),
@@ -109,7 +109,7 @@ describe("resolveBarcode", () => {
     expect(out.result.grade).toBe("E"); // stored grade
     expect(out.result.alternatives).toEqual([HIT]);
     expect(d.extract).not.toHaveBeenCalled();
-    expect(d.fetchOffByBarcode).not.toHaveBeenCalled();
+    expect(d.lookupOffByBarcode).not.toHaveBeenCalled();
     expect(d.alternatives).toHaveBeenCalledWith({ categories: ["en:snacks", "en:salty-snacks"], country: "IN", grade: "E", excludeId: "f-bhujia" });
   });
 
@@ -122,10 +122,10 @@ describe("resolveBarcode", () => {
   });
 
   it("DB miss → OFF lookup → cached → barcode_done", async () => {
-    const d = deps({ fetchOffByBarcode: vi.fn(async () => OFF_REC), cacheOffFood: vi.fn(async () => food({ id: "f-off" })) });
+    const d = deps({ lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: OFF_REC })), cacheOffFood: vi.fn(async () => food({ id: "f-off" })) });
     const out = await resolveBarcode(input({ barcode: NAMKEEN_CODE, images: [] }), d);
     expect(out).toMatchObject({ kind: "barcode_done", foodId: "f-off" });
-    expect(d.fetchOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
+    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
     expect(d.cacheOffFood).toHaveBeenCalledWith(OFF_REC);
   });
 
@@ -153,26 +153,31 @@ describe("resolveBarcode", () => {
 
   it("barcode miss + images → needs_ai with no barcode food", async () => {
     const d = deps();
-    expect(await resolveBarcode(input({ barcode: NAMKEEN_CODE, images: [IMG] }), d)).toEqual({ kind: "needs_ai", barcodeFood: null });
+    expect(await resolveBarcode(input({ barcode: NAMKEEN_CODE, images: [IMG] }), d)).toEqual({ kind: "needs_ai", barcodeFood: null, offNotFound: true });
     expect(d.extract).not.toHaveBeenCalled();
   });
 
   it("incomplete DB hit + images → needs_ai carrying the food for merge", async () => {
     const partial = food({ per100: { energyKcal: 554, protein: 11, carbs: 51.7 } as FoodLike["per100"] });
     const d = deps({ findFoodByBarcode: vi.fn(async () => partial) });
-    expect(await resolveBarcode(input({ barcode: NAMKEEN_CODE, images: [IMG] }), d)).toEqual({ kind: "needs_ai", barcodeFood: partial });
+    expect(await resolveBarcode(input({ barcode: NAMKEEN_CODE, images: [IMG] }), d)).toEqual({ kind: "needs_ai", barcodeFood: partial, offNotFound: false });
   });
 
   it("invalid barcode is never looked up", async () => {
     const d = deps();
     expect(await resolveBarcode(input({ barcode: "1234567890123", images: [] }), d)).toEqual({ kind: "barcode_not_found" });
     expect(d.findFoodByBarcode).not.toHaveBeenCalled();
-    expect(d.fetchOffByBarcode).not.toHaveBeenCalled();
+    expect(d.lookupOffByBarcode).not.toHaveBeenCalled();
+  });
+
+  it("OFF timed out or down → needs_ai without offNotFound (no evidence OFF lacks the product)", async () => {
+    const d = deps({ lookupOffByBarcode: vi.fn(async () => ({ status: "unavailable" as const })) });
+    expect(await resolveBarcode(input({ barcode: NAMKEEN_CODE, images: [IMG] }), d)).toEqual({ kind: "needs_ai", barcodeFood: null, offNotFound: false });
   });
 
   it("no barcode → needs_ai", async () => {
     const d = deps();
-    expect(await resolveBarcode(input({ barcode: null }), d)).toEqual({ kind: "needs_ai", barcodeFood: null });
+    expect(await resolveBarcode(input({ barcode: null }), d)).toEqual({ kind: "needs_ai", barcodeFood: null, offNotFound: false });
     expect(d.findFoodByBarcode).not.toHaveBeenCalled();
   });
 });
@@ -206,14 +211,14 @@ describe("runAi — label", () => {
     expect(JSON.stringify(out.crowdCandidate)).not.toMatch(/imageUrl|thumbnail/);
   });
 
-  it("looks up barcodeText once (no OFF call) when no barcode was submitted, and merges DB gaps", async () => {
+  it("looks up barcodeText once (no OFF call on a DB hit) when no barcode was submitted, and merges DB gaps", async () => {
     const dbFood = food({ per100: { energyKcal: 550, protein: 10, carbs: 50, fat: 33, fibre: 4, sugars: 2, satFat: 15, sodiumMg: 1000, transFat: 0.2 }, provenance: { ...food().provenance, transFat: "community" } });
     const noTrans = { ...labelNamkeen, facts: { ...labelNamkeen.facts!, transFat: undefined } };
     const d = deps({ extract: extractReturning(noTrans), findFoodByBarcode: vi.fn(async () => dbFood) });
     const out = await runAi(input(), d, DEADLINE, null);
     expect(d.findFoodByBarcode).toHaveBeenCalledTimes(1);
     expect(d.findFoodByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
-    expect(d.fetchOffByBarcode).not.toHaveBeenCalled();
+    expect(d.lookupOffByBarcode).not.toHaveBeenCalled();
     expect(out.result.per100!.energyKcal).toBe(554);
     expect(out.result.provenance.energyKcal).toBe("label");
     expect(out.result.per100!.transFat).toBe(0.2);
@@ -414,6 +419,51 @@ describe("runAi — meal", () => {
     const out = await runAi(input(), deps({ extract: extractReturning(twoItems), searchFoods: mealSearch() }), DEADLINE, null);
     expect(out.result.confidence).toBe("medium");
     expect(out.result.provenance.energyKcal).toBe("reference");
+  });
+});
+
+describe("runAi — a barcode the model read off the photo", () => {
+  it("is looked up in OFF before use; an OFF hit is cached and a barcode photo gets the normal OFF result", async () => {
+    const barcodeOnly: Extraction = { images: [{ index: 0, kind: "barcode", quality: [] }], barcodeText: NAMKEEN_CODE };
+    const d = deps({ extract: extractReturning(barcodeOnly), lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: OFF_REC })), cacheOffFood: vi.fn(async () => food({ id: "f-off" })) });
+    const out = await runAi(input(), d, DEADLINE, null);
+    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
+    expect(d.cacheOffFood).toHaveBeenCalledWith(OFF_REC);
+    expect(out.result).toMatchObject({ foodId: "f-off", inputKind: "barcode", confidence: "high" });
+    expect(out.crowdCandidate).toBeNull();
+  });
+
+  it("label + OFF has the product: the crowd candidate keeps OFF's barcode, so the upsert can't claim it", async () => {
+    const d = deps({ extract: extractReturning(labelNamkeen), lookupOffByBarcode: vi.fn(async () => ({ status: "found" as const, rec: OFF_REC })), cacheOffFood: vi.fn(async () => food({ id: "f-off" })) });
+    const out = await runAi(input(), d, DEADLINE, null);
+    expect(d.cacheOffFood).toHaveBeenCalledTimes(1);
+    expect(out.result.foodId).toBe("f-off");
+    expect(out.crowdCandidate?.barcode).toBe(NAMKEEN_CODE); // a no-op against the OFF row (setWhere source = 'crowd')
+  });
+
+  it("label + OFF definitively has no product: the crowd candidate may carry the barcode", async () => {
+    const d = deps({ extract: extractReturning(labelNamkeen) });
+    const out = await runAi(input(), d, DEADLINE, null);
+    expect(d.lookupOffByBarcode).toHaveBeenCalledWith(NAMKEEN_CODE);
+    expect(out.crowdCandidate?.barcode).toBe(NAMKEEN_CODE);
+  });
+
+  it("label + OFF timed out or down: the crowd candidate never carries the barcode", async () => {
+    const d = deps({ extract: extractReturning(labelNamkeen), lookupOffByBarcode: vi.fn(async () => ({ status: "unavailable" as const })) });
+    const out = await runAi(input(), d, DEADLINE, null);
+    expect(out.crowdCandidate).not.toBeNull();
+    expect(out.crowdCandidate!.barcode).toBeNull();
+  });
+
+  it("a submitted barcode is never re-queried; its crowd claim follows resolveBarcode's OFF answer", async () => {
+    const labelNoCode = { ...labelNamkeen, barcodeText: undefined };
+    const unsure = await runAi(input({ barcode: NAMKEEN_CODE }), deps({ extract: extractReturning(labelNoCode) }), DEADLINE, null, false);
+    expect(unsure.crowdCandidate!.barcode).toBeNull();
+    const d = deps({ extract: extractReturning(labelNoCode) });
+    const missed = await runAi(input({ barcode: NAMKEEN_CODE }), d, DEADLINE, null, true);
+    expect(missed.crowdCandidate!.barcode).toBe(NAMKEEN_CODE);
+    expect(d.lookupOffByBarcode).not.toHaveBeenCalled();
+    expect(d.findFoodByBarcode).not.toHaveBeenCalled();
   });
 });
 
