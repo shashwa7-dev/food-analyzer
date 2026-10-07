@@ -22,7 +22,7 @@ export function emailHash(email: string): string {
 /**
  * Deletes tombstones from before the current period (review N5): carriedUsage only ever reads the
  * current period and UTC day, so older rows are dead weight — and still pseudonymous personal data.
- * The privacy page promises they're kept only until the end of the month they were made.
+ * The privacy page promises they're deleted after their month ends: pruned on account deletion and on sign-up.
  */
 export async function pruneTombstones(now: Date, ex: Db | Tx = db): Promise<number> {
   const rows = await ex.delete(creditTombstone).where(lt(creditTombstone.period, currentPeriod(now))).returning({ h: creditTombstone.emailHash });
