@@ -28,7 +28,7 @@ export function OverflowMenu({ items }: { items: OverflowItem[] }) {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-          <Popover.Popup className="min-w-[188px] origin-(--transform-origin) rounded-[18px] border border-line bg-surface p-1.5 text-ink shadow-card outline-none transition-[scale,opacity] duration-100 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none">
+          <Popover.Popup className="min-w-[188px] origin-(--transform-origin) rounded-[18px] bg-surface p-1.5 text-ink shadow-card outline-none transition-[scale,opacity] duration-100 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none">
             {items.map((it) => {
               const cls = cn(ITEM, it.tone === "danger" ? "text-bad" : "text-ink");
               const body = (

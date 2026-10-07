@@ -8,39 +8,75 @@ export function toneFor(eaten: number, target: number): Tone {
 }
 
 export type LimitKey = "sugarsMax" | "sodiumMgMax" | "satFatMax";
-export type LimitChip = { key: LimitKey; label: string; total: number; target: number; unit: "g" | "mg"; ratio: number; tone: "near" | "over" };
+export type LimitTone = "ok" | "near" | "over";
+/** One daily limit for the Daily limits card: eaten (`total`), the limit (`target`) and its share (`ratio`). */
+export type LimitRow = { key: LimitKey; label: string; total: number; target: number; unit: "g" | "mg"; ratio: number; tone: LimitTone };
+export type LimitChip = LimitRow & { tone: "near" | "over" };
 
+// The Daily limits card's row order (mock-c1 "Today on desktop", option A).
 const LIMITS: { key: LimitKey; label: string; unit: "g" | "mg" }[] = [
-  { key: "sugarsMax", label: "Sugar", unit: "g" },
   { key: "sodiumMgMax", label: "Sodium", unit: "mg" },
   { key: "satFatMax", label: "Sat fat", unit: "g" },
+  { key: "sugarsMax", label: "Sugar", unit: "g" },
 ];
 
-/** The NEAR_LIMIT share of a limit at which a chip appears. */
+/** The NEAR_LIMIT share of a limit at which it counts as close. */
 export const NEAR_LIMIT = 0.9;
 
+const limitTone = (ratio: number): LimitTone => (ratio > 1 ? "over" : ratio >= NEAR_LIMIT ? "near" : "ok");
+
 /**
- * Chips for the daily limits (sugar, sodium, saturated fat) at 90% or more of their limit, worst
- * first. Under 90% a limit is not shown; above 100% it is "over", else "near". Fibre is a goal, not
- * a limit, so it never appears.
+ * The three daily limits (sodium, saturated fat, sugar) in card order: "over" above 100% of the
+ * limit, "near" from 90%, else "ok". A limit without a target is left out. Fibre is a goal, not a
+ * limit, so it never appears.
  */
-export function limitChips(progress: TargetProgress[]): LimitChip[] {
-  const chips: LimitChip[] = [];
+export function limitRows(progress: TargetProgress[]): LimitRow[] {
+  const rows: LimitRow[] = [];
   for (const { key, label, unit } of LIMITS) {
     const p = progress.find((x) => x.key === key);
     if (!p || p.target <= 0) continue;
     const ratio = p.total / p.target;
-    if (ratio < NEAR_LIMIT) continue;
-    chips.push({ key, label, total: p.total, target: p.target, unit, ratio, tone: ratio > 1 ? "over" : "near" });
+    rows.push({ key, label, total: p.total, target: p.target, unit, ratio, tone: limitTone(ratio) });
   }
-  return chips.sort((a, b) => b.ratio - a.ratio);
+  return rows;
 }
 
+/** The limits at 90% or more (near or over), worst first. */
+export function limitChips(progress: TargetProgress[]): LimitChip[] {
+  return limitRows(progress)
+    .filter((r): r is LimitChip => r.tone !== "ok")
+    .sort((a, b) => b.ratio - a.ratio);
+}
+
+const grouped = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 1 });
+
 /**
- * The line above the limit chips: "Over your daily limit" (bad) when any chip is over, else "Close to
- * your daily limit" (warn). Null with no chips.
+ * "{eaten} / {limit}" as whole numbers, except when rounding would show a different tone than the
+ * real one (22.3 g of a 22 g limit is over but reads "22 / 22"; 44.9 g of 50 g is under 90% but
+ * reads "45 / 50"): then the eaten amount keeps one decimal.
  */
-export function limitsHeading(chips: LimitChip[]): { tone: "over" | "near"; text: string } | null {
-  if (chips.length === 0) return null;
-  return chips.some((c) => c.tone === "over") ? { tone: "over", text: "Over your daily limit" } : { tone: "near", text: "Close to your daily limit" };
+export function limitAmount(total: number, target: number): string {
+  const t = Math.round(target);
+  const whole = Math.round(total);
+  const misleading = t > 0 && limitTone(whole / t) !== limitTone(total / target);
+  return `${grouped(misleading ? Math.round(total * 10) / 10 : whole)} / ${grouped(t)}`;
+}
+
+export type LimitsSummary = {
+  /** "1 close" (warn) or "2 over" (bad, wins over close); null when every limit is under 90%. */
+  badge: { tone: "near" | "over"; count: number; text: string } | null;
+  /** One factual line naming the worst limit, e.g. "Sodium is over your 2,000 mg limit."; null when all are fine. */
+  tip: string | null;
+};
+
+export function limitsSummary(rows: LimitRow[]): LimitsSummary {
+  const flagged = rows.filter((r): r is LimitChip => r.tone !== "ok").sort((a, b) => b.ratio - a.ratio);
+  const worst = flagged[0];
+  if (!worst) return { badge: null, tip: null };
+  const over = flagged.filter((r) => r.tone === "over").length;
+  const badge = over > 0
+    ? { tone: "over" as const, count: over, text: `${over} over` }
+    : { tone: "near" as const, count: flagged.length, text: `${flagged.length} close` };
+  const where = worst.tone === "over" ? "over" : "close to";
+  return { badge, tip: `${worst.label} is ${where} your ${grouped(Math.round(worst.target))} ${worst.unit} limit.` };
 }

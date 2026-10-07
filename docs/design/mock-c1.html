@@ -585,6 +585,84 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
 .xlink { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; border: 0; background: none; padding: 0 4px; font-weight: 600; color: var(--ink); cursor: pointer; white-space: nowrap; }
 .xlink svg { width: 18px; height: 18px; }
 .xlink.bad { color: var(--g-e); font-weight: 550; font-size: 14px; }
+
+/* ---------- v6: Today desktop options ---------- */
+.side-nav a, .side .scanbtn { border-radius: 999px; }
+.t2-side .side-nav a.on { border-radius: 999px; }
+.t2-credit { margin-top: auto; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border-radius: 999px; background: var(--brand-soft); color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.t2-credit svg { width: 16px; height: 16px; color: var(--brand-deep); flex: none; }
+.t2-credit .chev { margin-left: auto; color: var(--muted); }
+.t2-side .me-row { border-radius: 999px; }
+.desk .main.t2A, .desk .main.t2C { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+.desk .main.t2B { grid-template-columns: 1fr; }
+.t2-day, .t2-rail { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.t2-meals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.t2-meals .meal { min-width: 0; }
+.t2-card { padding: 14px 16px; display: grid; gap: 10px; }
+.cc-sub { margin: 0; font-size: 12.5px; color: var(--muted); }
+.lim { display: grid; gap: 6px; }
+.lim-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13.5px; }
+.lim-name { display: inline-flex; gap: 7px; align-items: center; font-weight: 600; white-space: nowrap; }
+.lim-name svg { width: 16px; height: 16px; color: var(--muted); }
+.lim-val { color: var(--muted); white-space: nowrap; }
+.lim-bar { height: 6px; border-radius: 6px; background: var(--sunken); overflow: hidden; }
+.lim-bar i { display: block; height: 100%; border-radius: inherit; background: var(--brand-deep); }
+.lim.near .lim-bar i { background: var(--warn-c); }
+.lim.near .lim-val, .lim.near .lim-name svg { color: var(--warn-c); }
+.lim.near .lim-val { font-weight: 650; }
+.lim-badge { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; font-weight: 650; padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--warn-c) 14%, transparent); color: var(--warn-c); white-space: nowrap; }
+.lim-badge svg { width: 13px; height: 13px; }
+.t2-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.t2-kpis span { display: grid; font-size: 11.5px; color: var(--muted); padding: 8px; border-radius: 12px; background: var(--sunken); white-space: nowrap; }
+.t2-kpis b { font-size: 17px; color: var(--ink); letter-spacing: -0.02em; }
+.t2-row { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); min-height: 44px; }
+.t2-row + .t2-row { border-top: 1px solid var(--line); padding-top: 10px; }
+.t2-row .fbody b { font-size: 14px; }
+.ftile.wk, .meal-ico.wk { background: color-mix(in srgb, var(--protein) 14%, transparent); color: var(--protein); }
+.t2-burn { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; font-weight: 650; white-space: nowrap; }
+.t2-burn svg { width: 14px; height: 14px; color: var(--g-d); }
+.btn.sm-btn { min-height: 44px; font-size: 14px; }
+.soon { font-size: 11px; }
+.t2-energy { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: 26px; background: var(--brand-soft); flex-wrap: wrap; }
+.en-part { display: grid; gap: 2px; min-width: 0; }
+.en-part b { font-size: 34px; letter-spacing: -0.04em; line-height: 1; }
+.en-part .muted { font-size: 12.5px; white-space: nowrap; }
+.en-part .label svg { width: 14px; height: 14px; }
+.en-op { font-size: 26px; font-weight: 600; color: var(--muted); }
+.en-net b { color: var(--brand-deep); }
+.t2-energy .ringwrap { margin-left: auto; position: relative; width: 112px; height: 112px; color: var(--brand-deep); }
+.t2-energy .ringwrap .center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; line-height: 1.1; }
+.t2-energy .ringwrap .center b { font-size: 20px; color: var(--ink); }
+.t2-energy .ringwrap .center span { font-size: 10.5px; color: var(--muted); }
+.t2-two { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; align-items: start; }
+.t2-col { display: grid; gap: 12px; }
+.t2-colhead { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px; }
+.t2-colhead b { font-size: 17px; }
+.tl { display: grid; gap: 10px; }
+.tl-row { display: grid; grid-template-columns: 52px 14px 1fr; align-items: center; gap: 10px; position: relative; }
+.tl-row::before { content: ""; position: absolute; left: 68px; top: -10px; bottom: -10px; width: 2px; background: var(--line); }
+.tl-row:first-child::before { top: 50%; }
+.tl-row.next::before { bottom: 50%; }
+.tl-time { font-size: 12.5px; color: var(--muted); text-align: right; white-space: nowrap; }
+.tl-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 4px var(--bg); position: relative; z-index: 1; }
+.tl-row.work .tl-dot { background: var(--protein); }
+.tl-row.next .tl-dot { background: var(--surface); border: 2px dashed var(--muted); }
+.tl-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-width: 0; }
+.tl-card .body { flex: 1; min-width: 0; }
+.tl-card .items { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; color: var(--muted); }
+.tl-k { font-weight: 650; font-size: 14px; white-space: nowrap; }
+.tl-row.work .tl-k { color: var(--protein); }
+.tl-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.tl-add .btn { min-height: 44px; font-size: 14px; }
+.t2C .kcal .ringwrap { width: 96px; height: 96px; }
+.t2C .kcal .ringwrap svg { width: 96px; height: 96px; }
+.t2C .kcal .big { font-size: 36px; }
+.t2C .macros { grid-template-columns: 1fr; }
+.t2C .macro { grid-template-columns: auto 1fr auto; align-items: center; }
+@media (max-width: 880px) {
+  .desk .main.t2A, .desk .main.t2C { grid-template-columns: 1fr; }
+  .t2-meals, .t2-two { grid-template-columns: 1fr; }
+}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -641,6 +719,10 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
     <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
     <symbol id="i-bowl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0z"/><path d="M9 8.5c.5-2 2-3 3.5-3"/></symbol>
     <symbol id="i-refund" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4.5h-4.5"/><path d="M12 8v8M9.5 10.5c0-1.1 1.1-1.7 2.5-1.7s2.5.7 2.5 1.7c0 2.3-5 1.2-5 3.5 0 1 1.1 1.7 2.5 1.7s2.5-.6 2.5-1.7"/></symbol>
+    <symbol id="i-walk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="m9 21 2.5-6.5L14 17v4M7 12l2.5-3.5 4 1.5 2 3 2.5 1M11.5 14.5 10 9"/></symbol>
+    <symbol id="i-flame2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.6-5.3 3.6-8.8 1.9 1.4 2.9 3.3 2.9 5.2.9-.6 1.6-1.7 1.8-3 2.3 1.9 4.7 4.2 4.7 6.9 0 3.4-2.6 5.9-6.5 5.9z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.4-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.6-7.5 10-7.5 10z"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 3h5"/></symbol>
   </defs>
 </svg>
 
@@ -654,7 +736,7 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
       <button id="v-forest" data-v="forest" aria-pressed="false"><span class="dot" style="background:#C2E46A"></span>C3 Lime &amp; Forest</button>
     </div>
   </div>
-  <nav class="jump" aria-label="Sections"><a href="#root">Core</a><a href="#scan-flow">Scan flow</a><a href="#search">Search &amp; popups</a><a href="#progress">Progress</a><a href="#account">Account</a></nav>
+  <nav class="jump" aria-label="Sections"><a href="#root">Core</a><a href="#scan-flow">Scan flow</a><a href="#search">Search &amp; popups</a><a href="#progress">Progress</a><a href="#account">Account</a><a href="#today-desktop">Today on desktop</a></nav>
   <p class="variant-note" id="note">C1 follows the reference most closely: bright lime fills, black main buttons, and a pale lime wash at the top of each screen.</p>
 </header>
 
@@ -1158,6 +1240,175 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
   </div>
   <figcaption>Desktop: the same single column, centred. The credits chart and activity live one tap away on their own page.</figcaption>
 </figure>
+</section>
+
+<section class="block" id="today-desktop">
+  <div class="block-head"><h2>Today on desktop: three layouts</h2>
+  <p>Fills the empty space and turns the loose "Sat fat 21 / 22 g" chip into a proper Daily limits card. Nav items are now pills to match Scan food, and credits are one line. Workout rows are sample data showing where the tracker will fit.</p></div>
+  <figure class="desk-wrap">
+  <div class="desk ">
+    <aside class="side t2-side">
+      <div class="logo">EATR<span>i8</span></div>
+      <a class="scanbtn" href="#"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan food<kbd>S</kbd></a>
+      <nav class="side-nav" aria-label="Main"><a class="on" href="#"><svg aria-hidden="true"><use href="#i-today"/></svg>Today</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg>Progress</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-search"/></svg>Foods</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg>History<span class="count num">4</span></a></nav>
+      <a class="t2-credit" href="#"><svg aria-hidden="true"><use href="#i-spark"/></svg><span class="num">18 / 20 scans left</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+      <a class="me-row" href="#"><span class="avatar sm">AK</span><span class="me-name"><b>Aarav Kapoor</b><span class="plan">Basic plan</span></span><svg class="gear" aria-hidden="true"><use href="#i-gear"/></svg></a>
+    </aside>
+    <div class="main t2A">
+      <div class="t2-day">
+        <div class="hello"><div class="avatar">AK</div><div class="who"><b>Hi, Aarav</b><span>Wednesday, 7 Oct</span></div><span class="round" aria-label="Pick a date"><svg aria-hidden="true"><use href="#i-cal"/></svg></span></div>
+        <h2 class="headline">You have <em class="num">516 kcal</em> left today</h2>
+        <section class="kcal">
+          <div><div class="label"><svg aria-hidden="true"><use href="#i-flame"/></svg>Eaten</div><div class="big num">1,184<small>kcal</small></div><div class="of num">of 1,700 target</div></div>
+          <div class="ringwrap"><svg class="ring" viewBox="0 0 112 112" width="112" height="112"><circle class="track" cx="56" cy="56" r="47" stroke-width="11"/><circle class="bar" cx="56" cy="56" r="47" stroke-width="11" pathLength="100" stroke-dasharray="70 100"/></svg><div class="center"><div><b class="num">70%</b><br><span>of goal</span></div></div></div>
+        </section>
+        <div class="macros">
+          <div class="card macro" style="color:var(--protein)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-protein"/></svg>Protein</span><div class="bar"><i style="width:63%"></i></div><span class="val num">38<small> / 60 g</small></span></div>
+          <div class="card macro" style="color:var(--carbs)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-wheat"/></svg>Carbs</span><div class="bar"><i style="width:71%"></i></div><span class="val num">163<small> / 230 g</small></span></div>
+          <div class="card macro" style="color:var(--fat)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-drop"/></svg>Fat</span><div class="bar"><i style="width:74%"></i></div><span class="val num">42<small> / 57 g</small></span></div>
+        </div>
+        <div class="t2-meals"><div class="card meal"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sunrise"/></svg></span><div class="body"><b>Breakfast</b><div class="items">Poha, Hot tea, Aptamil Gold Stage 3…</div><span class="chip num"><svg aria-hidden="true"><use href="#i-flame"/></svg>625 kcal</span></div><button class="add" aria-label="Add to Breakfast"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div><div class="card meal"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sun"/></svg></span><div class="body"><b>Lunch</b><div class="items">Roti, Dal, Boiled rice, Curd</div><span class="chip num"><svg aria-hidden="true"><use href="#i-flame"/></svg>558 kcal</span></div><button class="add" aria-label="Add to Lunch"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div><div class="card meal empty"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-cookie"/></svg></span><div class="body"><b>Snacks</b><div class="items">Nothing logged yet</div></div><button class="add" aria-label="Add to Snacks"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div><div class="card meal empty"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-moon"/></svg></span><div class="body"><b>Dinner</b><div class="items">Nothing logged yet</div></div><button class="add" aria-label="Add to Dinner"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div></div>
+      </div>
+      <div class="t2-rail">
+        <section class="card t2-card">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-shield"/></svg>Daily limits</b><span class="lim-badge"><svg aria-hidden="true"><use href="#i-alert"/></svg>1 close</span></div>
+          <div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-salt"/></svg>Sodium</span><span class="lim-val num">1,543 / 2,000 mg</span></div><div class="lim-bar"><i style="width:77%"></i></div></div><div class="lim near"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-drop"/></svg>Sat fat</span><span class="lim-val num">21 / 22 g</span></div><div class="lim-bar"><i style="width:95%"></i></div></div><div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-cookie"/></svg>Sugar</span><span class="lim-val num">32 / 50 g</span></div><div class="lim-bar"><i style="width:64%"></i></div></div>
+          <p class="cc-sub">Sat fat is close to your 22 g limit. Pick a lighter dinner.</p>
+        </section>
+        <section class="card t2-card">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-chart"/></svg>This week</b><a class="link" href="#">Progress<svg aria-hidden="true"><use href="#i-chev"/></svg></a></div>
+          <svg class="chart" viewBox="0 0 260 96" role="img" aria-label="Calories for the last 7 days against a 1,700 kcal target"><defs><pattern id="t2hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--fat-soft)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--fat)" stroke-width="2.5"/></pattern></defs><rect x="0.0" y="4.3" width="22" height="75.7" rx="6" fill="url(#t2hatch)" stroke="var(--fat)" stroke-width="1"/><text x="11.0" y="94" class="ax" text-anchor="middle">T</text><rect x="39.7" y="37.8" width="22" height="42.2" rx="6" fill="var(--brand)"/><text x="50.7" y="94" class="ax" text-anchor="middle">F</text><text x="90.3" y="94" class="ax" text-anchor="middle">S</text><rect x="119.0" y="32.0" width="22" height="48.0" rx="6" fill="var(--brand)"/><text x="130.0" y="94" class="ax" text-anchor="middle">S</text><rect x="158.7" y="3.4" width="22" height="76.6" rx="6" fill="url(#t2hatch)" stroke="var(--fat)" stroke-width="1"/><text x="169.7" y="94" class="ax" text-anchor="middle">M</text><rect x="198.3" y="40.6" width="22" height="39.4" rx="6" fill="var(--brand)"/><text x="209.3" y="94" class="ax" text-anchor="middle">T</text><rect x="238.0" y="43.6" width="22" height="36.4" rx="6" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1"/><text x="249.0" y="94" class="ax" text-anchor="middle">W</text><line x1="0" x2="260" y1="27.7" y2="27.7" class="target"/></svg>
+          <div class="t2-kpis num"><span><b>1,711</b>avg kcal</span><span><b>2/6</b>on target</span><span><b>4</b>day streak</span></div>
+        </section>
+        <section class="card t2-card">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-hist"/></svg>Recent scans</b><a class="link" href="#">History<svg aria-hidden="true"><use href="#i-chev"/></svg></a></div>
+          <a class="t2-row" href="#"><span class="ftile"><svg aria-hidden="true"><use href="#i-bar"/></svg></span><span class="fbody"><b>Amul Taaza Milk</b><span class="muted">Barcode · free</span></span><span class="gb sm" style="background:var(--g-b)">B</span></a><a class="t2-row" href="#"><span class="ftile"><svg aria-hidden="true"><use href="#i-bowl"/></svg></span><span class="fbody"><b>Thali</b><span class="muted">Meal photo</span></span><span class="gb sm" style="background:var(--g-c)">C</span></a><a class="t2-row" href="#"><span class="ftile"><svg aria-hidden="true"><use href="#i-label"/></svg></span><span class="fbody"><b>Masala Peanuts</b><span class="muted">Label</span></span><span class="gb sm" style="background:var(--g-d)">D</span></a>
+        </section>
+      </div>
+    </div>
+  </div>
+  <figcaption>A · Day + insights rail (recommended). Your day on the left; a right rail with Daily limits, This week and Recent scans. Workouts later becomes one more rail card.</figcaption>
+</figure>
+  <figure class="desk-wrap">
+  <div class="desk ">
+    <aside class="side t2-side">
+      <div class="logo">EATR<span>i8</span></div>
+      <a class="scanbtn" href="#"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan food<kbd>S</kbd></a>
+      <nav class="side-nav" aria-label="Main"><a class="on" href="#"><svg aria-hidden="true"><use href="#i-today"/></svg>Today</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg>Progress</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-search"/></svg>Foods</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg>History<span class="count num">4</span></a></nav>
+      <a class="t2-credit" href="#"><svg aria-hidden="true"><use href="#i-spark"/></svg><span class="num">18 / 20 scans left</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+      <a class="me-row" href="#"><span class="avatar sm">AK</span><span class="me-name"><b>Aarav Kapoor</b><span class="plan">Basic plan</span></span><svg class="gear" aria-hidden="true"><use href="#i-gear"/></svg></a>
+    </aside>
+    <div class="main t2B">
+      <div class="hello"><div class="avatar">AK</div><div class="who"><b>Hi, Aarav</b><span>Wednesday, 7 Oct</span></div><span class="round" aria-label="Pick a date"><svg aria-hidden="true"><use href="#i-cal"/></svg></span></div>
+      <section class="t2-energy">
+          <div class="en-part"><span class="label"><svg aria-hidden="true"><use href="#i-flame"/></svg>Eaten</span><b class="num">1,184</b><span class="muted">kcal</span></div>
+          <span class="en-op">−</span>
+          <div class="en-part"><span class="label"><svg aria-hidden="true"><use href="#i-walk"/></svg>Burned</span><b class="num">350</b><span class="muted">kcal · 2 workouts</span></div>
+          <span class="en-op">=</span>
+          <div class="en-part en-net"><span class="label"><svg aria-hidden="true"><use href="#i-target"/></svg>Net</span><b class="num">834</b><span class="muted">of 1,700 · 866 left</span></div>
+          <div class="ringwrap"><svg class="ring" viewBox="0 0 112 112" width="112" height="112"><circle class="track" cx="56" cy="56" r="47" stroke-width="11"/><circle class="bar" cx="56" cy="56" r="47" stroke-width="11" pathLength="100" stroke-dasharray="49 100"/></svg><div class="center"><div><b class="num">49%</b><br><span>net of goal</span></div></div></div>
+        </section>
+      <div class="macros">
+          <div class="card macro" style="color:var(--protein)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-protein"/></svg>Protein</span><div class="bar"><i style="width:63%"></i></div><span class="val num">38<small> / 60 g</small></span></div>
+          <div class="card macro" style="color:var(--carbs)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-wheat"/></svg>Carbs</span><div class="bar"><i style="width:71%"></i></div><span class="val num">163<small> / 230 g</small></span></div>
+          <div class="card macro" style="color:var(--fat)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-drop"/></svg>Fat</span><div class="bar"><i style="width:74%"></i></div><span class="val num">42<small> / 57 g</small></span></div>
+        </div>
+      <div class="t2-two">
+        <div class="t2-col"><div class="t2-colhead"><b>Meals</b><span class="muted num">1,184 kcal</span></div><div class="card meal"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sunrise"/></svg></span><div class="body"><b>Breakfast</b><div class="items">Poha, Hot tea, Aptamil Gold Stage 3…</div><span class="chip num"><svg aria-hidden="true"><use href="#i-flame"/></svg>625 kcal</span></div><button class="add" aria-label="Add to Breakfast"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div><div class="card meal"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sun"/></svg></span><div class="body"><b>Lunch</b><div class="items">Roti, Dal, Boiled rice, Curd</div><span class="chip num"><svg aria-hidden="true"><use href="#i-flame"/></svg>558 kcal</span></div><button class="add" aria-label="Add to Lunch"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div><div class="card meal empty"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-cookie"/></svg></span><div class="body"><b>Snacks</b><div class="items">Nothing logged yet</div></div><button class="add" aria-label="Add to Snacks"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div><div class="card meal empty"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-moon"/></svg></span><div class="body"><b>Dinner</b><div class="items">Nothing logged yet</div></div><button class="add" aria-label="Add to Dinner"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div></div>
+        <div class="t2-col"><section class="card t2-card t2-work">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-dumbbell"/></svg>Workouts</b></div>
+          <div class="t2-row"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-walk"/></svg></span><span class="fbody"><b>Morning walk</b><span class="muted num">35 min</span></span><span class="t2-burn num"><svg aria-hidden="true"><use href="#i-flame2"/></svg>140 kcal</span></div><div class="t2-row"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Strength</b><span class="muted num">40 min</span></span><span class="t2-burn num"><svg aria-hidden="true"><use href="#i-flame2"/></svg>210 kcal</span></div>
+          <button class="btn ghost wide sm-btn"><svg aria-hidden="true"><use href="#i-plus"/></svg>Log workout</button>
+        </section><section class="card t2-card">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-shield"/></svg>Daily limits</b><span class="lim-badge"><svg aria-hidden="true"><use href="#i-alert"/></svg>1 close</span></div>
+          <div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-salt"/></svg>Sodium</span><span class="lim-val num">1,543 / 2,000 mg</span></div><div class="lim-bar"><i style="width:77%"></i></div></div><div class="lim near"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-drop"/></svg>Sat fat</span><span class="lim-val num">21 / 22 g</span></div><div class="lim-bar"><i style="width:95%"></i></div></div><div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-cookie"/></svg>Sugar</span><span class="lim-val num">32 / 50 g</span></div><div class="lim-bar"><i style="width:64%"></i></div></div>
+          <p class="cc-sub">Sat fat is close to your 22 g limit. Pick a lighter dinner.</p>
+        </section></div>
+      </div>
+    </div>
+  </div>
+  <figcaption>B · Energy balance (fitness-first). Eaten − Burned = Net across the top; meals and workouts side by side. Best once the workout tracker ships.</figcaption>
+</figure>
+  <figure class="desk-wrap">
+  <div class="desk ">
+    <aside class="side t2-side">
+      <div class="logo">EATR<span>i8</span></div>
+      <a class="scanbtn" href="#"><svg aria-hidden="true"><use href="#i-scan"/></svg>Scan food<kbd>S</kbd></a>
+      <nav class="side-nav" aria-label="Main"><a class="on" href="#"><svg aria-hidden="true"><use href="#i-today"/></svg>Today</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg>Progress</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-search"/></svg>Foods</a><a class="" href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg>History<span class="count num">4</span></a></nav>
+      <a class="t2-credit" href="#"><svg aria-hidden="true"><use href="#i-spark"/></svg><span class="num">18 / 20 scans left</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a>
+      <a class="me-row" href="#"><span class="avatar sm">AK</span><span class="me-name"><b>Aarav Kapoor</b><span class="plan">Basic plan</span></span><svg class="gear" aria-hidden="true"><use href="#i-gear"/></svg></a>
+    </aside>
+    <div class="main t2C">
+      <div class="t2-day">
+        <div class="hello"><div class="avatar">AK</div><div class="who"><b>Hi, Aarav</b><span>Wednesday, 7 Oct</span></div><span class="round" aria-label="Pick a date"><svg aria-hidden="true"><use href="#i-cal"/></svg></span></div>
+        <h2 class="headline">Your day so far</h2>
+        <section class="tl"><div class="tl-row meal"><span class="tl-time num">7:40</span><span class="tl-dot"></span><div class="card tl-card"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sunrise"/></svg></span><div class="body"><b>Breakfast</b><div class="items">Poha, Hot tea, Aptamil…</div></div><span class="tl-k num">+625 kcal</span></div></div><div class="tl-row work"><span class="tl-time num">8:15</span><span class="tl-dot"></span><div class="card tl-card"><span class="meal-ico wk"><svg aria-hidden="true"><use href="#i-walk"/></svg></span><div class="body"><b>Morning walk</b><div class="items">35 min · brisk</div></div><span class="tl-k num">−140 kcal</span></div></div><div class="tl-row meal"><span class="tl-time num">13:20</span><span class="tl-dot"></span><div class="card tl-card"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sun"/></svg></span><div class="body"><b>Lunch</b><div class="items">Roti, Dal, Boiled rice, Curd</div></div><span class="tl-k num">+558 kcal</span></div></div><div class="tl-row work"><span class="tl-time num">18:30</span><span class="tl-dot"></span><div class="card tl-card"><span class="meal-ico wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><div class="body"><b>Strength</b><div class="items">40 min</div></div><span class="tl-k num">−210 kcal</span></div></div><div class="tl-row next"><span class="tl-time num">now</span><span class="tl-dot"></span><div class="tl-add"><button class="btn ghost"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add food</button><button class="btn ghost"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg>Log workout</button></div></div></section>
+      </div>
+      <div class="t2-rail">
+        <section class="kcal">
+          <div><div class="label"><svg aria-hidden="true"><use href="#i-flame"/></svg>Eaten</div><div class="big num">1,184<small>kcal</small></div><div class="of num">of 1,700 target</div></div>
+          <div class="ringwrap"><svg class="ring" viewBox="0 0 112 112" width="112" height="112"><circle class="track" cx="56" cy="56" r="47" stroke-width="11"/><circle class="bar" cx="56" cy="56" r="47" stroke-width="11" pathLength="100" stroke-dasharray="70 100"/></svg><div class="center"><div><b class="num">70%</b><br><span>of goal</span></div></div></div>
+        </section>
+        <div class="macros">
+          <div class="card macro" style="color:var(--protein)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-protein"/></svg>Protein</span><div class="bar"><i style="width:63%"></i></div><span class="val num">38<small> / 60 g</small></span></div>
+          <div class="card macro" style="color:var(--carbs)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-wheat"/></svg>Carbs</span><div class="bar"><i style="width:71%"></i></div><span class="val num">163<small> / 230 g</small></span></div>
+          <div class="card macro" style="color:var(--fat)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-drop"/></svg>Fat</span><div class="bar"><i style="width:74%"></i></div><span class="val num">42<small> / 57 g</small></span></div>
+        </div>
+        <section class="card t2-card">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-shield"/></svg>Daily limits</b><span class="lim-badge"><svg aria-hidden="true"><use href="#i-alert"/></svg>1 close</span></div>
+          <div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-salt"/></svg>Sodium</span><span class="lim-val num">1,543 / 2,000 mg</span></div><div class="lim-bar"><i style="width:77%"></i></div></div><div class="lim near"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-drop"/></svg>Sat fat</span><span class="lim-val num">21 / 22 g</span></div><div class="lim-bar"><i style="width:95%"></i></div></div><div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-cookie"/></svg>Sugar</span><span class="lim-val num">32 / 50 g</span></div><div class="lim-bar"><i style="width:64%"></i></div></div>
+          <p class="cc-sub">Sat fat is close to your 22 g limit. Pick a lighter dinner.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+  <figcaption>C · Timeline. Meals and workouts in time order on the left; the numbers stay pinned in the right rail.</figcaption>
+</figure>
+  <div class="stage"><figure class="shot">
+    <div class="phone"><div class="screen">
+      <div class="status"><span class="num">09:41</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight">
+        <div class="hello"><div class="avatar">AK</div><div class="who"><b>Hi, Aarav</b><span>Wednesday, 7 Oct</span></div><span class="round" aria-label="Pick a date"><svg aria-hidden="true"><use href="#i-cal"/></svg></span></div>
+        <h2 class="headline">You have <em class="num">516 kcal</em> left today</h2>
+        <section class="kcal">
+          <div><div class="label"><svg aria-hidden="true"><use href="#i-flame"/></svg>Eaten</div><div class="big num">1,184<small>kcal</small></div><div class="of num">of 1,700 target</div></div>
+          <div class="ringwrap"><svg class="ring" viewBox="0 0 112 112" width="112" height="112"><circle class="track" cx="56" cy="56" r="47" stroke-width="11"/><circle class="bar" cx="56" cy="56" r="47" stroke-width="11" pathLength="100" stroke-dasharray="70 100"/></svg><div class="center"><div><b class="num">70%</b><br><span>of goal</span></div></div></div>
+        </section>
+        <div class="macros">
+          <div class="card macro" style="color:var(--protein)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-protein"/></svg>Protein</span><div class="bar"><i style="width:63%"></i></div><span class="val num">38<small> / 60 g</small></span></div>
+          <div class="card macro" style="color:var(--carbs)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-wheat"/></svg>Carbs</span><div class="bar"><i style="width:71%"></i></div><span class="val num">163<small> / 230 g</small></span></div>
+          <div class="card macro" style="color:var(--fat)"><span class="name" style="color:var(--ink)"><svg class="ico" aria-hidden="true"><use href="#i-drop"/></svg>Fat</span><div class="bar"><i style="width:74%"></i></div><span class="val num">42<small> / 57 g</small></span></div>
+        </div>
+        <section class="card t2-card">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-shield"/></svg>Daily limits</b><span class="lim-badge"><svg aria-hidden="true"><use href="#i-alert"/></svg>1 close</span></div>
+          <div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-salt"/></svg>Sodium</span><span class="lim-val num">1,543 / 2,000 mg</span></div><div class="lim-bar"><i style="width:77%"></i></div></div><div class="lim near"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-drop"/></svg>Sat fat</span><span class="lim-val num">21 / 22 g</span></div><div class="lim-bar"><i style="width:95%"></i></div></div><div class="lim ok"><div class="lim-top"><span class="lim-name"><svg aria-hidden="true"><use href="#i-cookie"/></svg>Sugar</span><span class="lim-val num">32 / 50 g</span></div><div class="lim-bar"><i style="width:64%"></i></div></div>
+          <p class="cc-sub">Sat fat is close to your 22 g limit. Pick a lighter dinner.</p>
+        </section>
+      </div>
+    </div></div>
+    <figcaption>Phone: the same Daily limits card replaces the loose chips</figcaption>
+  </figure><figure class="shot">
+    <div class="phone"><div class="screen">
+      <div class="status"><span class="num">09:41</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight">
+        <div class="hello"><div class="avatar">AK</div><div class="who"><b>Hi, Aarav</b><span>Wednesday, 7 Oct</span></div><span class="round" aria-label="Pick a date"><svg aria-hidden="true"><use href="#i-cal"/></svg></span></div>
+        <section class="t2-energy">
+          <div class="en-part"><span class="label"><svg aria-hidden="true"><use href="#i-flame"/></svg>Eaten</span><b class="num">1,184</b><span class="muted">kcal</span></div>
+          <span class="en-op">−</span>
+          <div class="en-part"><span class="label"><svg aria-hidden="true"><use href="#i-walk"/></svg>Burned</span><b class="num">350</b><span class="muted">kcal · 2 workouts</span></div>
+          <span class="en-op">=</span>
+          <div class="en-part en-net"><span class="label"><svg aria-hidden="true"><use href="#i-target"/></svg>Net</span><b class="num">834</b><span class="muted">of 1,700 · 866 left</span></div>
+          <div class="ringwrap"><svg class="ring" viewBox="0 0 112 112" width="112" height="112"><circle class="track" cx="56" cy="56" r="47" stroke-width="11"/><circle class="bar" cx="56" cy="56" r="47" stroke-width="11" pathLength="100" stroke-dasharray="49 100"/></svg><div class="center"><div><b class="num">49%</b><br><span>net of goal</span></div></div></div>
+        </section>
+        <section class="card t2-card t2-work">
+          <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-dumbbell"/></svg>Workouts</b></div>
+          <div class="t2-row"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-walk"/></svg></span><span class="fbody"><b>Morning walk</b><span class="muted num">35 min</span></span><span class="t2-burn num"><svg aria-hidden="true"><use href="#i-flame2"/></svg>140 kcal</span></div><div class="t2-row"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Strength</b><span class="muted num">40 min</span></span><span class="t2-burn num"><svg aria-hidden="true"><use href="#i-flame2"/></svg>210 kcal</span></div>
+          <button class="btn ghost wide sm-btn"><svg aria-hidden="true"><use href="#i-plus"/></svg>Log workout</button>
+        </section>
+      </div>
+    </div></div>
+    <figcaption>Phone with workouts: energy balance and a workouts card</figcaption>
+  </figure></div>
 </section>
 </main>
 

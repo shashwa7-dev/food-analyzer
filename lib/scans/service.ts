@@ -384,6 +384,8 @@ export interface ScanListItem {
   id: string;
   status: ScanStatus;
   inputKind: ScanRow["inputKind"];
+  /** Whether the scan cost a credit (false for a barcode found in the food database). */
+  charged: boolean;
   confidence: ScanRow["confidence"];
   errorCode: string | null;
   name: string | null;
@@ -409,8 +411,13 @@ function decodeCursor(cursor: string): { at: Date; id: string | null } {
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-/** GET /scans — the user's scans, newest first, sweeping their stale ones first. Throws InvalidError on bad input. */
-export async function listScans(userId: string, query: ListScansQuery, now: number = Date.now()): Promise<{ scans: ScanListItem[]; nextCursor: string | null }> {
+/**
+ * GET /scans — the user's scans, newest first, sweeping their stale ones first. `pageSize` is for
+ * server callers that show a few (Today's Recent scans). Throws InvalidError on bad input.
+ */
+export async function listScans(
+  userId: string, query: ListScansQuery, now: number = Date.now(), pageSize: number = PAGE_SIZE,
+): Promise<{ scans: ScanListItem[]; nextCursor: string | null }> {
   const q = ListScansSchema.safeParse(query);
   if (!q.success) throw new InvalidError();
   const { cursor, grade, q: text } = q.data;
@@ -419,7 +426,7 @@ export async function listScans(userId: string, query: ListScansQuery, now: numb
   await sweepStuck(userId, now);
   const name = sql<string | null>`${scan.result}->>'name'`;
   const rows = await db.select({
-    id: scan.id, status: scan.status, inputKind: scan.inputKind, confidence: scan.confidence, errorCode: scan.errorCode,
+    id: scan.id, status: scan.status, inputKind: scan.inputKind, charged: scan.charged, confidence: scan.confidence, errorCode: scan.errorCode,
     createdAt: scan.createdAt, name, brand: sql<string | null>`${scan.result}->>'brand'`,
     // A result whose grade is unavailable (lib/nutrition/grade-unavailable.ts) lists as "?".
     grade: sql<string | null>`COALESCE(${scan.result}->>'grade', CASE WHEN ${scan.result}->>'gradeUnavailable' IS NOT NULL THEN ${GRADE_UNAVAILABLE} END)`, kind: sql<string | null>`${scan.result}->>'kind'`,
@@ -431,12 +438,12 @@ export async function listScans(userId: string, query: ListScansQuery, now: numb
       text ? sql`${name} ILIKE ${`%${escapeLike(text)}%`}` : undefined,
     ))
     .orderBy(desc(scan.createdAt), desc(scan.id))
-    .limit(PAGE_SIZE + 1);
+    .limit(pageSize + 1);
 
-  const page = rows.slice(0, PAGE_SIZE);
+  const page = rows.slice(0, pageSize);
   const last = page.at(-1);
   return {
     scans: page.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
-    nextCursor: rows.length > PAGE_SIZE && last ? encodeCursor(last.createdAt, last.id) : null,
+    nextCursor: rows.length > pageSize && last ? encodeCursor(last.createdAt, last.id) : null,
   };
 }

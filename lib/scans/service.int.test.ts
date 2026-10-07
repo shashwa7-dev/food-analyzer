@@ -564,6 +564,10 @@ describe("listScans", () => {
     expect(p2.scans).toHaveLength(5);
     expect(p2.nextCursor).toBeNull();
     expect(new Set([...p1.scans, ...p2.scans].map((s) => s.id)).size).toBe(25);
+    const recent = await listScans(u, {}, clock, 3);
+    expect(recent.scans.map((s) => s.name)).toEqual(["Food 24", "Food 23", "Food 22"]);
+    expect(recent.scans[0]!.charged).toBe(false);
+    expect(recent.nextCursor).not.toBeNull();
 
     const a = await listScans(u, { grade: "A" }, clock);
     expect(a.scans.every((s) => s.grade === "A")).toBe(true);

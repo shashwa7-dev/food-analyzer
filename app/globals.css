@@ -19,6 +19,8 @@
   --action: #12150F; --action-ink: #FFFFFF;
   --protein: #2E7CF6; --carbs: #7A5AF8; --fat: #D6408F; --fat-soft: #FBE3EF;
   --ok: #1F8A4C; --warn: #B86E00; --bad: #C43A16;
+  /* --warn as text: --warn itself is 3.9:1 on white, fine for icons and bars but not for words (≥ 5:1 on its 10% tint). */
+  --warn-ink: #945A00;
   /* Text on tinted fills: --good-ink on grade-a/15 (refund pill), --on-brand-soft on --brand-soft (Free pill, plan badge); both ≥ 4.5:1. */
   --good-ink: #026B36; --on-brand-soft: #446C10;
   --g-a: #038141; --g-b: #85BB2F; --g-c: #FECB02; --g-d: #EE8100; --g-e: #D63A0F;
@@ -26,7 +28,8 @@
   --on-grade: #FFFFFF; --on-grade-light: #12150F;
   /* Macro numbers as text: a shade deeper than the fills so they pass 4.5:1 on --bg, --surface and --sunken. */
   --protein-ink: #1F66D6; --carbs-ink: #6E4CF0; --fat-ink: #C2307C;
-  --shadow-card: 0 1px 2px rgb(20 26 12 / .05), 0 8px 24px rgb(20 26 12 / .06);
+  /* A 1 px hairline ring first, so a card holds its edge against the top wash (no layout shift). */
+  --shadow-card: 0 0 0 1px rgb(20 26 12 / .06), 0 1px 2px rgb(20 26 12 / .05), 0 8px 24px rgb(20 26 12 / .06);
   /* camera viewfinder: always dark, with white marks on top, in both themes */
   --viewfinder: #141613; --on-media: #FFFFFF; --on-media-ink: #111111;
 }
@@ -43,7 +46,7 @@
   --action: var(--brand); --action-ink: #12150F;
   --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
   --protein-ink: var(--protein); --carbs-ink: var(--carbs); --fat-ink: var(--fat);
-  --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: none;
+  --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: 0 0 0 1px rgb(255 255 255 / .07); --warn-ink: var(--warn);
   --good-ink: var(--ok); --on-brand-soft: var(--brand-deep);
 }
 @media (prefers-color-scheme: dark) {
@@ -56,7 +59,7 @@
     --action: var(--brand); --action-ink: #12150F;
     --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
     --protein-ink: var(--protein); --carbs-ink: var(--carbs); --fat-ink: var(--fat);
-    --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: none;
+    --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: 0 0 0 1px rgb(255 255 255 / .07); --warn-ink: var(--warn);
     --good-ink: var(--ok); --on-brand-soft: var(--brand-deep);
   }
 }
@@ -83,7 +86,7 @@
   --color-protein-ink: var(--protein-ink); --color-carbs-ink: var(--carbs-ink); --color-fat-ink: var(--fat-ink);
   --color-on-grade: var(--on-grade); --color-on-grade-light: var(--on-grade-light);
   --color-good-ink: var(--good-ink); --color-on-brand-soft: var(--on-brand-soft);
-  --color-ok: var(--ok); --color-warn: var(--warn); --color-bad: var(--bad);
+  --color-ok: var(--ok); --color-warn: var(--warn); --color-warn-ink: var(--warn-ink); --color-bad: var(--bad);
   --color-grade-a: var(--g-a); --color-grade-b: var(--g-b); --color-grade-c: var(--g-c);
   --color-grade-d: var(--g-d); --color-grade-e: var(--g-e);
   --color-viewfinder: var(--viewfinder); --color-on-media: var(--on-media); --color-on-media-ink: var(--on-media-ink);

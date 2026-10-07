@@ -5,7 +5,6 @@ import { CalendarDays, History, LineChart, ScanLine, Search, Settings, User } fr
 import { Logo } from "@/components/brand/logo";
 import { SidebarCredits } from "@/components/nav/sidebar-credits";
 import { ThemeCycleButton } from "@/components/theme/theme-cycle-button";
-import { Button } from "@/components/ui/button";
 import { initialsOf } from "@/lib/initials";
 import { cn } from "@/lib/utils";
 
@@ -58,12 +57,16 @@ export function AppNav({
         className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-[252px] md:flex-col md:gap-3 md:border-r md:border-line md:bg-surface/55 md:px-3.5 md:py-5"
       >
         <Logo className="px-2.5 text-xl" />
-        <Button render={<Link href="/scan" />} nativeButton={false} shape="pill" size="xl" className="w-full justify-center gap-2.5 bg-brand text-brand-ink hover:bg-brand/90">
-          <ScanLine aria-hidden />
-          Scan food
-          <kbd className="rounded-md bg-brand-ink/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold">S</kbd>
-        </Button>
         <div className="grid gap-0.5">
+          {/* The first row, shaped exactly like the nav items below; only the fill (and an 8 px gap under it) sets it apart. */}
+          <Link
+            href="/scan"
+            className="mb-2 flex min-h-11 items-center gap-3 whitespace-nowrap rounded-full bg-brand px-3.5 font-semibold text-brand-ink transition-colors hover:bg-brand/90"
+          >
+            <ScanLine className="size-5" aria-hidden />
+            Scan food
+            <kbd className="ml-auto rounded-md bg-brand-ink/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold">S</kbd>
+          </Link>
           {DESKTOP_ITEMS.map(({ href, label, icon: Icon, showCount }) => {
             const isActive = active(href);
             return (

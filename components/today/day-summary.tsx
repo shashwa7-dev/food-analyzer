@@ -1,6 +1,6 @@
 import { CalorieCard } from "@/components/today/calorie-card";
 import { MacroTiles } from "@/components/today/macro-tiles";
-import { LimitChips } from "@/components/today/limit-chips";
+import { DailyLimitsCard, hasLimitAlert } from "@/components/today/daily-limits-card";
 import type { TargetProgress } from "@/lib/nutrition/totals";
 
 function find(progress: TargetProgress[], key: TargetProgress["key"]): TargetProgress {
@@ -11,14 +11,18 @@ function find(progress: TargetProgress[], key: TargetProgress["key"]): TargetPro
 
 const amount = (p: TargetProgress) => ({ eaten: p.total, target: p.target });
 
-/** The day's calorie card, macro tiles and (when close to a limit) limit chips, from `dayTotals().progress`. */
+/**
+ * The day's calorie card and macro tiles, from `dayTotals().progress`. On phones the Daily limits card
+ * follows, only when a limit is at 90% or more (calm by default); from 900 px it lives in the insights
+ * rail, always shown, so it is not repeated here.
+ */
 export function DaySummary({ progress }: { progress: TargetProgress[] }) {
   const kcal = find(progress, "energyKcal");
   return (
     <div className="flex flex-col gap-3">
       <CalorieCard eaten={kcal.total} target={kcal.target} />
       <MacroTiles protein={amount(find(progress, "protein"))} carbs={amount(find(progress, "carbs"))} fat={amount(find(progress, "fat"))} />
-      <LimitChips progress={progress} />
+      {hasLimitAlert(progress) && <DailyLimitsCard progress={progress} className="md:hidden" />}
     </div>
   );
 }

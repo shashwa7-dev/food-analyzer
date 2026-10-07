@@ -1,7 +1,8 @@
 // Dev-only UI audit (pnpm ui:audit): visits every screen and the key interactive states in headless
 // Chrome at 390×844 and 1280×800, in the Dark and Light themes (the eatri8-theme cookie), plus System
 // under both OS schemes on /today, and checks spec §3's rules on each (see scripts/lib/audit-probe.ts):
-// buttons never wrap, lime is never text, text contrast meets WCAG AA, tap targets are ≥ 44 px.
+// buttons never wrap, lime is never text, text contrast meets WCAG AA, tap targets are ≥ 44 px; and on
+// /today, every meal card is the same height (±1 px), filled or empty, collapsed or with one expanded.
 // Saves a screenshot of each to docs/design/qa/{page}-{w}-{theme}.png (git-ignored) and exits 1 on any
 // offender. Read-only: it never saves, deletes or completes onboarding.
 //   pnpm ui:audit [--only name,name] [--w 390|1280] [--theme dark|light|system] [--no-shots]
@@ -28,6 +29,8 @@ type Scenario = {
   viewportShot?: boolean;
   /** Only in these themes (default dark + light). */
   looks?: Look[];
+  /** Extra page-specific checks, run after the probe at the real viewport size. */
+  check?: (page: Page) => Promise<Finding[]>;
 };
 type Look = { theme: Theme; scheme: "light" | "dark"; label: string };
 const DARK: Look = { theme: "dark", scheme: "light", label: "dark" }; // forced Dark while the OS says light
@@ -66,9 +69,26 @@ async function openEntry(page: Page) {
   await dialog(page);
 }
 
+/** Today's four meal cards ([data-meal-card]) must all be one height (±1 px), whatever they hold. */
+async function equalMealCards(page: Page): Promise<Finding[]> {
+  const cards = await page.$$eval("[data-meal-card]", (els) => els.map((e) => ({ meal: e.getAttribute("data-meal-card")!, h: e.getBoundingClientRect().height })));
+  if (cards.length !== 4) return [{ rule: "height", selector: "[data-meal-card]", text: `${cards.length} cards`, detail: "expected 4 meal cards" }];
+  const hs = cards.map((c) => c.h);
+  if (Math.max(...hs) - Math.min(...hs) <= 1) return [];
+  return [{ rule: "height", selector: "[data-meal-card]", text: cards.map((c) => `${c.meal} ${c.h.toFixed(1)}`).join(", "), detail: "meal cards differ in height by more than 1 px" }];
+}
+async function expandFirstMeal(page: Page) {
+  await page.waitForSelector("[data-meal-card] button[aria-expanded=false]", { timeout: 15_000 });
+  await page.click("[data-meal-card] button[aria-expanded=false]");
+  await page.waitForSelector("[data-meal-card] button[aria-expanded=true]", { timeout: 5_000 });
+  await sleep(200);
+}
+
 const SCENARIOS: Scenario[] = [
-  { name: "today", path: () => "/today" },
-  { name: "today-system", path: () => "/today", looks: [SYSTEM_DARK, SYSTEM_LIGHT] },
+  { name: "today", path: () => "/today", check: equalMealCards },
+  { name: "today-system", path: () => "/today", looks: [SYSTEM_DARK, SYSTEM_LIGHT], check: equalMealCards },
+  // A meal expanded: its entries open inside the card on phones, as a full-width row under the pair on desktop.
+  { name: "today-meal-open", path: () => "/today", setup: expandFirstMeal, check: equalMealCards },
   { name: "today-entry-sheet", path: () => "/today", setup: openEntry, viewportShot: true },
   {
     name: "today-delete-confirm", path: () => "/today", viewportShot: true,
@@ -157,6 +177,7 @@ async function audit(browser: Browser, run: Run, ids: Ids, shots: boolean): Prom
     await scenario.setup?.(page);
     await sleep(250);
     const result = await page.evaluate(probe);
+    if (scenario.check) result.findings.push(...(await scenario.check(page)));
     if (shots) {
       const file = `${OUT}/${scenario.name}-${width}-${look.label}.png` as const;
       if (!scenario.viewportShot) {

@@ -9,7 +9,7 @@ import { AlertCircle, ChevronRight, Loader2, ScanLine, Search } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api-client";
 import { relativeDate } from "@/lib/dates";
-import { confidenceLabel, inputKindLabel } from "@/lib/scans/history";
+import { confidenceLabel, inputKindLabel, isScanFailed, isScanRunning, scanTitle } from "@/lib/scans/history";
 import type { ScanListItem } from "@/lib/scans/service";
 import { GradeBadge } from "@/components/grade-badge";
 import { Button } from "@/components/ui/button";
@@ -29,15 +29,11 @@ function useDebounced<T>(v: T, ms: number) {
   return d;
 }
 
-function isRunning(status: ScanListItem["status"]) {
-  return status === "queued" || status === "processing";
-}
-
 /** A History row (mock-c1 `.arow`): a white card with the grade badge (or a status tile), the name and one meta line. */
 function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
-  const running = isRunning(s.status);
-  const failed = s.status === "failed" || s.errorCode !== null; // BARCODE_NOT_FOUND rows are done with no result
-  const title = running ? "Analysing…" : failed ? (s.errorCode === "BARCODE_NOT_FOUND" ? "Barcode not found" : "Scan failed") : s.name ?? "Scan";
+  const running = isScanRunning(s);
+  const failed = isScanFailed(s);
+  const title = scanTitle(s);
   const meta = [relativeDate(s.createdAt, tz, now), inputKindLabel(s.inputKind), !running && !failed ? confidenceLabel(s.confidence) : null].filter((v): v is string => !!v);
   return (
     <li>

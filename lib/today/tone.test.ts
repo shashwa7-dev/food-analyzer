@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TargetProgress } from "@/lib/nutrition/totals";
-import { limitChips, limitsHeading, toneFor } from "./tone";
+import { limitAmount, limitChips, limitRows, limitsSummary, toneFor } from "./tone";
 
 const p = (key: TargetProgress["key"], total: number, target: number): TargetProgress =>
   ({ key, label: key, total, target, kind: "limit", remaining: Math.max(0, target - total), overBy: Math.max(0, total - target) });
@@ -31,21 +31,51 @@ describe("limitChips", () => {
   });
 });
 
-describe("limitsHeading", () => {
-  const chip = (tone: "near" | "over") => ({ key: "sodiumMgMax" as const, label: "Sodium", total: 1, target: 1, unit: "mg" as const, ratio: 1, tone });
-  it("says over when any chip is over, else close; nothing with no chips", () => {
-    expect(limitsHeading([chip("near"), chip("over")])).toEqual({ tone: "over", text: "Over your daily limit" });
-    expect(limitsHeading([chip("over")])).toEqual({ tone: "over", text: "Over your daily limit" });
-    expect(limitsHeading([chip("near"), chip("near")])).toEqual({ tone: "near", text: "Close to your daily limit" });
-    expect(limitsHeading([])).toBeNull();
+describe("limitRows", () => {
+  it("lists sodium, sat fat and sugar in card order with a tone each, skipping fibre and missing limits", () => {
+    const rows = limitRows([p("sugarsMax", 32, 50), p("fibre", 40, 30), p("satFatMax", 21, 22), p("sodiumMgMax", 2567, 2000)]);
+    expect(rows.map((r) => [r.label, r.tone])).toEqual([["Sodium", "over"], ["Sat fat", "near"], ["Sugar", "ok"]]);
+    expect(limitRows([p("sodiumMgMax", 100, 0)])).toEqual([]);
   });
-  it("follows limitChips: 95% sodium is close, 120% sugar is over", () => {
-    const progress = [
-      { key: "sodiumMgMax", label: "Sodium", total: 1900, target: 2000, kind: "limit" },
-      { key: "sugarsMax", label: "Sugar", total: 30, target: 50, kind: "limit" },
-    ] as unknown as Parameters<typeof limitChips>[0];
-    expect(limitsHeading(limitChips(progress))?.text).toBe("Close to your daily limit");
-    const over = [...progress, { key: "satFatMax", label: "Sat fat", total: 24, target: 20, kind: "limit" }] as unknown as Parameters<typeof limitChips>[0];
-    expect(limitsHeading(limitChips(over))?.text).toBe("Over your daily limit");
+  it("puts exactly 90% at near and exactly 100% at near, not over", () => {
+    expect(limitRows([p("sugarsMax", 45, 50)])[0]?.tone).toBe("near");
+    expect(limitRows([p("sugarsMax", 44.9, 50)])[0]?.tone).toBe("ok");
+    expect(limitRows([p("sugarsMax", 50, 50)])[0]?.tone).toBe("near");
+  });
+});
+
+describe("limitAmount", () => {
+  it("rounds to whole numbers with Indian grouping", () => {
+    expect(limitAmount(1543.4, 2000)).toBe("1,543 / 2,000");
+    expect(limitAmount(21.2, 22)).toBe("21 / 22");
+  });
+  it("keeps one decimal when rounding would change the tone", () => {
+    expect(limitAmount(22.3, 22)).toBe("22.3 / 22");
+    expect(limitAmount(19.6, 22)).toBe("19.6 / 22"); // 89%, but "20 / 22" would read 91%
+    expect(limitAmount(21.6, 22)).toBe("22 / 22"); // close either way
+    expect(limitAmount(22, 22)).toBe("22 / 22");
+    expect(limitAmount(44.9, 50)).toBe("44.9 / 50");
+    expect(limitAmount(45.2, 50)).toBe("45 / 50");
+  });
+});
+
+describe("limitsSummary", () => {
+  const rows = (...xs: [TargetProgress["key"], number, number][]) => limitRows(xs.map(([k, t, l]) => p(k, t, l)));
+  it("has no badge and no tip when every limit is under 90%", () => {
+    expect(limitsSummary(rows(["sodiumMgMax", 1543, 2000], ["satFatMax", 15, 22], ["sugarsMax", 32, 50]))).toEqual({ badge: null, tip: null });
+  });
+  it("counts close limits and names the worst", () => {
+    expect(limitsSummary(rows(["sodiumMgMax", 1543, 2000], ["satFatMax", 21, 22], ["sugarsMax", 32, 50]))).toEqual({
+      badge: { tone: "near", count: 1, text: "1 close" },
+      tip: "Sat fat is close to your 22 g limit.",
+    });
+  });
+  it("lets over win the badge, counting only the over ones, and names the worst", () => {
+    expect(limitsSummary(rows(["sodiumMgMax", 3053, 2000], ["satFatMax", 21, 22], ["sugarsMax", 46, 50]))).toEqual({
+      badge: { tone: "over", count: 1, text: "1 over" },
+      tip: "Sodium is over your 2,000 mg limit.",
+    });
+    expect(limitsSummary(rows(["sodiumMgMax", 2100, 2000], ["satFatMax", 25, 22]))?.badge?.text).toBe("2 over");
+    expect(limitsSummary(rows(["sodiumMgMax", 2100, 2000], ["satFatMax", 25, 22])).tip).toBe("Sat fat is over your 22 g limit.");
   });
 });

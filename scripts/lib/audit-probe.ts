@@ -6,8 +6,9 @@
 //   lime     — text whose computed colour is --brand (lime is a fill, never text).
 //   contrast — text below WCAG AA (4.5:1, or 3:1 for large text) against the nearest opaque background.
 //   target   — an interactive element smaller than 44×44 px with no ::before/::after or parent hit area.
+//   height   — (ui-audit.ts, not this probe) Today's meal cards differ in height.
 
-export type Finding = { rule: "wrap" | "lime" | "contrast" | "target"; selector: string; text: string; detail: string };
+export type Finding = { rule: "wrap" | "lime" | "contrast" | "target" | "height"; selector: string; text: string; detail: string };
 export type ProbeResult = { findings: Finding[]; checked: { text: number; contrastSkipped: number; controls: number; targets: number } };
 
 export function probe(): ProbeResult {
