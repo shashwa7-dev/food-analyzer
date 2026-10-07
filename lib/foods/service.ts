@@ -11,7 +11,7 @@ import { gradeFood, GRADE_VERSION } from "@/lib/nutrition/grade";
 import { personalise } from "@/lib/nutrition/personalise";
 import { ensureBasePortion, nutrientsFor, scaleNutrients } from "@/lib/nutrition/portions";
 import { targetsFor } from "@/lib/nutrition/targets";
-import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
+import { MICRO_KEYS, NUTRIENT_KEYS, type Flag, type MicroKey, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
 import { closeness, isRelevantAlternative, minSharedCategories, specificCategories, type AlternativeQuery } from "./alternatives";
@@ -201,6 +201,9 @@ const NutrientsInput = z.object({
   sodiumMg: z.number().min(0).max(20000).optional(),
   // Not on the form, but kept: a food saved from a scan can carry them, and an edit mustn't drop them.
   addedSugars: z.number().min(0).max(500).optional(), transFat: z.number().min(0).max(500).optional(),
+  // The micros, in their own units (the form's optional "Vitamins & minerals"; a food saved from a
+  // scan carries them too). Their bounds are checked per 100 by customNutrientIssues below.
+  ...(Object.fromEntries(MICRO_KEYS.map((k) => [k, z.number().min(0).optional()])) as Record<MicroKey, z.ZodOptional<z.ZodNumber>>),
 });
 export const CustomFoodSchema = z.object({
   name: z.string().trim().min(1).max(120), brand: z.string().trim().max(80).optional(),

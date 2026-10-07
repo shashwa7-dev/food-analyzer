@@ -83,6 +83,12 @@ export const VITAMINS_MINERALS: (NutrientMeta & { key: MicroKey })[] = [
   { key: "vitaminB12Ug", label: "Vitamin B12", unit: "µg" },
 ];
 
+/** Every micro (lib/nutrition/types.ts MICRO_KEYS) as the cards name and unit it: cholesterol and potassium, then the vitamins and minerals. */
+export const MICRONUTRIENTS: (NutrientMeta & { key: MicroKey })[] = [
+  ...MORE_NUTRIENTS.filter((m): m is NutrientMeta & { key: MicroKey } => m.key === "cholesterolMg" || m.key === "potassiumMg"),
+  ...VITAMINS_MINERALS,
+];
+
 /** Energy and the macros, for the full table. */
 export const CORE_NUTRIENTS: (NutrientMeta & { key: NutrientKey })[] = [
   { key: "energyKcal", label: "Calories", unit: "kcal" },

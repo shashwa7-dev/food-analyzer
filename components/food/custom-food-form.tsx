@@ -2,17 +2,19 @@
 // The custom food form (/foods/new, and ?edit=<id> for your own food), C1: ghost inputs on --sunken
 // in white cards, the "Nutrition is for" choice as chips, and one primary pill to save.
 import { useId, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, Loader2, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, Loader2, TriangleAlert } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { CARD, StickyActionBar } from "@/components/food/result-parts";
 import { cn } from "@/lib/utils";
 import { amountError, parseAmount } from "@/lib/parse-amount";
 import { customNutrientIssues } from "@/lib/foods/custom-validate";
-import type { Nutrients } from "@/lib/nutrition/types";
+import { MICRONUTRIENTS } from "@/lib/nutrition/nutrient-display";
+import type { MicroKey, Nutrients } from "@/lib/nutrition/types";
 
 export interface CustomFoodFormInitial {
   id: string;
@@ -39,9 +41,15 @@ const OPTIONAL_FIELDS = [
   { key: "sodiumMg", label: "Sodium", unit: "mg", max: 20000 },
 ] as const;
 
-type FieldId = "name" | "servingGrams" | (typeof REQUIRED_FIELDS)[number]["key"] | (typeof OPTIONAL_FIELDS)[number]["key"];
+/** The micros, collapsed under "Vitamins & minerals (optional)", in the units the food page shows them in. */
+const MICRO_FIELDS = MICRONUTRIENTS.map((m) => ({ key: m.key, label: m.label, unit: m.unit }));
+const MICRO_FORM_KEYS: readonly string[] = MICRO_FIELDS.map((f) => f.key);
 
-const FORM_KEYS: readonly string[] = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS].map((f) => f.key);
+type NutrientFieldKey = (typeof REQUIRED_FIELDS)[number]["key"] | (typeof OPTIONAL_FIELDS)[number]["key"] | MicroKey;
+type FieldId = "name" | "servingGrams" | NutrientFieldKey;
+
+const NUTRIENT_FIELDS: readonly { key: NutrientFieldKey }[] = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS, ...MICRO_FIELDS];
+const FORM_KEYS: readonly string[] = NUTRIENT_FIELDS.map((f) => f.key);
 const isFormField = (k: string): boolean => FORM_KEYS.includes(k);
 /** Stored values with no field on the form, carried through an edit unchanged. */
 const extraNutrients = (n: Nutrients): Record<string, number> =>
@@ -109,17 +117,21 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
       satFat: toText(n?.satFat),
       fibre: toText(n?.fibre),
       sodiumMg: toText(n?.sodiumMg),
+      ...Object.fromEntries(MICRO_FIELDS.map((f) => [f.key, toText(n?.[f.key])])),
     };
   });
+  const [microsOpen, setMicrosOpen] = useState(false);
+  const microCount = MICRO_FIELDS.filter((f) => values[f.key]!.trim() !== "").length;
   const [error, setError] = useState<{ message: string; field: FieldId | null } | null>(null);
 
   /**
-   * The numbers to save: what's typed, over any stored values the form has no field for (added sugars,
-   * trans fat on a food saved from a scan), so an edit never drops a stored value.
+   * The numbers to save: what's typed (the vitamins and minerals too, shown or folded away), over any
+   * stored values the form has no field for (added sugars, trans fat on a food saved from a scan), so
+   * an edit never drops a stored value.
    */
   function typedNutrients(): Nutrients {
     const out: Record<string, number> = { ...(initial ? extraNutrients(initial.nutrients) : {}) };
-    for (const f of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
+    for (const f of NUTRIENT_FIELDS) {
       const v = parseAmount(values[f.key]!);
       if (v !== null && !Number.isNaN(v)) out[f.key] = v;
     }
@@ -145,6 +157,13 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
       const bad = amountError(values[f.key]!);
       if (bad) return { message: bad, field: f.key };
       if (!(v >= 0 && v <= f.max)) return { message: `${f.label} should be between 0 and ${f.max} ${f.unit}.`, field: f.key };
+    }
+    for (const f of MICRO_FIELDS) {
+      const v = parseAmount(values[f.key]!);
+      if (v === null) continue;
+      const bad = amountError(values[f.key]!);
+      if (bad) return { message: bad, field: f.key };
+      if (!(v >= 0)) return { message: `${f.label} can't be below 0 ${f.unit}.`, field: f.key };
     }
     // The shared plausibility bounds (sugars within carbs, sodium within pure salt, ...): the same
     // check the API makes, shown under the field before saving.
@@ -181,6 +200,7 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
       // The API names the field for a plausibility issue; show the message under it.
       const field = e instanceof ApiError && e.field && isFormField(e.field) ? (e.field as FieldId) : null;
       setError({ message, field });
+      if (field && MICRO_FORM_KEYS.includes(field)) setMicrosOpen(true);
       toast.error(message);
     },
   });
@@ -192,7 +212,7 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
     set(v);
     if (error?.field === f) setError(null);
   };
-  const setValue = (key: (typeof REQUIRED_FIELDS | typeof OPTIONAL_FIELDS)[number]["key"]) =>
+  const setValue = (key: NutrientFieldKey) =>
     edit(key, (v) => setValues((cur) => ({ ...cur, [key]: v })));
 
   return (
@@ -204,6 +224,8 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
         e.preventDefault();
         const problem = validate();
         setError(problem);
+        // A flagged vitamin or mineral opens its section, so the field can be focused and fixed.
+        if (problem?.field && MICRO_FORM_KEYS.includes(problem.field)) flushSync(() => setMicrosOpen(true));
         if (problem?.field) formRef.current?.querySelector<HTMLInputElement>(`#${CSS.escape(fieldId(problem.field))}`)?.focus();
         if (!problem) save.mutate();
       }}
@@ -244,6 +266,27 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
         <SubHead>Optional</SubHead>
         <div className="grid grid-cols-2 gap-2.5">
           {OPTIONAL_FIELDS.map((f) => (
+            <Field key={f.key} id={fieldId(f.key)} label={f.label} unit={f.unit} inputMode="decimal" value={values[f.key]!} onChange={setValue(f.key)} error={fieldError(f.key)} />
+          ))}
+        </div>
+      </section>
+
+      <section className={cn(CARD, "flex flex-col gap-3")}>
+        <h2 className="m-0">
+          <button
+            type="button"
+            aria-expanded={microsOpen}
+            aria-controls={`${uid}-micros`}
+            onClick={() => setMicrosOpen((o) => !o)}
+            className="-my-1.5 flex min-h-11 w-full min-w-0 items-center gap-2 rounded-[13px] px-1 text-left"
+          >
+            <span className="min-w-0 flex-1 truncate text-[12px] font-[650] tracking-[0.06em] whitespace-nowrap text-subtle uppercase">Vitamins &amp; minerals (optional)</span>
+            {microCount > 0 && <span className="num shrink-0 text-[12.5px] whitespace-nowrap text-subtle">{microCount} added</span>}
+            <ChevronDown className={cn("size-4 shrink-0 text-subtle transition-transform motion-reduce:transition-none", microsOpen && "rotate-180")} aria-hidden />
+          </button>
+        </h2>
+        <div id={`${uid}-micros`} hidden={!microsOpen} className="grid grid-cols-2 gap-2.5">
+          {MICRO_FIELDS.map((f) => (
             <Field key={f.key} id={fieldId(f.key)} label={f.label} unit={f.unit} inputMode="decimal" value={values[f.key]!} onChange={setValue(f.key)} error={fieldError(f.key)} />
           ))}
         </div>

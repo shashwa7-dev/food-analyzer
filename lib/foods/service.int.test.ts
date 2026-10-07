@@ -354,6 +354,34 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     expect(again.food.id).toBe(saved.id);
     expect(again.food.name).toBe("My khichdi");
   });
+  it("keeps a scan's vitamins and minerals on the saved food, and through an edit of it", async () => {
+    const u = await createUser();
+    const micros = { calciumMg: 120, ironMg: 2.5, vitaminCMg: 8, vitaminB12Ug: 0.4, potassiumMg: 310 };
+    const s = await insertScan(u, { result: scanResult({ per100: { energyKcal: 180, protein: 6, carbs: 30, fat: 4, ...micros } }) });
+    const { food: saved } = await createCustomFoodFromScan(u, s.id);
+    expect(saved.per100).toMatchObject(micros);
+    expect((await getFoodForUser(u, saved.id))!.per100).toMatchObject(micros);
+
+    // The form sends what the edit page loaded (micros included), with a changed macro.
+    const edited = await updateCustomFood(u, saved.id, { name: "My khichdi", per: { amount: 100, unit: "g" }, nutrients: { ...saved.per100, energyKcal: 170 } });
+    expect(edited!.per100).toEqual({ energyKcal: 170, protein: 6, carbs: 30, fat: 4, ...micros });
+    // Per serving with a weight: the micros scale to per 100 g like everything else.
+    const perServing = await updateCustomFood(u, saved.id, { name: "My khichdi", per: { amount: 1, unit: "serving" }, servingGrams: 200, nutrients: { energyKcal: 340, protein: 12, carbs: 60, fat: 8, ironMg: 5 } });
+    expect(perServing!.per100).toMatchObject({ energyKcal: 170, ironMg: 2.5 });
+  });
+
+  it("rejects an implausible vitamin or mineral on a custom food with its field and a message", async () => {
+    const u = await createUser();
+    const input = { name: "Mango pickle", per: { amount: 100, unit: "g" as const }, nutrients: { energyKcal: 200, protein: 2, carbs: 10, fat: 17, ironMg: 2000 } };
+    const parsed = CustomFoodSchema.safeParse(input);
+    expect(parsed.success).toBe(false);
+    expect(customFoodFieldError(parsed.error!)).toEqual({ field: "ironMg", message: "Iron can't be more than 150 mg per 100 g." });
+    await expect(createCustomFood(u, input)).rejects.toThrow();
+    expect(CustomFoodSchema.safeParse({ ...input, nutrients: { ...input.nutrients, ironMg: -1 } }).success).toBe(false);
+    const ok = await createCustomFood(u, { ...input, nutrients: { ...input.nutrients, ironMg: 2 } });
+    expect(ok.per100.ironMg).toBe(2);
+  });
+
   it("carries the label's declared allergens and may-contain traces, so personal flags work as on curated foods", async () => {
     const u = await createUser();
     await updateProfile(u, { allergies: ["peanut", "tree_nut"] });

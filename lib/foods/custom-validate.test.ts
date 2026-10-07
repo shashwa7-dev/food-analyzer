@@ -27,8 +27,23 @@ describe("customNutrientIssues", () => {
     expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, servingGrams: 30, nutrients: { energyKcal: 80, protein: 20, carbs: 0, fat: 0 } })).toEqual([]);
   });
 
-  it("checks only part-within-whole for a serving of unknown weight (no per-100 figure)", () => {
-    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 1500, protein: 60, carbs: 150, fat: 70, sodiumMg: 3000 } })).toEqual([]);
+  it("checks a serving of unknown weight against the per-100 bounds it's stored under, and asks for its weight (review M5)", () => {
+    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 800, protein: 30, carbs: 90, fat: 35, sodiumMg: 3000 } })).toEqual([]);
     expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { ...base, sugars: 40 } })).toEqual([{ field: "sugars", message: "Sugars can't be more than carbs." }]);
+    // A 1 L soda: 106 g sugars a serving would be stored as 106 g per 100 g and dropped on read.
+    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 420, protein: 0, carbs: 106, fat: 0, sugars: 106 } }))
+      .toEqual([
+        { field: "carbs", message: "Carbs can't be more than 100 g per serving without its weight. Add the serving size." },
+        { field: "sugars", message: "Sugars can't be more than 100 g per serving without its weight. Add the serving size." },
+      ]);
+  });
+
+  it("checks the vitamins and minerals against their bounds, in their own units", () => {
+    expect(customNutrientIssues({ per: per100g, nutrients: { ...base, ironMg: 4, vitaminB12Ug: 1.2, calciumMg: 300 } })).toEqual([]);
+    // Mango pickle with 2,000 mg iron: a label's mg keyed in as g.
+    expect(customNutrientIssues({ per: per100g, nutrients: { ...base, ironMg: 2000 } })).toEqual([{ field: "ironMg", message: "Iron can't be more than 150 mg per 100 g." }]);
+    // 40 µg vitamin D in a 20 g serving is 200 µg per 100 g.
+    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, servingGrams: 20, nutrients: { ...base, vitaminDUg: 40 } }))
+      .toEqual([{ field: "vitaminDUg", message: "Vitamin D works out to more than 100 µg per 100 g. Check the serving size." }]);
   });
 });
