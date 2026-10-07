@@ -792,6 +792,93 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
 .fd-meals span svg { width: 18px; height: 18px; }
 .fd-meals span.on { background: var(--brand-soft); color: var(--brand-deep); border-color: var(--brand); }
 @media (max-width: 880px) { .fd-grid2, .fd-b, .fd-c { grid-template-columns: 1fr; } .fd-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- v9: fitness ---------- */
+#fitness .stage { justify-content: flex-start; }
+.wk-sec { display: flex; justify-content: space-between; align-items: center; padding: 4px 2px 0; }
+.wk-sec b { font-size: 15px; }
+.wk-sec .link svg { width: 15px; height: 15px; }
+.wk-list { display: grid; background: var(--surface); border-radius: 20px; box-shadow: 0 0 0 1px rgb(255 255 255 / .07); }
+.wk-pre { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 14px; color: var(--ink); text-decoration: none; }
+.wk-pre + .wk-pre { border-top: 1px solid var(--line); }
+.wk-pre .fbody b { font-size: 15px; }
+.wk-count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.wk-pre .chev { width: 18px; height: 18px; color: var(--muted); }
+.wk-others { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.wk-o { display: grid; justify-items: center; gap: 4px; padding: 10px 2px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px rgb(255 255 255 / .07); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.wk-o svg { width: 22px; height: 22px; color: var(--protein); }
+.tico { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
+.btn.fin { min-height: 40px; padding: 0 16px; font-size: 14px; }
+.ex { padding: 12px 12px 8px; display: grid; gap: 4px; }
+.ex-h { display: flex; align-items: center; gap: 8px; padding: 0 4px 4px; }
+.ex-h b { font-size: 15px; color: var(--brand-deep); }
+.ex-h .muted { font-size: 12px; margin-left: auto; white-space: nowrap; }
+.ex-more svg { width: 18px; height: 18px; color: var(--muted); }
+.set { display: grid; grid-template-columns: 34px 1fr 64px 52px 36px; align-items: center; gap: 6px; min-height: 40px; padding: 0 4px; border-radius: 10px; font-size: 14px; }
+.set.head { min-height: 24px; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.set .sn { font-weight: 650; text-align: center; }
+.set .prev { color: var(--muted); font-size: 13px; }
+.set .cell { height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--sunken); font-weight: 650; }
+.set .tick { width: 32px; height: 32px; border-radius: 9px; background: var(--sunken); display: grid; place-items: center; color: var(--muted); }
+.set .tick svg { width: 16px; height: 16px; }
+.set.done { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.set.done .tick { background: var(--brand); color: #12150F; }
+.ex-add { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; border: 0; border-radius: 10px; background: var(--sunken); color: var(--ink); font-weight: 600; font-size: 13.5px; margin-top: 4px; }
+.ex-add svg { width: 16px; height: 16px; }
+.wk-done-hero { display: grid; justify-items: center; gap: 4px; padding: 10px 0 4px; text-align: center; }
+.wk-done-hero b { font-size: 24px; letter-spacing: -0.03em; }
+.wk-done-ico { width: 56px; height: 56px; border-radius: 50%; background: var(--brand); color: #12150F; display: grid; place-items: center; }
+.wk-done-ico svg { width: 28px; height: 28px; }
+.wk-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wk-stats span { display: grid; text-align: center; padding: 10px 2px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px rgb(255 255 255 / .07); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.wk-stats b { font-size: 17px; color: var(--ink); letter-spacing: -0.02em; }
+.wk-ex-list { padding: 6px 14px; }
+.wk-exr { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; padding: 9px 0; }
+.wk-exr + .wk-exr { border-top: 1px solid var(--line); }
+.wk-exr b { font-size: 14px; }
+.wk-exr .muted { grid-column: 1; font-size: 12.5px; }
+.pr { grid-row: 1 / span 2; grid-column: 2; font-size: 11px; font-weight: 750; padding: 4px 8px; border-radius: 999px; background: var(--brand); color: #12150F; }
+.wk-bal { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 16px 16px; border-radius: 24px; background: var(--brand-soft); }
+.wk-bal > div { display: grid; gap: 2px; }
+.wk-bal b { font-size: 24px; letter-spacing: -0.03em; line-height: 1.05; }
+.wk-bal b.net { color: var(--brand-deep); }
+.wk-bal .label svg { width: 13px; height: 13px; }
+.wk-bal .op { font-size: 20px; color: var(--muted); font-weight: 600; }
+.wk-bal .muted { font-size: 11.5px; }
+.wk-w-hero { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 2px; }
+.wk-w-hero b { font-size: 40px; letter-spacing: -0.04em; }
+.wk-w-hero small { font-size: 16px; color: var(--muted); font-weight: 500; }
+.wk-delta { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; font-weight: 650; color: var(--brand-deep); white-space: nowrap; }
+.wk-delta svg { width: 16px; height: 16px; }
+
+.fo-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; background: var(--surface); box-shadow: 0 0 0 1px rgb(255 255 255 / .07); }
+.fo-switch span { text-align: center; padding: 9px 0; border-radius: 999px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.fo-switch span.on { background: var(--action); color: var(--action-ink); }
+.fo-week { padding: 14px; display: grid; gap: 12px; }
+.fo-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.fo-day { display: grid; justify-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.fo-c { width: 36px; height: 36px; border-radius: 50%; background: var(--sunken); display: grid; place-items: center; }
+.fo-c svg { width: 17px; height: 17px; }
+.fo-day.done .fo-c { background: var(--brand-soft); color: var(--brand-deep); }
+.fo-day.today .fo-c { background: var(--brand); color: #12150F; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 30%, transparent); }
+.fo-day.today .fo-d { color: var(--ink); }
+.fo-day.rest .fo-c { background: transparent; border: 1.5px dashed var(--line); }
+.fo-goal { display: flex; justify-content: space-between; align-items: center; padding: 18px; border-radius: 24px; background: var(--ink); color: var(--bg); }
+.fo-goal .label { color: color-mix(in srgb, var(--bg) 70%, transparent); }
+.fo-goal b { display: block; font-size: 34px; letter-spacing: -0.04em; margin-top: 6px; }
+.fo-sub { font-size: 13px; color: color-mix(in srgb, var(--bg) 70%, transparent); }
+.fo-dots { display: grid; grid-template-columns: repeat(3, 22px); gap: 6px; }
+.fo-dots i { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--brand); }
+.fo-dots i.on { background: var(--brand); }
+.fo-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fo-stat { padding: 14px; display: grid; gap: 2px; }
+.fo-stat b { font-size: 26px; letter-spacing: -0.03em; }
+.fo-stat .muted { font-size: 12px; }
+.fo-next { display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; color: var(--ink); }
+.fo-next .chev { width: 18px; height: 18px; color: var(--muted); }
+.fo-go { min-height: 40px; padding: 0 16px; font-size: 14px; }
+.wk-pre .fbody, .fo-next .fbody { min-width: 0; }
+.wk-pre .fbody .muted, .fo-next .fbody .muted { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -852,6 +939,13 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
     <symbol id="i-flame2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.6-5.3 3.6-8.8 1.9 1.4 2.9 3.3 2.9 5.2.9-.6 1.6-1.7 1.8-3 2.3 1.9 4.7 4.2 4.7 6.9 0 3.4-2.6 5.9-6.5 5.9z"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7.5-4.4-7.5-10A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 7.5 3c0 5.6-7.5 10-7.5 10z"/></symbol>
     <symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 3h5"/></symbol>
+    <symbol id="i-timer2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 3h5"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+    <symbol id="i-scale2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="3"/><path d="M8.5 10a3.5 3.5 0 0 1 7 0z"/></symbol>
+    <symbol id="i-bike" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9 8.5 6H11"/></symbol>
+    <symbol id="i-run" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="4.5" r="1.8"/><path d="m6 21 3-5.5 3 2 1.5-5L17 15h3M8.5 10.5l3-2.5 3 1.5"/></symbol>
+    <symbol id="i-yoga" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="1.8"/><path d="M12 7.5v6M4 11l8 2 8-2M8 21l4-7.5 4 7.5"/></symbol>
+    <symbol id="i-ball" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M5 7c3 2 4 6 3 10M19 7c-3 2-4 6-3 10"/></symbol>
   </defs>
 </svg>
 
@@ -865,7 +959,7 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
       <button id="v-forest" data-v="forest" aria-pressed="false"><span class="dot" style="background:#C2E46A"></span>C3 Lime &amp; Forest</button>
     </div>
   </div>
-  <nav class="jump" aria-label="Sections"><a href="#root">Core</a><a href="#scan-flow">Scan flow</a><a href="#search">Search &amp; popups</a><a href="#progress">Progress</a><a href="#account">Account</a><a href="#today-desktop">Today on desktop</a><a href="#sidebar-options">Sidebar &amp; cards</a><a href="#food-detail">Food detail</a></nav>
+  <nav class="jump" aria-label="Sections"><a href="#root">Core</a><a href="#scan-flow">Scan flow</a><a href="#search">Search &amp; popups</a><a href="#progress">Progress</a><a href="#account">Account</a><a href="#today-desktop">Today on desktop</a><a href="#sidebar-options">Sidebar &amp; cards</a><a href="#food-detail">Food detail</a><a href="#fitness">Fitness</a></nav>
   <p class="variant-note" id="note">C1 follows the reference most closely: bright lime fills, black main buttons, and a pale lime wash at the top of each screen.</p>
 </header>
 
@@ -1677,6 +1771,127 @@ section.card .arow + .arow { border-top: 1px solid var(--line); }
       </aside>
     </div>
   </div></div><figcaption><b>C · Story + action panel.</b> Big calories and the split bar on the left with tabs for Why / Nutrition / Ingredients; a sticky "Add to a meal" panel on the right with meal tiles and the stepper.</figcaption></figure>
+</section>
+
+
+
+<section class="block sbx-block" id="fitness">
+  <div class="block-head"><h2>Fitness tracker: first version</h2>
+  <p>Gym-first and simple: start from a preset day (Push, Pull, Legs, Back, Shoulders) or an empty session, log sets as kg × reps, finish to save. Walks, runs and sports are a one-sheet log. Body weight is logged with a 30-day trend and powers the calories-burned estimate. Workouts appear on Today as eaten − burned = net. The overview (from your reference) lives under Progress → Fitness: a week strip, a weekly session goal and the next preset in your rotation.</p></div>
+  <div class="stage"><figure class="shot">
+    <div class="phone"><div class="screen ">
+      <div class="status"><span class="num">18:42</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight"><div class="pg-head"><h2 class="headline sm">Progress</h2></div>
+  <div class="fo-switch"><span>Food</span><span class="on">Fitness</span></div>
+  <section class="card fo-week"><div class="cc-head"><b>This week</b><span class="muted sm">Goal 5 sessions</span></div><div class="fo-strip"><span class="fo-day done"><span class="fo-d">M</span><span class="fo-c"><svg aria-hidden="true"><use href="#i-check"/></svg></span></span><span class="fo-day done"><span class="fo-d">T</span><span class="fo-c"><svg aria-hidden="true"><use href="#i-check"/></svg></span></span><span class="fo-day rest"><span class="fo-d">W</span><span class="fo-c"></span></span><span class="fo-day done"><span class="fo-d">T</span><span class="fo-c"><svg aria-hidden="true"><use href="#i-check"/></svg></span></span><span class="fo-day today"><span class="fo-d">F</span><span class="fo-c"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span></span><span class="fo-day "><span class="fo-d">S</span><span class="fo-c"></span></span><span class="fo-day "><span class="fo-d">S</span><span class="fo-c"></span></span></div></section>
+  <section class="fo-goal"><div><span class="label">Weekly goal</span><b class="num">3 of 5</b><span class="fo-sub">sessions done · 2 to go</span></div><div class="fo-dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i></div></section>
+  <div class="fo-row">
+    <section class="card fo-stat"><span class="label">Time</span><b class="num">2h 50m</b><span class="muted">this week</span></section>
+    <section class="card fo-stat"><span class="label">Burned</span><b class="num">1,120</b><span class="muted">kcal this week</span></section>
+  </div>
+  <div class="wk-sec"><b>Up next</b><a class="link" href="#">All presets</a></div>
+  <a class="card fo-next" href="#"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Pull day</b><span class="muted">Back · biceps · 5 exercises</span></span><span class="btn solid fo-go">Start</span></a>
+  <a class="card fo-next" href="#"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Leg day</b><span class="muted">After Pull</span></span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a></div>
+      <nav class="nav" aria-label="Main"><a href="#"><svg aria-hidden="true"><use href="#i-today"/></svg>Today</a><a class="on" href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg>Progress</a><a href="#" aria-label="Scan"><span class="fab"><svg aria-hidden="true"><use href="#i-scan"/></svg></span></a><a href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg>History</a><a href="#"><svg aria-hidden="true"><use href="#i-me"/></svg>Me</a></nav>
+    </div></div>
+    <figcaption>0 · Fitness overview (Progress → Fitness): week strip, weekly goal, up next</figcaption>
+  </figure><figure class="shot">
+    <div class="phone"><div class="screen ">
+      <div class="status"><span class="num">18:42</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight"><div class="tb"><span class="round"><svg aria-hidden="true"><use href="#i-back"/></svg></span><div class="tb-title"><b>Log workout</b></div><span class="round ghost-slot"></span></div>
+  <div class="wk-sec"><b>Gym session</b><a class="link" href="#"><svg aria-hidden="true"><use href="#i-plus"/></svg>Empty session</a></div>
+  <div class="wk-list"><a class="wk-pre" href="#"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Push day</b><span class="muted">Chest · shoulders · triceps</span></span><span class="wk-count num">5 exercises</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a><a class="wk-pre" href="#"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Pull day</b><span class="muted">Back · biceps</span></span><span class="wk-count num">5 exercises</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a><a class="wk-pre" href="#"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Leg day</b><span class="muted">Quads · hamstrings · glutes</span></span><span class="wk-count num">5 exercises</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a><a class="wk-pre" href="#"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Back day</b><span class="muted">Lats · traps · lower back</span></span><span class="wk-count num">5 exercises</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a><a class="wk-pre" href="#"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Shoulders day</b><span class="muted">Delts · traps</span></span><span class="wk-count num">5 exercises</span><svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></a></div>
+  <div class="wk-sec"><b>Other activity</b></div>
+  <div class="wk-others"><span class="wk-o"><svg aria-hidden="true"><use href="#i-walk"/></svg>Walk</span><span class="wk-o"><svg aria-hidden="true"><use href="#i-run"/></svg>Run</span><span class="wk-o"><svg aria-hidden="true"><use href="#i-bike"/></svg>Cycling</span><span class="wk-o"><svg aria-hidden="true"><use href="#i-yoga"/></svg>Yoga</span><span class="wk-o"><svg aria-hidden="true"><use href="#i-ball"/></svg>Sport</span></div></div>
+      
+    </div></div>
+    <figcaption>1 · Start: gym presets or another activity</figcaption>
+  </figure><figure class="shot">
+    <div class="phone"><div class="screen ">
+      <div class="status"><span class="num">18:42</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight"><div class="tb"><span class="round"><svg aria-hidden="true"><use href="#i-x"/></svg></span><div class="tb-title"><b>Push day</b><span class="num"><svg class="tico" aria-hidden="true"><use href="#i-timer2"/></svg>32:14 · 9 sets</span></div><button class="btn solid fin">Finish</button></div>
+  <section class="card ex">
+      <div class="ex-h"><b>Bench press</b><span class="muted num">Last: 60 kg × 8</span><span class="ex-more"><svg aria-hidden="true"><use href="#i-dots"/></svg></span></div>
+      <div class="set head"><span>Set</span><span>Previous</span><span>kg</span><span>Reps</span><span></span></div>
+      <div class="set done"><span class="sn num">1</span><span class="prev num">60 × 8</span><span class="cell num">62.5</span><span class="cell num">8</span><span class="tick"><svg aria-hidden="true"><use href="#i-check"/></svg></span></div><div class="set done"><span class="sn num">2</span><span class="prev num">60 × 8</span><span class="cell num">62.5</span><span class="cell num">7</span><span class="tick"><svg aria-hidden="true"><use href="#i-check"/></svg></span></div><div class="set "><span class="sn num">3</span><span class="prev num">60 × 7</span><span class="cell num">62.5</span><span class="cell num"></span><span class="tick"><svg aria-hidden="true"><use href="#i-check"/></svg></span></div>
+      <button class="ex-add"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add set</button>
+    </section>
+  <section class="card ex">
+      <div class="ex-h"><b>Overhead press</b><span class="muted num">Last: 35 kg × 8</span><span class="ex-more"><svg aria-hidden="true"><use href="#i-dots"/></svg></span></div>
+      <div class="set head"><span>Set</span><span>Previous</span><span>kg</span><span>Reps</span><span></span></div>
+      <div class="set done"><span class="sn num">1</span><span class="prev num">35 × 8</span><span class="cell num">35</span><span class="cell num">8</span><span class="tick"><svg aria-hidden="true"><use href="#i-check"/></svg></span></div><div class="set "><span class="sn num">2</span><span class="prev num">35 × 8</span><span class="cell num">35</span><span class="cell num"></span><span class="tick"><svg aria-hidden="true"><use href="#i-check"/></svg></span></div>
+      <button class="ex-add"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add set</button>
+    </section>
+  <button class="btn ghost wide"><svg aria-hidden="true"><use href="#i-plus"/></svg>Add exercise</button></div>
+      
+    </div></div>
+    <figcaption>2 · Live session: sets as kg × reps, tick when done</figcaption>
+  </figure><figure class="shot">
+    <div class="phone"><div class="screen ">
+      <div class="status"><span class="num">18:42</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight"><div class="tb"><span class="round"><svg aria-hidden="true"><use href="#i-back"/></svg></span><div class="tb-title"><b>Workout saved</b></div><span class="round ghost-slot"></span></div>
+  <div class="wk-done-hero"><span class="wk-done-ico"><svg aria-hidden="true"><use href="#i-check"/></svg></span><b>Push day</b><span class="muted num">Today · 18:10 – 18:58</span></div>
+  <div class="wk-stats num"><span><b>48</b>min</span><span><b>14</b>sets</span><span><b>3,240</b>kg volume</span><span><b>~310</b>kcal</span></div>
+  <section class="card wk-ex-list">
+    <div class="wk-exr"><b>Bench press</b><span class="muted num">3 × 62.5 kg · best 62.5 × 8</span><span class="pr">PR</span></div>
+    <div class="wk-exr"><b>Overhead press</b><span class="muted num">3 × 35 kg</span></div>
+    <div class="wk-exr"><b>Incline dumbbell press</b><span class="muted num">3 × 22 kg</span></div>
+    <div class="wk-exr"><b>Lateral raise</b><span class="muted num">3 × 8 kg</span></div>
+    <div class="wk-exr"><b>Triceps pushdown</b><span class="muted num">2 × 25 kg</span></div>
+  </section>
+  <p class="cc-note"><svg aria-hidden="true"><use href="#i-flame"/></svg>Calories burned is an estimate from duration and your weight (72 kg).</p></div>
+      
+    </div></div>
+    <figcaption>3 · Finished: summary, PRs, estimated burn</figcaption>
+  </figure><figure class="shot">
+    <div class="phone"><div class="screen">
+      <div class="status"><span class="num">18:42</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight dimmed"><div class="hello"><div class="avatar">AK</div><div class="who"><b>Hi, Aarav</b><span>Thursday, 8 Oct</span></div></div></div>
+      <div class="dim"></div>
+      <div class="sheet">
+        <span class="handle"></span>
+        <div class="sh-head"><span class="ftile lg wk"><svg aria-hidden="true"><use href="#i-walk"/></svg></span><div><b>Walk</b><span class="muted">Brisk · outdoors</span></div></div>
+        <div class="qty"><span class="step"><svg aria-hidden="true"><use href="#i-minus"/></svg></span><div class="qv"><b class="num">35</b><span>minutes</span></div><span class="step"><svg aria-hidden="true"><use href="#i-plus"/></svg></span></div>
+        <div class="units"><span>Easy</span><span class="on">Moderate</span><span>Hard</span></div>
+        <div class="mini-macros num"><span><svg aria-hidden="true"><use href="#i-flame"/></svg>~140 kcal burned</span></div>
+        <button class="btn solid wide"><svg aria-hidden="true"><use href="#i-check"/></svg>Log walk</button>
+      </div>
+    </div></div>
+    <figcaption>4 · Other activity: minutes + intensity → estimated burn</figcaption>
+  </figure><figure class="shot">
+    <div class="phone"><div class="screen ">
+      <div class="status"><span class="num">18:42</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight"><div class="hello"><div class="avatar">AK</div><div class="who"><b>Hi, Aarav</b><span>Thursday, 8 Oct</span></div><span class="round"><svg aria-hidden="true"><use href="#i-cal"/></svg></span></div>
+  <section class="wk-bal">
+    <div><span class="label"><svg aria-hidden="true"><use href="#i-flame"/></svg>Eaten</span><b class="num">1,420</b></div><span class="op">−</span>
+    <div><span class="label"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg>Burned</span><b class="num">450</b></div><span class="op">=</span>
+    <div><span class="label"><svg aria-hidden="true"><use href="#i-target"/></svg>Net</span><b class="num net">970</b><span class="muted num">of 1,700</span></div>
+  </section>
+  <section class="card t2-card">
+    <div class="cc-head"><b><svg aria-hidden="true"><use href="#i-dumbbell"/></svg>Workouts</b><a class="link" href="#"><svg aria-hidden="true"><use href="#i-plus"/></svg>Log</a></div>
+    <div class="t2-row"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-dumbbell"/></svg></span><span class="fbody"><b>Push day</b><span class="muted num">48 min · 14 sets</span></span><span class="t2-burn num"><svg aria-hidden="true"><use href="#i-flame2"/></svg>310</span></div>
+    <div class="t2-row"><span class="ftile wk"><svg aria-hidden="true"><use href="#i-walk"/></svg></span><span class="fbody"><b>Walk</b><span class="muted num">35 min · moderate</span></span><span class="t2-burn num"><svg aria-hidden="true"><use href="#i-flame2"/></svg>140</span></div>
+  </section>
+  <div class="card meal"><span class="meal-ico"><svg aria-hidden="true"><use href="#i-sun"/></svg></span><div class="body"><b>Lunch</b><div class="items">Roti, Dal, Rice, Curd</div><span class="chip num"><svg aria-hidden="true"><use href="#i-flame"/></svg>558 kcal</span></div><button class="add"><svg aria-hidden="true"><use href="#i-plus"/></svg></button></div></div>
+      <nav class="nav" aria-label="Main"><a class="on" href="#"><svg aria-hidden="true"><use href="#i-today"/></svg>Today</a><a href="#"><svg aria-hidden="true"><use href="#i-chart"/></svg>Progress</a><a href="#" aria-label="Scan"><span class="fab"><svg aria-hidden="true"><use href="#i-scan"/></svg></span></a><a href="#"><svg aria-hidden="true"><use href="#i-hist"/></svg>History</a><a href="#"><svg aria-hidden="true"><use href="#i-me"/></svg>Me</a></nav>
+    </div></div>
+    <figcaption>5 · Today: eaten − burned = net, plus a Workouts card</figcaption>
+  </figure><figure class="shot">
+    <div class="phone"><div class="screen ">
+      <div class="status"><span class="num">18:42</span><span class="island"></span><span>5G</span></div>
+      <div class="scroll tight"><div class="tb"><span class="round"><svg aria-hidden="true"><use href="#i-back"/></svg></span><div class="tb-title"><b>Weight</b></div><span class="round ghost-slot"></span></div>
+  <div class="wk-w-hero"><b class="num">72.0<small> kg</small></b><span class="wk-delta num"><svg aria-hidden="true"><use href="#i-chevdown"/></svg>1.4 kg in 30 days</span></div>
+  <section class="card chart-card"><div class="cc-head"><b><svg aria-hidden="true"><use href="#i-scale2"/></svg>Last 30 days</b><span class="muted sm">Goal 70 kg</span></div><svg class="chart" viewBox="0 0 300 120" role="img" aria-label="Weight over the last 30 days, 73.4 to 72.0 kg"><line x1="10" x2="290" y1="90.0" y2="90.0" class="target"/><path d="M10.0,22.0 L41.1,28.0 L72.2,26.0 L103.3,32.0 L134.4,38.0 L165.6,34.0 L196.7,42.0 L227.8,46.0 L258.9,44.0 L290.0,50.0" fill="none" stroke="var(--brand-deep)" stroke-width="2.4"/><circle cx="10.0" cy="22.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="41.1" cy="28.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="72.2" cy="26.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="103.3" cy="32.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="134.4" cy="38.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="165.6" cy="34.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="196.7" cy="42.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="227.8" cy="46.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="258.9" cy="44.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><circle cx="290.0" cy="50.0" r="3" fill="var(--surface)" stroke="var(--brand-deep)" stroke-width="2"/><text x="10" y="116" class="ax">8 Sep</text><text x="290" y="116" class="ax" text-anchor="end">Today</text></svg></section>
+  <section class="card t2-card">
+    <div class="t2-row"><span class="fbody"><b class="num">72.0 kg</b><span class="muted">Today</span></span></div>
+    <div class="t2-row"><span class="fbody"><b class="num">72.3 kg</b><span class="muted">Mon, 5 Oct</span></span></div>
+    <div class="t2-row"><span class="fbody"><b class="num">72.2 kg</b><span class="muted">Sat, 3 Oct</span></span></div>
+  </section>
+  <button class="btn solid wide"><svg aria-hidden="true"><use href="#i-plus"/></svg>Log weight</button></div>
+      
+    </div></div>
+    <figcaption>6 · Weight log with a 30-day trend and goal</figcaption>
+  </figure></div>
 </section>
 </main>
 
