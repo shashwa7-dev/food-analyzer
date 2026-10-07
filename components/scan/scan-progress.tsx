@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useEffectEvent, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import type { ScanView } from "@/lib/scans/service";
@@ -15,6 +15,7 @@ const isRunning = (v: ScanView | undefined) => !v || v.status === "queued" || v.
  * advances the cosmetic steps on a timer, and calls `onFinished` once the scan is done or failed.
  */
 export function ScanProgress({ scanId, onFinished }: { scanId: string; onFinished: (view: ScanView) => void }) {
+  const qc = useQueryClient();
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(startedAt);
   const scan = useQuery({
@@ -34,9 +35,11 @@ export function ScanProgress({ scanId, onFinished }: { scanId: string; onFinishe
   const finish = useEffectEvent((v: ScanView) => onFinished(v));
   useEffect(() => {
     if (!done || !scan.data) return;
+    // The scan's name/grade (or failure) only exist from this point — refresh /history now.
+    void qc.invalidateQueries({ queryKey: ["scans"] });
     const t = setTimeout(() => finish(scan.data), 450); // let the last tick show
     return () => clearTimeout(t);
-  }, [done, scan.data]);
+  }, [done, scan.data, qc]);
 
   const active = activeStep(now - startedAt, done);
   return (

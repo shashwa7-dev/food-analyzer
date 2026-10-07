@@ -2,7 +2,7 @@
 // /history's list: server-rendered first page as the unfiltered useInfiniteQuery's initialData,
 // a debounced search box and grade chips (both reset pagination by changing the query key), and a
 // client-side "Load more" using the cursor from GET /api/v1/scans.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { AlertCircle, Loader2, ScanLine, Search } from "lucide-react";
@@ -30,21 +30,21 @@ function isRunning(status: ScanListItem["status"]) {
   return status === "queued" || status === "processing";
 }
 
-function ScanRow({ s }: { s: ScanListItem }) {
+function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
   const running = isRunning(s.status);
   const failed = s.status === "failed";
   const title = running ? "Analysing…" : failed ? (s.errorCode === "BARCODE_NOT_FOUND" ? "Barcode not found" : "Scan failed") : s.name ?? "Scan";
-  const meta = [relativeDate(s.createdAt), inputKindLabel(s.inputKind), !running && !failed ? confidenceLabel(s.confidence) : null].filter((v): v is string => !!v);
+  const meta = [relativeDate(s.createdAt, tz, now), inputKindLabel(s.inputKind), !running && !failed ? confidenceLabel(s.confidence) : null].filter((v): v is string => !!v);
   return (
     <li className="border-b border-line last:border-b-0">
       <Link href={`/scans/${s.id}`} className="flex min-h-14 items-center gap-3.5 px-3.5 py-3">
         {running ? (
-          <span className="grid size-[30px] shrink-0 place-items-center rounded-sm bg-sunken text-subtle" aria-label="Analysing">
-            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+          <span className="grid size-[30px] shrink-0 place-items-center rounded-sm bg-sunken text-subtle" aria-hidden>
+            <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
           </span>
         ) : failed ? (
-          <span className="grid size-[30px] shrink-0 place-items-center rounded-sm bg-sunken text-bad" aria-label="Failed">
-            <AlertCircle className="size-[18px]" aria-hidden />
+          <span className="grid size-[30px] shrink-0 place-items-center rounded-sm bg-sunken text-bad" aria-hidden>
+            <AlertCircle className="size-[18px]" />
           </span>
         ) : (
           <GradeBadge grade={s.grade} />
@@ -61,7 +61,12 @@ function ScanRow({ s }: { s: ScanListItem }) {
   );
 }
 
-export function ScanList({ initialPage }: { initialPage: Page }) {
+export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; tz: string; now: string }) {
+  // Hold the server's render time once, rather than calling `new Date()` on every render: the
+  // server-rendered HTML and the client's first hydration pass must compute the same relative
+  // dates, or React flags a hydration mismatch (e.g. server says "59 min ago", client "1 h ago").
+  const [now] = useState(() => new Date(nowIso));
+  const nowMs = now.getTime();
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState<Grade | undefined>(undefined);
   const dq = useDebounced(q.trim(), 300);
@@ -79,7 +84,24 @@ export function ScanList({ initialPage }: { initialPage: Page }) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     initialData: !filtered ? { pages: [initialPage], pageParams: [undefined] } : undefined,
+    initialDataUpdatedAt: !filtered ? nowMs : undefined,
   });
+
+  // `initialData` only seeds the cache the first time this exact query key is ever observed in
+  // this QueryClient; once warm (e.g. the user visited /history earlier this session, scanned
+  // something, then came back) React Query keeps showing that older cached page and ignores the
+  // fresh `initialPage` this render just got from the server. Creating a scan already invalidates
+  // ["scans"] (scan-flow.tsx, scan-progress.tsx), which refetches an *active* history query
+  // immediately — but a query that wasn't mounted at that moment is only marked stale, not
+  // refetched. This is the belt-and-suspenders check for that case: on mount, if the cache
+  // predates the server page we were just given, refetch once.
+  const staleCheckDone = useRef(false);
+  useEffect(() => {
+    if (staleCheckDone.current) return;
+    staleCheckDone.current = true;
+    if (!filtered && query.dataUpdatedAt > 0 && query.dataUpdatedAt < nowMs) void query.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally mount-only, guarded above
+  }, []);
 
   const scans = query.data?.pages.flatMap((p) => p.scans) ?? [];
 
@@ -143,7 +165,7 @@ export function ScanList({ initialPage }: { initialPage: Page }) {
       ) : (
         <ul className="flex flex-col overflow-hidden rounded-lg border border-line bg-surface">
           {scans.map((s) => (
-            <ScanRow key={s.id} s={s} />
+            <ScanRow key={s.id} s={s} tz={tz} now={now} />
           ))}
         </ul>
       )}

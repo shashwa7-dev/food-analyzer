@@ -45,18 +45,29 @@ describe("parseLocalDate / formatLocalDate", () => {
 });
 
 describe("relativeDate", () => {
-  const now = new Date("2026-10-07T12:00:00Z");
-  it("ticks through the elapsed-time tiers", () => {
-    expect(relativeDate("2026-10-07T11:59:30Z", now)).toBe("Just now");
-    expect(relativeDate("2026-10-07T11:55:00Z", now)).toBe("5 min ago");
-    expect(relativeDate("2026-10-07T09:00:00Z", now)).toBe("3 h ago");
-    expect(relativeDate("2026-10-06T10:00:00Z", now)).toBe("Yesterday"); // 26 h ago
+  const tz = "Asia/Kolkata";
+  const now = new Date("2026-10-07T12:00:00Z"); // 17:30 IST on 7 Oct
+
+  it("ticks through the elapsed-time tiers within today's calendar day", () => {
+    expect(relativeDate("2026-10-07T11:59:30Z", tz, now)).toBe("Just now");
+    expect(relativeDate("2026-10-07T11:55:00Z", tz, now)).toBe("5 min ago");
+    expect(relativeDate("2026-10-07T09:00:00Z", tz, now)).toBe("3 h ago");
+    expect(relativeDate("2026-10-06T10:00:00Z", tz, now)).toBe("Yesterday"); // 26 h ago
   });
   it("falls back to an absolute date past ~two days", () => {
-    expect(relativeDate("2026-09-12T08:00:00Z", now)).toBe("12 Sep");
+    expect(relativeDate("2026-09-12T08:00:00Z", tz, now)).toBe("12 Sep");
   });
   it("treats a clock-skewed future timestamp as Just now", () => {
-    expect(relativeDate("2026-10-07T12:00:30Z", now)).toBe("Just now");
+    expect(relativeDate("2026-10-07T12:00:30Z", tz, now)).toBe("Just now");
+  });
+  it("uses the user's calendar day, not UTC, for a scan at 00:30 IST more than 48h old", () => {
+    const later = new Date("2026-10-09T08:00:00Z"); // 13:30 IST on 9 Oct
+    // 00:30 IST on 5 Oct is 19:00 UTC on 4 Oct — a UTC-anchored implementation would say "4 Oct".
+    expect(relativeDate("2026-10-04T19:00:00Z", tz, later)).toBe("5 Oct");
+  });
+  it('shows "Yesterday" for 23:50 IST yesterday even just 20 minutes before 00:10 IST today', () => {
+    const justAfterMidnight = new Date("2026-10-07T18:40:00Z"); // 00:10 IST on 8 Oct
+    expect(relativeDate("2026-10-07T18:20:00Z", tz, justAfterMidnight)).toBe("Yesterday"); // 23:50 IST on 7 Oct
   });
 });
 

@@ -89,6 +89,7 @@ export function ScanFlow({ meal, date, initialBarcode }: { meal: Meal | null; da
       return;
     }
     void qc.invalidateQueries({ queryKey: ["me"] });
+    void qc.invalidateQueries({ queryKey: ["scans"] }); // the new scan (queued/done) belongs in /history now
     const v = r.view;
     if (v.errorCode === "BARCODE_NOT_FOUND") {
       setBarcodeUnknown(true);

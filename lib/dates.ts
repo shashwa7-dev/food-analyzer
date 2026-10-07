@@ -52,17 +52,24 @@ export function formatLocalDate(d: Date): string {
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
- * A short, human relative time for a scan row: "Just now", "N min ago", "N h ago", "Yesterday"
- * (one to two days back), then an absolute "12 Sep" past that. Elapsed-time tiers, not calendar
- * days, so it stays simple and monotonic as `now` advances.
+ * A short, human relative time for a scan row, in the user's own timezone `tz` (not UTC — two
+ * scans either side of midnight IST must land on the right side of "Yesterday"): elapsed-time
+ * tiers ("Just now", "N min ago", "N h ago") while `iso` falls on today's calendar day in `tz`,
+ * else "Yesterday" for `tz`'s previous calendar day, else an absolute "12 Sep" (that calendar
+ * day's date, in `tz`). Calendar day — not elapsed hours — decides the tier, so a scan from
+ * 23:50 yesterday still reads "Yesterday" at 00:10 today, only 20 minutes later.
  */
-export function relativeDate(iso: string, now: Date = new Date()): string {
-  const minutes = Math.floor((now.getTime() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  if (hours < 48) return "Yesterday";
-  const d = new Date(iso);
-  return `${d.getUTCDate()} ${SHORT_MONTHS[d.getUTCMonth()]}`;
+export function relativeDate(iso: string, tz: string, now: Date = new Date()): string {
+  const at = new Date(iso);
+  const today = todayIn(tz, now);
+  const scanDay = todayIn(tz, at);
+  if (scanDay === today) {
+    const minutes = Math.floor((now.getTime() - at.getTime()) / 60_000);
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes} min ago`;
+    return `${Math.floor(minutes / 60)} h ago`;
+  }
+  if (scanDay === addDays(today, -1)) return "Yesterday";
+  const [, mm, dd] = scanDay.split("-");
+  return `${Number(dd)} ${SHORT_MONTHS[Number(mm) - 1]}`;
 }

@@ -65,7 +65,14 @@ export function DeleteScanButton({ scanId }: { scanId: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const del = useMutation({
-    mutationFn: () => api(`/api/v1/scans/${scanId}`, { method: "DELETE" }),
+    mutationFn: async () => {
+      try {
+        await api(`/api/v1/scans/${scanId}`, { method: "DELETE" });
+      } catch (e) {
+        // Already gone (a second tap, or deleted elsewhere) is the outcome the user wanted — not an error.
+        if (!(e instanceof ApiError && e.status === 404)) throw e;
+      }
+    },
     onSuccess: async () => {
       toast.success("Scan deleted.");
       await qc.invalidateQueries({ queryKey: ["scans"] });
