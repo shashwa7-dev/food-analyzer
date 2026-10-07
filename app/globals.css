@@ -48,6 +48,9 @@ body {
   font-family: var(--font-sans); font-size: 15px; line-height: 1.5; letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
 }
+/* --shadow-card is "none" in dark mode (surfaces barely differ from bg there), but a
+   toast floats above everything and needs a real shadow in both themes. */
+.cn-toast { box-shadow: 0 2px 8px rgb(0 0 0 / .18), 0 8px 24px rgb(0 0 0 / .14) !important; }
 .num { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .title { font-weight: 600; letter-spacing: -0.032em; line-height: 1.1; text-wrap: balance; }
 .section-title { font-size: 17px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.3; }
