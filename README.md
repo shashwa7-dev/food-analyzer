@@ -82,7 +82,7 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 | `MODEL_FAST` | no | Model id for the (only) tier the engine currently calls. Defaults to `gemini-3.5-flash-lite` (`lib/engine/models.ts`). |
 | `MODEL_STRONG` | no | Reserved for a future strong-tier pass; not yet called by the engine. Defaults to `gemini-3.5-flash`. |
 | `DAILY_AI_SCAN_CAP` | no | Global cap on model-calling scans per UTC day, across all users combined. Defaults to `300`. Once hit, new AI scans get `503 SERVICE_BUSY` until the day rolls over (`lib/scans/deps.ts`, `lib/rate-limit.ts`). |
-| `PRO_GATES_ENFORCED` | no | Launch switch for the Pro-only features (Progress month view, data export, custom daily targets; `lib/credits/plans.ts`). Off by default, so everything stays free until Pro launches. Set `true` (or `1`) to enforce: Basic users then get a "Pro" lock on those features, and `GET /api/v1/progress?range=month` returns `403 PRO_REQUIRED`. AI-scan allowances (20 Basic, 200 Pro) apply either way. |
+| `PRO_GATES_ENFORCED` | no | Launch switch for the Pro-only features (Progress month view, data export, custom daily targets; `lib/credits/plans.ts`). Off by default, so everything stays free until Pro launches. Set `true` (or `1`) to enforce: Basic users then get a "Pro" lock on those features, and `GET /api/v1/progress?range=month` returns `403 PRO_REQUIRED`; saving new custom targets on Basic is rejected ("Custom targets are part of Pro."). Only writes are gated: targets a user saved before launch keep applying to Today and Progress, and a redone onboarding keeps them. The data export isn't built yet, so it has no route to gate. AI-scan allowances (20 Basic, 200 Pro) apply either way. |
 
 ### Credits
 
