@@ -28,7 +28,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-start md:gap-[18px]">
       <header className="flex items-center gap-3 md:col-span-2">
-        <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-soft font-bold text-brand-deep">
+        <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-soft font-bold text-on-brand-soft">
           {initialsOf(fullName)}
         </span>
         <div className="min-w-0 flex-1 leading-tight">

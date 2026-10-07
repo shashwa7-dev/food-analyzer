@@ -20,6 +20,7 @@
     "eval": "tsx --env-file-if-exists=.env.local eval/run.ts",
     "seed:demo": "tsx --env-file-if-exists=.env.local scripts/seed-demo.ts",
     "shot": "tsx --env-file-if-exists=.env.local scripts/shot.ts",
+    "ui:audit": "tsx --env-file-if-exists=.env.local scripts/ui-audit.ts",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {

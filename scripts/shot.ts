@@ -3,15 +3,10 @@
 // --dark sets the emulated OS scheme; --theme sets the eatri8-theme cookie (default "system", so the
 // page follows --dark as it did before the appearance setting).
 // Uses the installed Chrome through puppeteer-core; the dev server must be running.
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import puppeteer from "puppeteer-core";
-import { THEMES, THEME_COOKIE, type Theme } from "../lib/theme";
-
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const COOKIE_FILE = resolve(".superpowers/demo-cookie.txt");
-// Hides the Next.js dev indicator / overlay badge without touching next.config.ts.
-const HIDE_DEV_UI = "nextjs-portal, [data-nextjs-toast], [data-next-badge-root], #__next-build-watcher { display: none !important; }";
+import { THEMES, type Theme } from "../lib/theme";
+import { assertDev, demoCookie, goto, launch, newPage, setCookies, sleep } from "./lib/browser";
 
 function parseArgs(argv: string[]) {
   const out = { path: "", width: 390, dark: false, theme: "system" as Theme, full: false, file: "", wait: 300 };
@@ -36,13 +31,9 @@ function parseArgs(argv: string[]) {
 }
 
 async function main() {
-  if (process.env.NODE_ENV === "production") throw new Error("shot is dev only.");
+  assertDev("shot");
   const args = parseArgs(process.argv.slice(2));
-  if (!existsSync(COOKIE_FILE)) throw new Error("No demo cookie. Run pnpm seed:demo first.");
-  const line = readFileSync(COOKIE_FILE, "utf8").trim();
-  const eq = line.indexOf("=");
-  const [name, value] = [line.slice(0, eq), line.slice(eq + 1)];
-  const base = new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000");
+  demoCookie(); // fails early with a hint when pnpm seed:demo hasn't run
   const scheme = args.dark ? "dark" : "light";
   // Named for what you see: the OS scheme when the page follows it (System), else the forced theme.
   const look = args.theme === "system" ? scheme : `theme-${args.theme}`;
@@ -50,24 +41,15 @@ async function main() {
   const file = resolve(args.file || `.superpowers/shots/${slug}-${args.width}-${look}.png`) as `${string}.png`;
   mkdirSync(dirname(file), { recursive: true });
 
-  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-first-run", "--no-default-browser-check"] });
+  const browser = await launch();
   try {
-    const page = await browser.newPage();
-    await page.setViewport({ width: args.width, height: args.width < 768 ? 844 : 900, deviceScaleFactor: 2, isMobile: args.width < 768, hasTouch: args.width < 768 });
-    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }]);
-    await browser.setCookie(
-      { name, value, domain: base.hostname, path: "/", httpOnly: true, secure: name.startsWith("__Secure-"), sameSite: "Lax" },
-      { name: THEME_COOKIE, value: args.theme, domain: base.hostname, path: "/", sameSite: "Lax" },
-    );
-    const url = new URL(args.path, base).toString();
-    const res = await page.goto(url, { waitUntil: "networkidle0", timeout: 60_000 });
-    await page.addStyleTag({ content: HIDE_DEV_UI });
-    await new Promise((r) => setTimeout(r, args.wait));
+    await setCookies(browser, { theme: args.theme });
+    const page = await newPage(browser, { width: args.width, scheme, height: args.width < 768 ? 844 : 900 });
+    const { status, landed, url } = await goto(page, args.path);
+    await sleep(args.wait);
     await page.screenshot({ path: file, fullPage: args.full });
-    const landed = new URL(page.url()).pathname;
-    console.log(`${res?.status() ?? "?"} ${url}${landed !== new URL(url).pathname ? ` → redirected to ${landed}` : ""}`);
+    console.log(`${status || "?"} ${url}${landed !== new URL(url).pathname ? ` → redirected to ${landed}` : ""}`);
     console.log(file);
-    const status = res?.status() ?? 0;
     if (status >= 400 || landed !== new URL(url).pathname) process.exitCode = 2; // signed out, bounced or errored
   } finally {
     await browser.close();

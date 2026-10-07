@@ -223,7 +223,7 @@ export function BetterPick({ alt, tip }: { alt: { id: string; name: string; grad
       <Link href={`/foods/${alt.id}`} className="flex min-h-11 items-center gap-3 rounded-[20px] bg-grade-a/10 p-3 transition-colors hover:bg-grade-a/15">
         <GradeBadge grade={alt.grade} size="md" />
         <span className="min-w-0 flex-1 leading-tight">
-          <span className="block text-[12px] font-semibold tracking-[0.06em] text-subtle uppercase">Better pick</span>
+          <span className="block text-[12px] font-semibold tracking-[0.06em] text-good-ink uppercase">Better pick</span>
           <span className="block truncate font-semibold text-ink">{alt.name}</span>
         </span>
         <ChevronRight className="size-5 shrink-0 text-subtle" aria-hidden />
@@ -234,7 +234,7 @@ export function BetterPick({ alt, tip }: { alt: { id: string; name: string; grad
   return (
     <p className="m-0 flex items-start gap-3 rounded-[20px] bg-grade-a/10 p-3.5 text-[14px] leading-snug text-ink">
       <Lightbulb className="mt-px size-[18px] shrink-0 text-grade-a" aria-hidden />
-      <span><b className="block text-[12px] font-semibold tracking-[0.06em] text-subtle uppercase">Better pick</b>{tip}</span>
+      <span><b className="block text-[12px] font-semibold tracking-[0.06em] text-good-ink uppercase">Better pick</b>{tip}</span>
     </p>
   );
 }

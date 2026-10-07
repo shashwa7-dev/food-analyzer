@@ -15,7 +15,7 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         "ghost-sunken": "bg-sunken text-ink hover:bg-line",
-        destructive: "bg-grade-e text-white hover:bg-grade-e/90",
+        destructive: "bg-grade-e text-on-grade hover:bg-grade-e/90",
         // Text accents use --brand-deep, never the raw --action/--brand fill (which is lime in
         // dark mode) — lime is a fill colour, never text (design rule 3).
         link: "text-brand-deep underline-offset-4 hover:underline",

@@ -47,3 +47,6 @@ eval/results-*.json
 # dev-only demo session cookie and screenshots (pnpm seed:demo, pnpm shot)
 /.superpowers/
 .superpowers/demo-cookie.txt
+
+# UI audit screenshots (pnpm ui:audit); only the README is committed
+/docs/design/qa/*.png

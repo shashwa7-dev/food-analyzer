@@ -69,7 +69,7 @@ export function AccountFooter() {
         {LINKS.map((l, i) => (
           <span key={l.href} className="inline-flex items-center gap-x-1">
             {i > 0 && <span aria-hidden>·</span>}
-            <Link href={l.href} className="inline-flex min-h-11 items-center px-1 whitespace-nowrap hover:text-ink">{l.label}</Link>
+            <Link href={l.href} className="inline-flex min-h-11 min-w-11 items-center justify-center px-1 whitespace-nowrap hover:text-ink">{l.label}</Link>
           </span>
         ))}
       </nav>

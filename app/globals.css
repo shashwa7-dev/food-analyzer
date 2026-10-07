@@ -21,7 +21,11 @@
   --ok: #1F8A4C; --warn: #B86E00; --bad: #C43A16;
   /* Text on tinted fills: --good-ink on grade-a/15 (refund pill), --on-brand-soft on --brand-soft (Free pill, plan badge); both ≥ 4.5:1. */
   --good-ink: #026B36; --on-brand-soft: #446C10;
-  --g-a: #038141; --g-b: #85BB2F; --g-c: #FECB02; --g-d: #EE8100; --g-e: #E63E11;
+  --g-a: #038141; --g-b: #85BB2F; --g-c: #FECB02; --g-d: #EE8100; --g-e: #D63A0F;
+  /* Letters on grade fills (and the red destructive button): white on the dark A and E, ink on the light B, C, D; all ≥ 4.5:1. */
+  --on-grade: #FFFFFF; --on-grade-light: #12150F;
+  /* Macro numbers as text: a shade deeper than the fills so they pass 4.5:1 on --bg, --surface and --sunken. */
+  --protein-ink: #1F66D6; --carbs-ink: #6E4CF0; --fat-ink: #C2307C;
   --shadow-card: 0 1px 2px rgb(20 26 12 / .05), 0 8px 24px rgb(20 26 12 / .06);
   /* camera viewfinder: always dark, with white marks on top, in both themes */
   --viewfinder: #141613; --on-media: #FFFFFF; --on-media-ink: #111111;
@@ -38,6 +42,7 @@
   --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
   --action: var(--brand); --action-ink: #12150F;
   --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
+  --protein-ink: var(--protein); --carbs-ink: var(--carbs); --fat-ink: var(--fat);
   --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: none;
   --good-ink: var(--ok); --on-brand-soft: var(--brand-deep);
 }
@@ -50,6 +55,7 @@
     --accent: var(--brand-deep); --accent-soft: var(--brand-soft);
     --action: var(--brand); --action-ink: #12150F;
     --protein: #5C9BFF; --carbs: #9B85FF; --fat: #F06AAE; --fat-soft: #3A2430;
+    --protein-ink: var(--protein); --carbs-ink: var(--carbs); --fat-ink: var(--fat);
     --ok: #4CC27E; --warn: #F0A43A; --bad: #FF7A57; --shadow-card: none;
     --good-ink: var(--ok); --on-brand-soft: var(--brand-deep);
   }
@@ -74,6 +80,8 @@
   --color-brand: var(--brand); --color-brand-soft: var(--brand-soft); --color-brand-deep: var(--brand-deep); --color-brand-ink: var(--brand-ink);
   --color-action: var(--action); --color-action-ink: var(--action-ink);
   --color-protein: var(--protein); --color-carbs: var(--carbs); --color-fat: var(--fat); --color-fat-soft: var(--fat-soft);
+  --color-protein-ink: var(--protein-ink); --color-carbs-ink: var(--carbs-ink); --color-fat-ink: var(--fat-ink);
+  --color-on-grade: var(--on-grade); --color-on-grade-light: var(--on-grade-light);
   --color-good-ink: var(--good-ink); --color-on-brand-soft: var(--on-brand-soft);
   --color-ok: var(--ok); --color-warn: var(--warn); --color-bad: var(--bad);
   --color-grade-a: var(--g-a); --color-grade-b: var(--g-b); --color-grade-c: var(--g-c);

@@ -128,7 +128,7 @@ export function ActivityList({ initialPage, tz, now: nowIso }: { initialPage: Pa
             type="button"
             aria-pressed={filter === key}
             onClick={() => setFilter(key)}
-            className="group/f flex min-h-11 shrink-0 items-center outline-none!"
+            className="group/f flex min-h-11 min-w-11 shrink-0 items-center justify-center outline-none!"
           >
             <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-2 text-[13px] font-semibold whitespace-nowrap text-subtle transition-colors group-hover/f:text-ink group-focus-visible/f:ring-2 group-focus-visible/f:ring-brand-deep group-aria-pressed/f:border-transparent group-aria-pressed/f:bg-action group-aria-pressed/f:text-action-ink [&_svg]:size-[15px]">
               {Icon && <Icon aria-hidden />}

@@ -358,9 +358,10 @@ export function ScanFlow({ meal, date, initialBarcode, initialMode }: {
             {hasNotice && <div className="grid gap-2">{notices}</div>}
             <ModeTiles mode={mode} onPick={setMode} />
           </div>
-          <div className="relative flex w-full items-center justify-between px-[34px] pt-[18px] pb-[26px] md:mx-auto md:max-w-[480px]">
+          {/* Three equal-sided columns so the shutter stays centred whatever the credits pill's width. */}
+          <div className="relative grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-[34px] pt-[18px] pb-[26px] md:mx-auto md:max-w-[480px]">
             <button type="button" aria-label="Choose from gallery" disabled={full || capturing} onClick={() => galleryInput.current?.click()}
-              className="grid size-12 place-items-center rounded-[14px] border-2 border-on-media bg-on-media/15 backdrop-blur-[10px] transition-colors hover:bg-on-media/25 disabled:opacity-40">
+              className="grid size-12 place-items-center justify-self-start rounded-[14px] border-2 border-on-media bg-on-media/15 backdrop-blur-[10px] transition-colors hover:bg-on-media/25 disabled:opacity-40">
               <ImageIcon className="size-[22px]" aria-hidden />
             </button>
             <button
@@ -373,11 +374,11 @@ export function ScanFlow({ meal, date, initialBarcode, initialMode }: {
               <span className={cn("size-[60px] rounded-full bg-brand", capturing && "motion-safe:animate-pulse")} />
             </button>
             {credits === undefined ? (
-              <span className="size-12" aria-hidden />
+              <span className="size-12 justify-self-end" aria-hidden />
             ) : (
               <Link href="/me/credits" aria-label={`${credits} AI scan${credits === 1 ? "" : "s"} left`}
                 className={cn(
-                  "num inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold shadow-[0_4px_14px_rgb(0_0_0/0.25)]",
+                  "num inline-flex h-11 items-center gap-1.5 justify-self-end whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold shadow-[0_4px_14px_rgb(0_0_0/0.25)]",
                   creditsState(credits) === "ok" ? "bg-brand text-brand-ink" : "bg-warn text-brand-ink",
                 )}>
                 <Sparkles className="size-4 shrink-0" aria-hidden />

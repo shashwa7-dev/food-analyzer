@@ -13,7 +13,7 @@ export function SidebarCredits({ credits, allowance, resetsLabel }: { credits: n
       title={`Resets ${resetsLabel}`}
       className={cn(
         "mt-auto flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-full px-3.5 py-2.5 text-[13px] font-semibold transition-colors",
-        low ? "bg-warn/12 text-warn ring-1 ring-warn/35 hover:bg-warn/18" : "bg-brand-soft text-ink hover:bg-brand-soft/80",
+        low ? "bg-warn/12 text-ink ring-1 ring-warn/35 hover:bg-warn/18" : "bg-brand-soft text-ink hover:bg-brand-soft/80",
       )}
     >
       <Sparkles className={cn("size-4 shrink-0", low ? "text-warn" : "text-brand-deep")} aria-hidden />

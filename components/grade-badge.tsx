@@ -1,7 +1,7 @@
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { cn } from "@/lib/utils";
-/** Each grade's fill with a readable text colour on it (C is light, so its text is dark). */
-export const GRADE_FILL: Record<string, string> = { A: "bg-grade-a text-white", B: "bg-grade-b text-white", C: "bg-grade-c text-[#2a2100]", D: "bg-grade-d text-white", E: "bg-grade-e text-white" };
+/** Each grade's fill with a readable letter on it: white on the dark A and E, ink on the light B, C and D (all ≥ 4.5:1). */
+export const GRADE_FILL: Record<string, string> = { A: "bg-grade-a text-on-grade", B: "bg-grade-b text-on-grade-light", C: "bg-grade-c text-on-grade-light", D: "bg-grade-d text-on-grade-light", E: "bg-grade-e text-on-grade" };
 
 type BadgeSize = "sm" | "base" | "md" | "lg";
 const DIM: Record<BadgeSize, string> = {

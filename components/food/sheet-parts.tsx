@@ -58,7 +58,7 @@ export function MealTiles({ meal, onPick }: { meal: Meal; onPick: (meal: Meal) =
             type="button"
             aria-pressed={m === meal}
             onClick={() => onPick(m)}
-            className="flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-[3px] rounded-[13px] border border-line bg-surface text-[11.5px] font-semibold whitespace-nowrap text-subtle transition-colors aria-pressed:border-brand aria-pressed:bg-brand-soft aria-pressed:text-brand-deep"
+            className="flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-[3px] rounded-[13px] border border-line bg-surface text-[11.5px] font-semibold whitespace-nowrap text-subtle transition-colors aria-pressed:border-brand aria-pressed:bg-brand-soft aria-pressed:text-on-brand-soft"
           >
             <Icon className="size-5" aria-hidden />
             {label}
@@ -101,9 +101,9 @@ export function LiveMacros({ kcal, protein, carbs, fat }: { kcal: number; protei
   return (
     <p className="num m-0 flex justify-between gap-2 px-1 text-[13.5px] font-semibold text-ink">
       <span className={item}><Flame className="text-grade-d" aria-hidden />{fmt(kcal)} kcal</span>
-      <span className={cn(item, "text-protein")}><Drumstick aria-hidden />{fmt(protein)} g<span className="sr-only"> protein</span></span>
-      <span className={cn(item, "text-carbs")}><Wheat aria-hidden />{fmt(carbs)} g<span className="sr-only"> carbs</span></span>
-      <span className={cn(item, "text-fat")}><Droplet aria-hidden />{fmt(fat)} g<span className="sr-only"> fat</span></span>
+      <span className={cn(item, "text-protein-ink")}><Drumstick aria-hidden />{fmt(protein)} g<span className="sr-only"> protein</span></span>
+      <span className={cn(item, "text-carbs-ink")}><Wheat aria-hidden />{fmt(carbs)} g<span className="sr-only"> carbs</span></span>
+      <span className={cn(item, "text-fat-ink")}><Droplet aria-hidden />{fmt(fat)} g<span className="sr-only"> fat</span></span>
     </p>
   );
 }
@@ -126,10 +126,10 @@ export function FlagNotes({ flags, note }: { flags: Flag[]; note?: string | null
             role={warn ? "alert" : undefined}
             className={cn(
               "flex items-start gap-2 rounded-[14px] px-3 py-2.5 text-[13px] leading-snug",
-              warn ? "bg-bad/10 font-medium text-bad" : "bg-sunken text-ink",
+              warn ? "bg-bad/10 font-medium text-ink" : "bg-sunken text-ink",
             )}
           >
-            <Icon className={cn("mt-px size-4 shrink-0", !warn && "text-warn")} aria-hidden />
+            <Icon className={cn("mt-px size-4 shrink-0", warn ? "text-bad" : "text-warn")} aria-hidden />
             {f.text}
           </li>
         );

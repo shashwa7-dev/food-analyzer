@@ -20,7 +20,7 @@ export function ThemeTiles({ theme, onPick }: { theme: Theme; onPick: (theme: Th
             role="radio"
             aria-checked={t === theme}
             onClick={() => onPick(t)}
-            className="flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[14px] border border-line bg-surface text-[13px] font-semibold whitespace-nowrap text-subtle transition-colors hover:text-ink aria-checked:border-brand aria-checked:bg-brand-soft aria-checked:text-brand-deep"
+            className="flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[14px] border border-line bg-surface text-[13px] font-semibold whitespace-nowrap text-subtle transition-colors hover:text-ink aria-checked:border-brand aria-checked:bg-brand-soft aria-checked:text-on-brand-soft"
           >
             <Icon className="size-[22px]" aria-hidden />
             {THEME_LABEL[t]}

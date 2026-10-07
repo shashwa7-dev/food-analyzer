@@ -52,7 +52,7 @@ export function AppNav({
 
   return (
     <>
-      {/* Desktop sidebar (spec §5) */}
+      {/* Desktop sidebar (spec §5). Every row is a pill like Scan food: nav items, credits, profile. */}
       <nav
         aria-label="Main"
         className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-[252px] md:flex-col md:gap-3 md:border-r md:border-line md:bg-surface/55 md:px-3.5 md:py-5"
@@ -72,7 +72,7 @@ export function AppNav({
                 href={href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex min-h-11 items-center gap-3 whitespace-nowrap rounded-[14px] px-3 font-medium text-subtle hover:bg-sunken hover:text-ink",
+                  "flex min-h-11 items-center gap-3 whitespace-nowrap rounded-full px-3.5 font-medium text-subtle hover:bg-sunken hover:text-ink",
                   isActive && "bg-surface font-semibold text-ink shadow-card",
                 )}
               >
@@ -86,8 +86,8 @@ export function AppNav({
         <SidebarCredits credits={credits} allowance={allowance} resetsLabel={resetsLabel} />
         {/* Profile row: the link to Me (with its gear) and, beside it, the theme cycle button. */}
         <div className="flex items-center gap-1">
-          <Link href="/me" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl p-2 hover:bg-sunken">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-brand-deep">{initialsOf(name)}</span>
+          <Link href="/me" className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full p-1.5 pr-2 hover:bg-sunken">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-on-brand-soft">{initialsOf(name)}</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-ink">{name}</span>
               <span className="block truncate text-xs whitespace-nowrap text-subtle">{planLabel} plan</span>

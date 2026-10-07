@@ -51,6 +51,9 @@ The app runs at `http://localhost:3000`.
 | `pnpm regrade` | Recompute stored food grades after a `gradeVersion` bump |
 | `pnpm search:smoke` | Manual smoke check of search ranking against a fixed query list |
 | `pnpm scan:try <image...>` | Manual smoke test of the scanning engine against 1–3 real image files (needs `GOOGLE_GENERATIVE_AI_API_KEY`) |
+| `pnpm seed:demo` | Dev only: create/refresh the demo account and write its session cookie (see [Demo data and screenshots](#demo-data-and-screenshots-dev-only)) |
+| `pnpm shot <path>` | Dev only: screenshot one page as the demo user |
+| `pnpm ui:audit` | Dev only: the UI audit (no-wrap, lime-as-text, contrast, tap targets) over every screen; see [UI](#ui) |
 | `pnpm eval [--models=fast,strong]` | Scanning eval harness against a local fixture suite (needs `GOOGLE_GENERATIVE_AI_API_KEY` and fixtures — see [`eval/README.md`](eval/README.md)) |
 
 ## Environment variables
@@ -125,6 +128,23 @@ pnpm shot /history --w 1280 --dark --full     # desktop, dark, full page; --out 
 ```
 
 `seed:demo` is idempotent (re-run it any time; it rebuilds the diary relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
+
+## UI
+
+The C1 "Lime & Ink" design (spec: `docs/superpowers/specs/2026-10-07-redesign-c1-design.md`, mock: `docs/design/mock-c1.html`).
+
+- **Tokens** live in `app/globals.css`: the light palette on `:root`, the dark palette in two identical blocks (`[data-theme="dark"]` and `[data-theme="system"]` under `prefers-color-scheme: dark`; `app/globals-css.test.ts` keeps them in step), mapped to Tailwind colours in `@theme inline`. Components use token colours only (`text-ink`, `bg-brand`, `text-protein-ink`…), never hex values or Tailwind palette colours. Appearance (Dark, the default / Light / System) is the `eatri8-theme` cookie, applied before paint by the head script in `lib/theme.ts`.
+- **Icons** are lucide (`lucide-react`) on buttons, rows, tiles, chips and flags. They are decorative: `aria-hidden`, with the text label carrying the meaning.
+- **Buttons never wrap.** Every button, chip, tab and pill is `whitespace-nowrap`; if a label doesn't fit at 360 px, shorten it or let an icon carry it.
+- **Lime is a fill, never text.** Text accents use `--brand-deep`; text on `--brand-soft` uses `--on-brand-soft`; text on lime uses `--brand-ink`. Grade letters use `--on-grade` / `--on-grade-light`, and macro numbers `--protein-ink` / `--carbs-ink` / `--fat-ink`, so all text meets WCAG AA.
+- **Tap targets are at least 44 × 44 px** (the element itself, a `::before`/`::after` hit area, or a parent that is the hit area).
+
+`pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
+
+```bash
+pnpm seed:demo && pnpm ui:audit
+pnpm ui:audit --only today,foods-dal-sheet --w 390 --theme light   # a subset
+```
 
 ## Data attribution
 
