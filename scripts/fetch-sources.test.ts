@@ -113,4 +113,16 @@ describe("offRowFromParquet", () => {
     expect(rec.nutriscore).toBe("e");
     expect(rec.portions.map((p) => p.label)).toEqual(["1 pack"]);
   });
+
+  it("synthesizes countries_tags: ['en:india'] on every row (the Parquet query already filters to en:india without selecting that column), so toSourceRecordOFF still derives countries: ['IN']", () => {
+    const raw = {
+      code: "00024907", product_name: "Teriyaki Dip Sauce Marinade", brands: "Marks & Spencer",
+      nutriments: [{ name: "energy-kcal", "100g": 170 }, { name: "carbohydrates", "100g": 39.4 }, { name: "fat", "100g": 0.3 }, { name: "proteins", "100g": 2 }],
+      serving_quantity: null, product_quantity: "305", nova_group: null, additives_tags: [], allergens_tags: [], traces_tags: [],
+      ingredients_text: null, nutriscore_grade: "e",
+    };
+    const row = offRowFromParquet(raw);
+    expect(row.countries_tags).toEqual(["en:india"]);
+    expect(toSourceRecordOFF(row)!.countries).toEqual(["IN"]);
+  });
 });

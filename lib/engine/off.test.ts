@@ -76,12 +76,26 @@ describe("fetchOffByBarcode", () => {
   });
 
   it("returns null when the product is missing required macros (toSourceRecordOFF rejects it)", async () => {
-    const fake = vi.fn(async () => okJson({ status: 1, product: { code: "1", product_name: "x", nutriments: {} } }));
-    expect(await fetchOffByBarcode("1", fake)).toBeNull();
+    const fake = vi.fn(async () => okJson({ status: 1, product: { code: "0000000000000", product_name: "x", nutriments: {} } }));
+    expect(await fetchOffByBarcode("0000000000000", fake)).toBeNull();
   });
 
   it("returns null when status is 1 but no product is present", async () => {
     const fake = vi.fn(async () => okJson({ status: 1 }));
-    expect(await fetchOffByBarcode("1", fake)).toBeNull();
+    expect(await fetchOffByBarcode("0000000000000", fake)).toBeNull();
+  });
+
+  it("rejects an invalid barcode before making any request", async () => {
+    const fake = vi.fn<typeof fetch>().mockResolvedValue(okJson({ status: 1, product: PRODUCT }));
+    expect(await fetchOffByBarcode("12?x=1", fake)).toBeNull();
+    expect(await fetchOffByBarcode("abc", fake)).toBeNull();
+    expect(fake).not.toHaveBeenCalled();
+  });
+
+  it("requests a UPC-A barcode in its normalised EAN-13 form", async () => {
+    const fake = vi.fn<typeof fetch>().mockResolvedValue(okJson({ status: 1, product: PRODUCT }));
+    await fetchOffByBarcode("036000291452", fake); // valid UPC-A (12 digits) -> EAN-13 "0036000291452"
+    const [url] = fake.mock.calls[0]!;
+    expect(String(url)).toContain("/api/v2/product/0036000291452?");
   });
 });

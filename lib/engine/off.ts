@@ -1,12 +1,13 @@
+import { normaliseBarcode } from "./barcode";
 import { toSourceRecordOFF, type OffRow } from "@/lib/foods/off-map";
 import type { SourceRecord } from "@/lib/foods/seed-map";
 
 // lib/env.ts's env() requires auth vars to be set (same reasoning as lib/engine/model.ts's
-// readModelConfig), so this file — the one other file in lib/engine allowed network access
-// (constraints.md: "lib/engine/off.ts is the network module") — reads OFF_CONTACT_EMAIL directly
-// from process.env instead, exactly like app/(marketing)/privacy and terms already do. It's
-// optional: Open Food Facts just asks for a contact in the User-Agent, not a credential, so the
-// app works without it.
+// readModelConfig), so this file — the task-6 brief's designated network module for OFF lookups,
+// the one other file in lib/engine (besides model.ts) allowed network access — reads
+// OFF_CONTACT_EMAIL directly from process.env instead, exactly like app/(marketing)/privacy and
+// terms already do. It's optional: Open Food Facts just asks for a contact in the User-Agent,
+// not a credential, so the app works without it.
 const FIELDS = [
   "code", "product_name", "brands", "categories_tags", "nutriments", "serving_quantity", "product_quantity",
   "nova_group", "additives_tags", "allergens_tags", "traces_tags", "ingredients_text", "nutrition_grades",
@@ -20,8 +21,13 @@ const TIMEOUT_MS = 6000;
 interface OffApiResponse { status?: number; product?: OffRow }
 
 export async function fetchOffByBarcode(code: string, fetchImpl: typeof fetch = fetch): Promise<SourceRecord | null> {
+  // Untrusted input (a scanned/typed barcode) — validate and normalise (EAN-8/EAN-13/UPC-A check
+  // digit) before it ever reaches a URL, instead of interpolating the raw string.
+  const normalised = normaliseBarcode(code);
+  if (!normalised) return null;
+
   const contactEmail = process.env.OFF_CONTACT_EMAIL || "contact via app";
-  const url = `https://world.openfoodfacts.org/api/v2/product/${code}?fields=${FIELDS}`;
+  const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(normalised)}?fields=${FIELDS}`;
 
   let res: Response;
   try {
