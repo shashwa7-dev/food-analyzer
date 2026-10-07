@@ -122,7 +122,7 @@ const DINNER_DAL: Item[] = [["roti", /^1 roti/, 2], ["dal", 150]];
 // Index 0 is today (IST), 1 yesterday, ... 9. Two days over the calorie target, one high in sodium,
 // one empty (breaks the streak); today has breakfast and lunch only.
 const PLAN: DayPlan[] = [
-  { breakfast: [...BF_POHA, ["long", /serving|pack/, 1]], lunch: LUNCH_DAL },
+  { breakfast: [...BF_POHA, ["long", 30]], lunch: LUNCH_DAL },
   { breakfast: BF_IDLI, lunch: LUNCH_RAJMA, snack: SNACK, dinner: DINNER_PANEER },
   { breakfast: BF_POHA, lunch: [...LUNCH_DAL, ["samosa", /regular|large/, 2]], snack: [["bhujia", 60], ["chai", /tea cup|cup/]], dinner: [["roti", /^1 roti/, 3], ["paneer", /katori|bowl/]] },
   { breakfast: [["chai", /tea cup|cup/]], lunch: [["rajma", /katori/], ["rice", 150]], snack: [["bhujia", 80], ["samosa", /regular|large/]], dinner: [["dal", 150], ["sambar", /katori/]] },
