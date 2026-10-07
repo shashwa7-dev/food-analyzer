@@ -38,6 +38,11 @@ export interface ScanResult {
   inputKind: "barcode" | "label" | "front" | "meal";
   tip?: string;
   servingUnknown?: boolean;
+  /**
+   * Set when an implausible value the grade scores was dropped (lib/nutrition/grade-unavailable.ts):
+   * the reason shown in place of a grade. `grade` is then null and the result shows a "?" badge.
+   */
+  gradeUnavailable?: string;
 }
 
 // Reverse of personalise's OFF_TAG map (OFF tag -> model allergen key): model-extracted
@@ -91,8 +96,8 @@ export function buildResult(args: {
   confidence: "high" | "medium" | "low";
   profile: { allergies: string[]; diet: Diet; goal: Goal; targets: DailyTargets };
   servingUnknown?: boolean;
-  /** Per-100 values dropped as implausible, for the regrade note in the reasons. */
-  dropped?: NutrientKey[];
+  /** The grade is unavailable, for this reason (lib/nutrition/grade-unavailable.ts): no grade, the reason as the only "why". */
+  gradeUnavailable?: string;
   /** Use this grade instead of recomputing: a catalogue food's stored grade (grades shown are the stored neutral grade), or a meal's dishScore on its exact total. */
   precomputedGrade?: GradeResult;
 }): ScanResult {
@@ -100,7 +105,8 @@ export function buildResult(args: {
   const perServing = per100 ? undefined : args.perServing;
   if (!per100 && !perServing) throw new Error("buildResult needs per100 or perServing");
   // Unknown serving weight: nothing per-100 to grade on, so the result is ungraded.
-  const grade: GradeResult = !per100 ? { grade: null, value: null, components: [] } : args.precomputedGrade ?? gradeFood({
+  const ungraded: GradeResult = { grade: null, value: null, components: [] };
+  const grade: GradeResult = !per100 || args.gradeUnavailable ? ungraded : args.precomputedGrade ?? gradeFood({
     gradeCategory: args.gradeCategory,
     per100,
     gradePortionGrams: args.gradePortionGrams,
@@ -112,9 +118,11 @@ export function buildResult(args: {
   const portionGrams = portion.grams && portion.grams > 0 ? portion.grams : 100;
   const perPortion = per100 ? nutrientsFor(per100, portionGrams) : perServing!;
 
-  const reasons: Reason[] = per100
-    ? explain({ name: args.name, grade, per100, basis: args.basis, dropped: args.dropped, perPortion, portionLabel: portion.label, targets: args.profile.targets })
-    : [{ tone: "warn", text: NOT_GRADED }];
+  const reasons: Reason[] = !per100
+    ? [{ tone: "warn", text: NOT_GRADED }]
+    : args.gradeUnavailable
+      ? [{ tone: "warn", text: args.gradeUnavailable }]
+      : explain({ name: args.name, grade, per100, basis: args.basis, perPortion, portionLabel: portion.label, targets: args.profile.targets });
 
   // Model keys become OFF tags; tags we don't map (en:celery, ...) are kept so a saved food carries them too.
   const allergens = union(toOffAllergenTags(args.allergens), args.allergens.filter(isOffTag));
@@ -159,5 +167,6 @@ export function buildResult(args: {
     inputKind: args.inputKind,
     tip: args.tip,
     servingUnknown: per100 ? args.servingUnknown : true,
+    ...(per100 && args.gradeUnavailable && { gradeUnavailable: args.gradeUnavailable }),
   };
 }

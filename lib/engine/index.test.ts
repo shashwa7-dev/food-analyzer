@@ -448,7 +448,7 @@ describe("runAi — a barcode the model read off the photo", () => {
     expect(out.crowdCandidate?.barcode).toBe(NAMKEEN_CODE);
   });
 
-  it("label with an implausible per-100 value (sodium past pure salt): flagged for retake, shown as unknown, never crowd-sourced", async () => {
+  it("label with an implausible per-100 value (sodium past pure salt): shown as unknown, grade unavailable, retake, never crowd-sourced", async () => {
     // 5,000 mg sodium in a 10 g serving scales to 50,000 mg per 100 g.
     const bad = fx({ ...labelNamkeenJson, barcodeText: null, facts: { basis: "per_serving", servingSize: { value: 10, unit: "g" }, energyKcal: 40, protein: 1, carbs: 8, fat: 0.5, sugars: 1, sodiumMg: 5000 } });
     const out = await runAi(input(), deps({ extract: extractReturning(bad) }), DEADLINE, null);
@@ -456,7 +456,13 @@ describe("runAi — a barcode the model read off the photo", () => {
     expect(out.result.per100!.sodiumMg).toBeUndefined();
     expect(out.result.provenance.sodiumMg).toBeUndefined();
     expect(JSON.stringify(out.result.flags)).not.toMatch(/sodium/i);
-    expect(out.result.reasons.map((r) => r.text)).toContain("Sodium left out: the source's figure wasn't plausible, so this grade doesn't count it.");
+    // No confident grade on a label missing a value the grade scores.
+    expect(out.result.grade).toBeNull();
+    expect(out.result.gradeValue).toBeNull();
+    expect(out.result.components).toEqual([]);
+    expect(out.result.gradeUnavailable).toBe("Sodium on this label isn't plausible, so we can't grade it.");
+    expect(out.result.reasons).toEqual([{ tone: "warn", text: "Sodium on this label isn't plausible, so we can't grade it." }]);
+    expect(out.result.alternatives).toEqual([]);
     expect(out.result.confidence).toBe("low");
     expect(out.crowdCandidate).toBeNull();
   });
@@ -467,6 +473,26 @@ describe("runAi — a barcode the model read off the photo", () => {
     expect(out.result.per100).toMatchObject({ energyKcal: 400, carbs: 5 });
     expect(out.result.per100!.sugars).toBeUndefined();
     expect(out.result.provenance.sugars).toBeUndefined();
+    expect(out.result.grade).toBeNull();
+    expect(out.result.gradeUnavailable).toBe("Sugar in this estimate isn't plausible, so we can't grade it.");
+  });
+
+  it("barcode hit on a stored food whose grade is unavailable (read guard): no grade, the reason instead", async () => {
+    const reason = "Sodium on this label isn't plausible, so we can't grade it.";
+    const d = deps({ findFoodByBarcode: vi.fn(async () => food({ grade: "?", gradeValue: null, gradeComponents: [], gradeUnavailable: reason, per100: { ...food().per100, sodiumMg: undefined } })) });
+    const out = await resolveBarcode(input({ barcode: NAMKEEN_CODE, images: [] }), d);
+    if (out.kind !== "barcode_done") throw new Error(out.kind);
+    expect(out.result.grade).toBeNull();
+    expect(out.result.gradeUnavailable).toBe(reason);
+    expect(out.result.reasons).toEqual([{ tone: "warn", text: reason }]);
+    expect(out.result.alternatives).toEqual([]);
+    expect(d.alternatives).not.toHaveBeenCalled();
+  });
+
+  it("a graded result never carries gradeUnavailable", async () => {
+    const out = await runAi(input(), deps({ extract: extractReturning(labelNamkeen) }), DEADLINE, null);
+    expect(out.result.grade).not.toBeNull();
+    expect(out.result.gradeUnavailable).toBeUndefined();
   });
 
   it("label + OFF timed out or down: the crowd candidate never carries the barcode", async () => {

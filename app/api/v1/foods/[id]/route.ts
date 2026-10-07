@@ -1,6 +1,6 @@
 import { requireApiUser } from "@/lib/session";
-import { invalid, json, notFound, serverError } from "@/lib/http";
-import { CustomFoodSchema, deleteCustomFood, foodDetail, updateCustomFood } from "@/lib/foods/service";
+import { invalid, invalidField, json, notFound, serverError } from "@/lib/http";
+import { customFoodFieldError, CustomFoodSchema, deleteCustomFood, foodDetail, updateCustomFood } from "@/lib/foods/service";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -18,7 +18,10 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const userId = await requireApiUser(req);
   if (userId instanceof Response) return userId;
   const body = CustomFoodSchema.safeParse(await req.json().catch(() => null));
-  if (!body.success) return invalid();
+  if (!body.success) {
+    const fe = customFoodFieldError(body.error);
+    return fe ? invalidField(fe.field, fe.message) : invalid();
+  }
   const row = await updateCustomFood(userId, (await params).id, body.data);
   return row ? json({ food: row }) : notFound();
 }

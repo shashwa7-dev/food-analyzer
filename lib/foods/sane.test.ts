@@ -19,18 +19,26 @@ describe("plausibleFood (read-time guard)", () => {
     expect(stored.components.find((c) => c.key === "salt")).toMatchObject({ points: 20, estimated: false });
   });
 
-  it("drops the absurd sodium, its provenance, and regrades on what's shown", () => {
+  it("drops the absurd sodium and its provenance, and shows no grade (sodium is graded): '?', with the reason", () => {
     const f = plausibleFood(row);
     expect(f.per100.sodiumMg).toBeUndefined();
     expect(f.per100).toMatchObject({ energyKcal: 129.286, satFat: 1.286 });
     expect(f.provenance.sodiumMg).toBeUndefined();
     expect(f.provenance.satFat).toBe("community");
-    const fresh = gradeFood({ gradeCategory: "general", per100: f.per100 });
-    expect(f.grade).toBe(fresh.grade);
-    expect(f.grade).not.toBe("E");
-    expect(f.gradeComponents.find((c) => c.key === "salt")).toMatchObject({ points: 0, estimated: true });
-    expect(f.gradeValue).toBe(fresh.value);
     expect(f.dropped).toEqual(["sodiumMg"]);
+    // Not the stale E, and not the kinder grade a missing sodium would give (B).
+    expect(gradeFood({ gradeCategory: "general", per100: f.per100 }).grade).toBe("B");
+    expect(f.grade).toBe("?");
+    expect(f.gradeValue).toBeNull();
+    expect(f.gradeComponents).toEqual([]);
+    expect(f.gradeUnavailable).toBe("Sodium on this label isn't plausible, so we can't grade it.");
+  });
+
+  it("regrades (no '?') when only an ungraded-as-negative value was dropped (fibre)", () => {
+    const f = plausibleFood({ ...row, per100: { ...per100, sodiumMg: 480, fibre: 150 } });
+    expect(f.per100.fibre).toBeUndefined();
+    expect(f.gradeUnavailable).toBeUndefined();
+    expect(f.grade).toBe(gradeFood({ gradeCategory: "general", per100: f.per100 }).grade);
   });
 
   it("doesn't touch the input row", () => {
@@ -39,10 +47,11 @@ describe("plausibleFood (read-time guard)", () => {
     expect(row.grade).toBe("E");
   });
 
-  it("keeps a frozen grade (a scan snapshot) while still hiding the value", () => {
+  it("keeps a frozen grade (a scan snapshot) while still hiding the value, with no unavailable note", () => {
     const f = plausibleFood({ ...row, gradeFrozen: true });
     expect(f.per100.sodiumMg).toBeUndefined();
     expect(f.grade).toBe("E");
+    expect(f.gradeUnavailable).toBeUndefined();
   });
 
   it("returns a plausible row as it is (same object)", () => {

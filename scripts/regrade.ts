@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { food } from "@/lib/db/schema";
 import { gradeStoredFood } from "@/lib/foods/sane";
 import { GRADE_VERSION } from "@/lib/nutrition/grade";
+import { gradeUnavailableReason } from "@/lib/nutrition/grade-unavailable";
 import { dropImplausible } from "@/lib/nutrition/plausible";
 
 /**
@@ -40,8 +41,10 @@ async function main() {
     if (rows.length === 0) break;
     for (const row of rows) {
       // Graded on the plausible values only, the ones the app shows (lib/foods/sane.ts); per100 itself is
-      // left as stored (a re-seed rewrites it).
-      const g = gradeStoredFood({ ...row, per100: dropImplausible(row.per100).per100 });
+      // left as stored (a re-seed rewrites it). A dropped value the grade scores leaves it ungraded
+      // (lib/nutrition/grade-unavailable.ts), never graded as if that nutrient were zero.
+      const { per100, dropped } = dropImplausible(row.per100);
+      const g = gradeUnavailableReason(dropped, "data") ? { grade: null, value: null, components: [] } : gradeStoredFood({ ...row, per100 });
       await db
         .update(food)
         .set({ grade: g.grade, gradeValue: g.value, gradeComponents: g.components, gradeVersion: GRADE_VERSION, updatedAt: new Date() })

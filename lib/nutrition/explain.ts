@@ -1,4 +1,4 @@
-import type { DailyTargets, GradeResult, NutrientKey, Nutrients, Reason } from "./types";
+import type { DailyTargets, GradeResult, Nutrients, Reason } from "./types";
 
 const fmt = (n: number) => (n >= 100 ? Math.round(n).toLocaleString("en-IN") : (Math.round(n * 10) / 10).toString());
 
@@ -7,34 +7,8 @@ const fmt = (n: number) => (n >= 100 ? Math.round(n).toLocaleString("en-IN") : (
 const SAVOURY = /\b(dal|curry|sabzi|masala|pakora|samosa|pickle|chutney|rice|biryani|paratha|roti|dhokla|poha|upma)\b/i;
 export const INDB_SODIUM_REASON = "Sodium may be understated — salt added while cooking may not be counted.";
 
-// The grade components each nutrient feeds, and how a dropped one is named in the note below.
-const GRADED_BY: Partial<Record<NutrientKey, { components: string[]; label: string }>> = {
-  sodiumMg: { components: ["salt", "sodium", "sodiumDensity"], label: "Sodium" },
-  sugars: { components: ["sugars", "sugarsDensity"], label: "Sugar" },
-  satFat: { components: ["satFat", "satFatDensity"], label: "Saturated fat" },
-  fibre: { components: ["fibre"], label: "Fibre" },
-};
-
-/**
- * The regrade note: values dropped as implausible (lib/nutrition/plausible.ts) are unknown to the grade,
- * so when one would have counted toward it, say so instead of letting "nothing too high" stand alone.
- */
-export function droppedReason(grade: GradeResult, dropped: NutrientKey[] | undefined): Reason | null {
-  const keys = new Set(grade.components.map((c) => c.key));
-  const labels = (dropped ?? []).flatMap((k) => {
-    const g = GRADED_BY[k];
-    return g && g.components.some((c) => keys.has(c)) ? [g.label] : [];
-  });
-  if (labels.length === 0) return null;
-  const [first, ...rest] = labels.map((l, i) => (i === 0 ? l : l.toLowerCase()));
-  const list = rest.length === 0 ? first! : `${[first, ...rest.slice(0, -1)].join(", ")} and ${rest.at(-1)}`;
-  return { tone: "warn", text: `${list} left out: the source's figure wasn't plausible, so this grade doesn't count it.` };
-}
-
 export function explain(input: {
   source?: string; name?: string;
-  /** Per-100 values dropped as implausible (see droppedReason). */
-  dropped?: NutrientKey[];
   grade: GradeResult; per100: Nutrients; basis: "per_100g" | "per_100ml"; perPortion?: Nutrients; portionLabel?: string; targets: DailyTargets;
 }): Reason[] {
   if (input.grade.grade === null) return [{ tone: "warn", text: "Cooking ingredient — not graded on its own." }];
@@ -71,8 +45,6 @@ export function explain(input: {
     if (out.length === 3) break;
   }
   if (out.length === 0) out.push({ tone: "good", text: "Nothing stands out as too high." });
-  const note = droppedReason(input.grade, input.dropped);
-  if (note) out.push(note);
   if (input.source === "indb" && (n.sodiumMg ?? 0) < 150 && SAVOURY.test(input.name ?? "")) out.push({ tone: "warn", text: INDB_SODIUM_REASON });
   return out;
 }

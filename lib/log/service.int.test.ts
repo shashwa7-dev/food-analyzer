@@ -264,4 +264,26 @@ describe("food log", () => {
     await expect(loggedDates(a, "2026-13")).rejects.toBeInstanceOf(InvalidError);
     await expect(loggedDates(a, "2026-1")).rejects.toBeInstanceOf(InvalidError);
   });
+
+  it("drops implausible per-100 values from a log entry's snapshot (a scan stored before the bounds), and logs an unavailable grade as '?'", async () => {
+    const u = await createUser();
+    const s = await insertScan(u, { result: scanResult({ per100: { energyKcal: 550, protein: 10, carbs: 50, fat: 35, sugars: 3, sodiumMg: 1_259_300 }, grade: null, gradeValue: null, gradeUnavailable: "Sodium on this label isn't plausible, so we can't grade it." }) });
+    const e = await addEntry(u, { kind: "scan", date: today, meal: "lunch", scanId: s.id, portionIndex: 0, quantity: 1 });
+    expect(e.nutrients.sodiumMg).toBeUndefined();
+    expect(e.nutrients).toMatchObject({ energyKcal: 275, sugars: 1.5 });
+    expect(e.grade).toBe("?");
+    expect((await getDay(u, today)).totals.sodiumMg ?? 0).toBe(0);
+  });
+
+  it("logging a stored food with an implausible graded value: no sodium in the snapshot, grade '?'", async () => {
+    const u = await createUser();
+    const draft = toFoodDraft({ source: "off", sourceRef: "8906200000001", barcode: "8906200000001", name: "Instant noodles", basis: "per_100g",
+      per100: { energyKcal: 450, protein: 9, carbs: 60, fat: 20, sodiumMg: 1200 }, portions: [{ label: "1 pack", amount: 1, unit: "pack", grams: 70 }], countries: ["IN"] },
+      parseHouseholdCsv("keyword,label,grams\n"));
+    await upsertFoods([{ ...draft, per100: { ...draft.per100, sodiumMg: 1_711_000 }, grade: "D" }]);
+    const [row] = await db.select().from(food).where(eq(food.sourceRef, "8906200000001"));
+    const e = await addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: row!.id, portionIndex: 0, quantity: 1 });
+    expect(e.nutrients.sodiumMg).toBeUndefined();
+    expect(e.grade).toBe("?");
+  });
 });

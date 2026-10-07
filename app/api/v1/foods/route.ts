@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { requireApiUser } from "@/lib/session";
-import { apiError, invalid, json, notFound, serverError } from "@/lib/http";
+import { apiError, invalid, invalidField, json, notFound, serverError } from "@/lib/http";
 import { InvalidError, NotFoundError } from "@/lib/errors";
-import { createCustomFood, createCustomFoodFromScan, CustomFoodSchema, searchFoods } from "@/lib/foods/service";
+import { createCustomFood, createCustomFoodFromScan, customFoodFieldError, CustomFoodSchema, searchFoods } from "@/lib/foods/service";
 import { getProfile } from "@/lib/profile/service";
 import { extractFromScanId } from "./from-scan";
 
@@ -41,7 +41,10 @@ export async function POST(req: Request) {
   }
 
   const body = CustomFoodSchema.safeParse(raw);
-  if (!body.success) return invalid();
+  if (!body.success) {
+    const fe = customFoodFieldError(body.error);
+    return fe ? invalidField(fe.field, fe.message) : invalid();
+  }
   try {
     return json({ food: await createCustomFood(userId, body.data) }, { status: 201 });
   } catch {

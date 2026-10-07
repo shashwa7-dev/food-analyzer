@@ -9,6 +9,8 @@ export function apiError(status: number, code: string, message: string) {
 export const notFound = () => apiError(404, "NOT_FOUND", "We couldn't find that.");
 export const unauthorized = () => apiError(401, "UNAUTHORIZED", "Please sign in again.");
 export const invalid = (message = "Some details are missing or invalid.") => apiError(400, "INVALID_INPUT", message);
+/** A 400 naming the form field to fix (the client shows `message` under it). */
+export const invalidField = (field: string, message: string) => Response.json({ error: { code: "INVALID_INPUT", message, field } }, { status: 400 });
 export const serverError = () => apiError(500, "SERVER_ERROR", "Something went wrong. Try again.");
 
 // Only trust a well-formed ISO alpha-2 country header.

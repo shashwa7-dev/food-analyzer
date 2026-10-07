@@ -7,6 +7,7 @@ import type { ScanView } from "@/lib/scans/service";
 import { scanErrorAction } from "@/lib/scans/messages";
 import { oneLineReason, packSize, typicalPortion } from "@/lib/scans/result-display";
 import { foodIconKey, type FoodIconKey } from "@/lib/foods/icon";
+import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { nutrientsFor } from "@/lib/nutrition/portions";
 import type { Diet, Meal, Nutrients } from "@/lib/nutrition/types";
 import type { ScanResult } from "@/lib/engine/result";
@@ -116,7 +117,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
 
       <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
         <div className="flex min-w-0 flex-col gap-3">
-          <GradeHero grade={r.grade} reason={oneLineReason(r.reasons, r.grade)} />
+          <GradeHero grade={r.grade} reason={oneLineReason(r.reasons, r.grade)} unavailable={r.gradeUnavailable} />
           <CalorieRow kcal={shown.energyKcal} basis={basis} portion={portionText} />
           <MacroRings n={shown} />
           <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
@@ -147,7 +148,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
         defaultMeal={meal}
         isToday={isToday}
         iconKey={iconKey}
-        grade={r.grade}
+        grade={r.gradeUnavailable ? GRADE_UNAVAILABLE : r.grade}
         subtitle={[r.brand, `${mode.label} scan`].filter(Boolean).join(" · ")}
         flags={r.flags}
       />

@@ -15,6 +15,7 @@ import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients,
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
 import { foodIconKey } from "./icon";
+import { customNutrientIssues } from "./custom-validate";
 import { plausibleCoreWhere, plausibleFood, type SaneFoodRow } from "./sane";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
 import type { FoodHit, FoodRow } from "./types";
@@ -133,9 +134,17 @@ export async function findFoodByBarcode(barcode: string): Promise<SaneFoodRow | 
   return row ? plausibleFood(row) : null;
 }
 
+const GRADE_LETTERS: readonly string[] = ["A", "B", "C", "D", "E"];
+/** Extra candidates fetched so the read-time check below can still fill `limit`. */
+const ALTERNATIVE_HEADROOM = 3;
+
 /**
  * Better-graded visible foods sharing a category with the given food, in the given country (spec §7.4).
  * Shared by the food detail page and the scan engine (EngineDeps.alternatives).
+ *
+ * The SQL filters on the stored grade; a row whose effective grade (lib/foods/sane.ts) differs is
+ * checked again here: one with an unavailable grade ("?") is never a better pick, and a regraded one
+ * must still beat `f.grade`.
  */
 export async function findAlternatives(
   userId: string,
@@ -146,11 +155,15 @@ export async function findAlternatives(
   const rows = await db.select(HIT_COLUMNS).from(food)
     .where(and(visibleFoodWhere(userId), plausibleCoreWhere(), arrayOverlaps(food.categories, f.categories), sql`${f.country} = ANY(${food.countries})`,
       sql`${food.grade} < ${f.grade}`, f.excludeId ? sql`${food.id} <> ${f.excludeId}` : undefined))
-    .orderBy(food.grade, desc(food.popularity), food.id).limit(limit);
-  return rows.map(toHit);
+    .orderBy(food.grade, desc(food.popularity), food.id).limit(limit * ALTERNATIVE_HEADROOM);
+  return rows.map(toHit).filter((h) => h.grade !== null && GRADE_LETTERS.includes(h.grade) && h.grade < f.grade!).slice(0, limit);
 }
 
-export async function foodDetail(userId: string, id: string): Promise<{ food: SaneFoodRow; reasons: Reason[]; flags: Flag[]; alternatives: FoodHit[]; ingredientsKnown: boolean } | null> {
+export async function foodDetail(userId: string, id: string): Promise<{
+  food: SaneFoodRow; reasons: Reason[]; flags: Flag[]; alternatives: FoodHit[]; ingredientsKnown: boolean;
+  /** Set when the grade can't be shown (lib/nutrition/grade-unavailable.ts): the reason, also the only "why". */
+  gradeUnavailable: string | null;
+} | null> {
   const f = await getFoodForUser(userId, id);
   if (!f) return null;
   const prof = await getProfile(userId);
@@ -158,26 +171,41 @@ export async function foodDetail(userId: string, id: string): Promise<{ food: Sa
   const portion = f.portions[f.defaultPortion] ?? f.portions[0]!;
   const perPortion = portion.grams ? nutrientsFor(f.per100, portion.grams) : f.per100;
   const g: GradeResult = { grade: f.grade as Grade | null, value: f.gradeValue, components: f.gradeComponents };
-  const reasons = explain({ source: f.source, name: f.name, grade: g, per100: f.per100, dropped: f.dropped, basis: f.basis, perPortion, portionLabel: portion.label, targets });
+  const gradeUnavailable = f.gradeUnavailable ?? null;
+  const reasons: Reason[] = gradeUnavailable
+    ? [{ tone: "warn", text: gradeUnavailable }]
+    : explain({ source: f.source, name: f.name, grade: g, per100: f.per100, basis: f.basis, perPortion, portionLabel: portion.label, targets });
   const flags = personalise({ name: f.name, allergens: f.allergens, mayContain: f.mayContain, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
     profile: { allergies: prof.allergies, diet: prof.diet, goal: prof.goal, targets } });
-  const alternatives = f.kind === "packaged" && f.grade && f.grade > "B" && f.categories.length
+  const alternatives = !gradeUnavailable && f.kind === "packaged" && f.grade && f.grade > "B" && f.categories.length
     ? await findAlternatives(userId, { categories: f.categories, country: prof.country, grade: f.grade as Grade, excludeId: f.id })
     : [];
-  return { food: f, reasons, flags, alternatives, ingredientsKnown: f.ingredients.length > 0 };
+  return { food: f, reasons, flags, alternatives, ingredientsKnown: f.ingredients.length > 0, gradeUnavailable };
 }
 
 const NutrientsInput = z.object({
   energyKcal: z.number().min(0).max(5000), protein: z.number().min(0).max(500), carbs: z.number().min(0).max(500), fat: z.number().min(0).max(500),
   fibre: z.number().min(0).max(500).optional(), sugars: z.number().min(0).max(500).optional(), satFat: z.number().min(0).max(500).optional(),
   sodiumMg: z.number().min(0).max(20000).optional(),
+  // Not on the form, but kept: a food saved from a scan can carry them, and an edit mustn't drop them.
+  addedSugars: z.number().min(0).max(500).optional(), transFat: z.number().min(0).max(500).optional(),
 });
 export const CustomFoodSchema = z.object({
   name: z.string().trim().min(1).max(120), brand: z.string().trim().max(80).optional(),
   per: z.object({ amount: z.number().min(1).max(2000), unit: z.enum(["g", "ml", "serving"]) }),
   servingGrams: z.number().min(1).max(2000).optional(),
   nutrients: NutrientsInput,
+}).superRefine((v, ctx) => {
+  // The shared plausibility bounds, field by field (lib/foods/custom-validate.ts): rejected with a
+  // message for that field, never stored and later dropped on read.
+  for (const { field, message } of customNutrientIssues(v)) ctx.addIssue({ code: "custom", path: ["nutrients", field], message });
 });
+
+/** The first plausibility issue in a failed CustomFoodSchema parse, as the field and its message (for the form). */
+export function customFoodFieldError(error: z.ZodError): { field: string; message: string } | null {
+  const issue = error.issues.find((i) => i.code === "custom" && i.path[0] === "nutrients");
+  return issue ? { field: String(issue.path[1]), message: issue.message } : null;
+}
 export type CustomFoodInput = z.infer<typeof CustomFoodSchema>;
 
 function customDraft(userId: string, input: CustomFoodInput) {
@@ -277,6 +305,18 @@ export async function updateCustomFood(userId: string, id: string, input: Custom
   // gradeFrozen: false — after an edit the grade is computed from the user's numbers, so regrade may refresh it.
   const [row] = await db.update(food).set({ ...d, sourceRef: undefined, gradeFrozen: false, searchText: sql`to_tsvector('simple', ${d.searchName})` as unknown as string, updatedAt: new Date() })
     .where(and(eq(food.id, id), eq(food.ownerId, userId), eq(food.source, "custom"), sql`${food.deletedAt} IS NULL`)).returning();
+  return row ?? null;
+}
+
+/**
+ * The owner's own custom food exactly as stored, for its edit form: no read guard (lib/foods/sane.ts),
+ * because the form must show every stored value (an implausible one is then flagged under its field
+ * and must be fixed) rather than silently drop it on the next save.
+ */
+export async function getOwnCustomFoodForEdit(userId: string, id: string): Promise<FoodRow | null> {
+  if (!z.uuid().safeParse(id).success) return null;
+  const [row] = await db.select().from(food)
+    .where(and(eq(food.id, id), eq(food.ownerId, userId), eq(food.source, "custom"), sql`${food.deletedAt} IS NULL`));
   return row ?? null;
 }
 

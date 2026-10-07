@@ -8,6 +8,7 @@ import { dietChip, macroShare, sodiumLevel, verdict, warningFlags } from "@/lib/
 import type { FoodIconKey } from "@/lib/foods/icon";
 import type { Diet, Flag, Grade, Nutrients, Reason } from "@/lib/nutrition/types";
 import { GRADE_FILL, GradeBadge } from "@/components/grade-badge";
+import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { ReasonList } from "@/components/food/food-verdict";
 import { FlagNotes } from "@/components/food/sheet-parts";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,26 @@ const HERO_BG: Record<Grade, string> = {
 };
 const GRADES: Grade[] = ["A", "B", "C", "D", "E"];
 
-export function GradeHero({ grade, reason }: { grade: Grade | null; reason: string | null }) {
+/**
+ * The grade hero. With `unavailable` (lib/nutrition/grade-unavailable.ts: a dropped value the grade
+ * scores) it shows no grade at all: a neutral "?" badge, "Grade unavailable" with that reason, and the
+ * A–E scale with no position highlighted.
+ */
+export function GradeHero({ grade, reason, unavailable }: { grade: Grade | null; reason: string | null; unavailable?: string | null }) {
+  if (unavailable) {
+    return (
+      <section className="grid gap-3.5 rounded-[28px] bg-sunken p-[18px]" aria-label="Grade">
+        <div className="flex items-center gap-3.5">
+          <GradeBadge grade={GRADE_UNAVAILABLE} size="lg" />
+          <p className="m-0 min-w-0 text-[14px] leading-[1.35] text-ink">
+            <b className="mb-0.5 block text-[16px] font-semibold">Grade unavailable</b>
+            {unavailable}
+          </p>
+        </div>
+        <GradeScale grade={null} />
+      </section>
+    );
+  }
   return (
     <section className={cn("grid gap-3.5 rounded-[28px] p-[18px]", grade ? HERO_BG[grade] : "bg-sunken")} aria-label="Grade">
       <div className="flex items-center gap-3.5">
@@ -74,23 +94,28 @@ export function GradeHero({ grade, reason }: { grade: Grade | null; reason: stri
           {reason}
         </p>
       </div>
-      {grade && (
-        <div className="grid grid-cols-5 gap-1" aria-hidden>
-          {GRADES.map((g) => (
-            <span
-              key={g}
-              className={cn(
-                "grid h-[26px] place-items-center rounded-[8px] text-[12px] font-bold",
-                GRADE_FILL[g],
-                g === grade ? "scale-y-[1.18] ring-2 ring-surface" : "opacity-45",
-              )}
-            >
-              {g}
-            </span>
-          ))}
-        </div>
-      )}
+      {grade && <GradeScale grade={grade} />}
     </section>
+  );
+}
+
+/** The A–E strip under the hero; `grade` null highlights nothing. */
+function GradeScale({ grade }: { grade: Grade | null }) {
+  return (
+    <div className="grid grid-cols-5 gap-1" aria-hidden>
+      {GRADES.map((g) => (
+        <span
+          key={g}
+          className={cn(
+            "grid h-[26px] place-items-center rounded-[8px] text-[12px] font-bold",
+            GRADE_FILL[g],
+            g === grade ? "scale-y-[1.18] ring-2 ring-surface" : "opacity-45",
+          )}
+        >
+          {g}
+        </span>
+      ))}
+    </div>
   );
 }
 

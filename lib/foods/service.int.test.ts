@@ -11,7 +11,7 @@ import { gradeFood } from "@/lib/nutrition/grade";
 import { foodIconKey } from "./icon";
 import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
-import { createCustomFood, createCustomFoodFromScan, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
+import { createCustomFood, createCustomFoodFromScan, customFoodFieldError, CustomFoodSchema, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, getOwnCustomFoodForEdit, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
 
 const rules = parseHouseholdCsv("keyword,label,grams\nrice,1 katori,150\n");
 const rec = (sourceRef: string, name: string, per100 = { energyKcal: 130, protein: 2.7, carbs: 28, fat: 0.3 }, source: "indb" | "fndds" = "indb") =>
@@ -359,7 +359,7 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     expect(savedFlags).toEqual(pick((await foodDetail(u, curated.id))!.flags));
   });
 
-  it("a stored row with an absurd per-100 value (pre-bounds OFF data) displays without it, regraded, everywhere it's read", async () => {
+  it("a stored row with an absurd graded per-100 value (pre-bounds OFF data) displays without it and with no grade, everywhere it's read", async () => {
     const u = await createUser();
     // Ashoka Dal Makhani as stored before the bounds existed: sodium 350,428 mg/100 g (a unit error), graded E on it.
     const per100 = { energyKcal: 129.286, protein: 4.286, carbs: 12.143, fat: 6.786, sugars: 0, satFat: 1.286, sodiumMg: 350_428.558 };
@@ -373,14 +373,16 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     const d = (await foodDetail(u, stored.id))!;
     expect(d.food.per100.sodiumMg).toBeUndefined();
     expect(d.food.provenance.sodiumMg).toBeUndefined();
-    expect(d.food.grade).not.toBe("E");
     expect(d.flags.map((f) => f.text).join(" ")).not.toMatch(/sodium/i); // no "24530% of your daily sodium limit"
-    expect(d.reasons.map((r) => r.text).join(" ")).not.toMatch(/high salt|high sodium/i);
-    // The regrade note: the grade no longer counts salt, and the page says so.
-    expect(d.reasons).toContainEqual({ tone: "warn", text: "Sodium left out: the source's figure wasn't plausible, so this grade doesn't count it." });
+    // Provisional: neither the stale E nor a kinder grade computed without sodium.
+    const reason = "Sodium on this label isn't plausible, so we can't grade it.";
+    expect(d.food.grade).toBe("?");
+    expect(d.gradeUnavailable).toBe(reason);
+    expect(d.reasons).toEqual([{ tone: "warn", text: reason }]); // no "Nothing stands out"
+    expect(d.alternatives).toEqual([]);
 
     const hit = (await searchFoods(u, "dal makhani", "IN")).find((h) => h.id === stored.id)!;
-    expect(hit.grade).toBe(d.food.grade);
+    expect(hit.grade).toBe("?");
     expect((await findFoodByBarcode("8906000000001"))!.per100.sodiumMg).toBeUndefined();
     expect((await searchFoodRows(u, "dal makhani", "IN")).find((r) => r.id === stored.id)!.per100.sodiumMg).toBeUndefined();
     expect((await getFoodForUser(u, stored.id))!.per100.sodiumMg).toBeUndefined();
@@ -403,7 +405,9 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     expect(await findAlternatives(u, { categories: ["en:biscuits"], country: "IN", grade: "E" })).toHaveLength(1);
 
     // A custom food is the owner's own entry: 1,200 kcal per 100 g is past the bounds but stays visible to them.
-    const mine = await createCustomFood(u, { name: "Ghee biscuits, home", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 1200, protein: 6, carbs: 60, fat: 70 } });
+    // (New custom foods can't be saved like that any more, so this is one stored before the check.)
+    const mine = await createCustomFood(u, { name: "Ghee biscuits, home", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 800, protein: 6, carbs: 60, fat: 70 } });
+    await db.update(food).set({ per100: { ...mine.per100, energyKcal: 1200 } }).where(eq(food.id, mine.id));
     expect(await getFoodForUser(u, mine.id)).not.toBeNull();
     expect((await searchFoods(u, "ghee biscuits", "IN")).map((h) => h.id)).toContain(mine.id);
   });
@@ -418,5 +422,40 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     expect(hit).toMatchObject({ id: stored.id, defaultPortion: { label: "100 g", grams: 100 } });
     const f = (await getFoodForUser(u, stored.id))!;
     expect(f.portions[f.defaultPortion]!.label).toBe("100 g");
+  });
+
+  it("alternatives skip a row whose stored grade is better but whose effective grade is unavailable", async () => {
+    const u = await createUser();
+    const off = (ref: string, name: string, per100: Record<string, number>) => toFoodDraft({ source: "off", sourceRef: ref, barcode: ref, name, basis: "per_100g",
+      per100: per100 as never, portions: [], categories: ["en:instant-noodles"], countries: ["IN"] }, rules);
+    const subject = await upsertFood(off("8906100000001", "Masala noodles", { energyKcal: 450, protein: 9, carbs: 60, fat: 20, satFat: 9, sugars: 3, sodiumMg: 1400 }));
+    expect(subject.grade! > "B").toBe(true);
+    // Stored as A before the bounds; its sodium is a unit error (1,259,300 mg), so its effective grade is "?".
+    const staleA = off("8906100000002", "Atta noodles", { energyKcal: 350, protein: 12, carbs: 60, fat: 5, satFat: 1, sugars: 2, sodiumMg: 100 });
+    const stale = await upsertFood({ ...staleA, per100: { ...staleA.per100, sodiumMg: 1_259_300 }, grade: "A" });
+    const real = await upsertFood(off("8906100000003", "Oats noodles", { energyKcal: 350, protein: 12, carbs: 60, fat: 5, satFat: 1, sugars: 2, sodiumMg: 100 }));
+    const alts = await findAlternatives(u, { categories: ["en:instant-noodles"], country: "IN", grade: subject.grade as never, excludeId: subject.id });
+    expect(alts.map((a) => a.id)).toContain(real.id);
+    expect(alts.map((a) => a.id)).not.toContain(stale.id);
+  });
+
+  it("custom foods: implausible numbers are rejected with the field and a message; the edit form reads the stored row unguarded", async () => {
+    const u = await createUser();
+    const input = { name: "Jaggery bar", per: { amount: 100, unit: "g" as const }, nutrients: { energyKcal: 380, protein: 1, carbs: 30, fat: 1, sugars: 45 } };
+    const parsed = CustomFoodSchema.safeParse(input);
+    expect(parsed.success).toBe(false);
+    expect(customFoodFieldError(parsed.error!)).toEqual({ field: "sugars", message: "Sugars can't be more than carbs." });
+    await expect(createCustomFood(u, input)).rejects.toThrow();
+    expect(CustomFoodSchema.safeParse({ ...input, nutrients: { ...input.nutrients, carbs: 90 } }).success).toBe(true);
+
+    // A custom food stored before the bounds with an implausible value: the food page hides it, the edit form doesn't.
+    const ok = await createCustomFood(u, { ...input, nutrients: { ...input.nutrients, carbs: 90, addedSugars: 10 } });
+    await db.update(food).set({ per100: { ...ok.per100, sodiumMg: 90_000 } }).where(eq(food.id, ok.id));
+    expect((await getFoodForUser(u, ok.id))!.per100.sodiumMg).toBeUndefined();
+    const raw = (await getOwnCustomFoodForEdit(u, ok.id))!;
+    expect(raw.per100.sodiumMg).toBe(90_000);
+    expect(raw.per100.addedSugars).toBe(10); // kept through the schema (not on the form, carried by an edit)
+    const other = await createUser();
+    expect(await getOwnCustomFoodForEdit(other, ok.id)).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/session";
-import { getFoodForUser } from "@/lib/foods/service";
+import { getOwnCustomFoodForEdit } from "@/lib/foods/service";
 import { nutrientsFor } from "@/lib/nutrition/portions";
 import { BackButton } from "@/components/nav/back-button";
 import { CustomFoodForm, type CustomFoodFormInitial } from "@/components/food/custom-food-form";
@@ -11,8 +11,9 @@ export default async function NewFoodPage({ searchParams }: { searchParams: Prom
 
   let initial: CustomFoodFormInitial | null = null;
   if (editId) {
-    const existing = await getFoodForUser(userId, editId);
-    if (!existing || existing.source !== "custom") notFound();
+    // As stored (no read guard): the form shows every value, never silently dropping one.
+    const existing = await getOwnCustomFoodForEdit(userId, editId);
+    if (!existing) notFound();
     const servingPortion = existing.portions.find((p) => p.unit === "serving");
     initial = {
       id: existing.id,

@@ -18,7 +18,7 @@ import { MEAL_META } from "@/components/food/meal-meta";
 import { FlagNotes, FoodSheetHeader } from "@/components/food/sheet-parts";
 import { StickyActionBar } from "@/components/food/result-parts";
 import type { FoodIconKey } from "@/lib/foods/icon";
-import type { Flag, Grade, Meal } from "@/lib/nutrition/types";
+import type { Flag, Meal } from "@/lib/nutrition/types";
 import { AnalysingCard } from "./analysing-card";
 
 /** /scans/[id] while the scan is still queued/processing: the Analysing card, then a refresh into the result. */
@@ -109,7 +109,7 @@ function SaveFood({ scanId }: { scanId: string }) {
  */
 export function ResultActions({ scanId, food, canSave, date, defaultMeal, isToday, iconKey, grade, subtitle, flags }: {
   scanId: string; food: LoggableFood; canSave: boolean; date: string; defaultMeal: Meal; isToday: boolean;
-  iconKey: FoodIconKey; grade: Grade | null; subtitle: string; flags: Flag[];
+  iconKey: FoodIconKey; /** A letter, "?" (grade unavailable) or null. */ grade: string | null; subtitle: string; flags: Flag[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);

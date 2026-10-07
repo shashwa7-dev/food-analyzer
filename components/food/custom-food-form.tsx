@@ -10,7 +10,8 @@ import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { CARD, StickyActionBar } from "@/components/food/result-parts";
 import { cn } from "@/lib/utils";
-import { parseAmount } from "@/lib/parse-amount";
+import { amountError, parseAmount } from "@/lib/parse-amount";
+import { customNutrientIssues } from "@/lib/foods/custom-validate";
 import type { Nutrients } from "@/lib/nutrition/types";
 
 export interface CustomFoodFormInitial {
@@ -39,6 +40,13 @@ const OPTIONAL_FIELDS = [
 ] as const;
 
 type FieldId = "name" | "servingGrams" | (typeof REQUIRED_FIELDS)[number]["key"] | (typeof OPTIONAL_FIELDS)[number]["key"];
+
+const FORM_KEYS: readonly string[] = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS].map((f) => f.key);
+const isFormField = (k: string): boolean => FORM_KEYS.includes(k);
+/** Stored values with no field on the form, carried through an edit unchanged. */
+const extraNutrients = (n: Nutrients): Record<string, number> =>
+  Object.fromEntries(Object.entries(n).filter(([k, v]) => !isFormField(k) && typeof v === "number"));
+const perOf = (unit: Unit) => (unit === "serving" ? { amount: 1, unit: "serving" as const } : { amount: 100, unit });
 
 function toText(v: number | undefined): string {
   return v === undefined ? "" : String(v);
@@ -105,6 +113,19 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
   });
   const [error, setError] = useState<{ message: string; field: FieldId | null } | null>(null);
 
+  /**
+   * The numbers to save: what's typed, over any stored values the form has no field for (added sugars,
+   * trans fat on a food saved from a scan), so an edit never drops a stored value.
+   */
+  function typedNutrients(): Nutrients {
+    const out: Record<string, number> = { ...(initial ? extraNutrients(initial.nutrients) : {}) };
+    for (const f of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
+      const v = parseAmount(values[f.key]!);
+      if (v !== null && !Number.isNaN(v)) out[f.key] = v;
+    }
+    return out as unknown as Nutrients;
+  }
+
   function validate(): { message: string; field: FieldId | null } | null {
     if (!name.trim()) return { message: "Give it a name.", field: "name" };
     if (unit === "serving") {
@@ -114,13 +135,22 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
     for (const f of REQUIRED_FIELDS) {
       const v = parseAmount(values[f.key]!);
       if (v === null) return { message: `Enter the ${f.label.toLowerCase()}. Use 0 if there's none.`, field: f.key };
+      const bad = amountError(values[f.key]!);
+      if (bad) return { message: bad, field: f.key };
       if (!(v >= 0 && v <= f.max)) return { message: `${f.label} should be between 0 and ${f.max} ${f.unit}.`, field: f.key };
     }
     for (const f of OPTIONAL_FIELDS) {
       const v = parseAmount(values[f.key]!);
       if (v === null) continue;
+      const bad = amountError(values[f.key]!);
+      if (bad) return { message: bad, field: f.key };
       if (!(v >= 0 && v <= f.max)) return { message: `${f.label} should be between 0 and ${f.max} ${f.unit}.`, field: f.key };
     }
+    // The shared plausibility bounds (sugars within carbs, sodium within pure salt, ...): the same
+    // check the API makes, shown under the field before saving.
+    const issue = customNutrientIssues({ per: perOf(unit), servingGrams: parseAmount(servingGrams), nutrients: typedNutrients() })
+      .find((i) => isFormField(i.field));
+    if (issue) return { message: issue.message, field: issue.field as FieldId };
     return null;
   }
 
@@ -128,17 +158,12 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
     mutationFn: async () => {
       const trimmed = name.trim();
       const trimmedBrand = brand.trim();
-      const nutrients: Record<string, number> = {};
-      for (const f of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
-        const v = parseAmount(values[f.key]!);
-        if (v !== null) nutrients[f.key] = v;
-      }
       const body = {
         name: trimmed,
         ...(trimmedBrand ? { brand: trimmedBrand } : {}),
-        per: unit === "serving" ? { amount: 1, unit: "serving" as const } : { amount: 100, unit },
+        per: perOf(unit),
         ...(unit === "serving" ? { servingGrams: parseAmount(servingGrams) } : {}),
-        nutrients,
+        nutrients: typedNutrients(),
       };
       return initial
         ? api<{ food: { id: string } }>(`/api/v1/foods/${initial.id}`, { method: "PATCH", body: JSON.stringify(body) })
@@ -153,7 +178,9 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
     },
     onError: (e) => {
       const message = e instanceof ApiError ? e.message : "Couldn't save that. Try again.";
-      setError({ message, field: null });
+      // The API names the field for a plausibility issue; show the message under it.
+      const field = e instanceof ApiError && e.field && isFormField(e.field) ? (e.field as FieldId) : null;
+      setError({ message, field });
       toast.error(message);
     },
   });

@@ -11,6 +11,7 @@ import { categoriesFromGuess, tipFor } from "./tips";
 import { validateFacts } from "./validate";
 import { classify } from "@/lib/nutrition/classify";
 import { dishScore } from "@/lib/nutrition/grade/dish";
+import { gradeUnavailableReason } from "@/lib/nutrition/grade-unavailable";
 import { dropImplausible } from "@/lib/nutrition/plausible";
 import { ensureBasePortion, nutrientsFor, scaleNutrients } from "@/lib/nutrition/portions";
 import { NUTRIENT_KEYS, type DailyTargets, type Diet, type Goal, type Grade, type GradeResult, type NutrientKey, type Nutrients, type Portion, type Provenance } from "@/lib/nutrition/types";
@@ -27,8 +28,8 @@ export type FoodLike = Pick<
   | "gradePortionGrams" | "ingredients" | "allergens" | "mayContain" | "additives" | "categories" | "nova" | "grade"
   | "gradeValue" | "gradeComponents" | "barcode"
 > & {
-  /** Per-100 values dropped as implausible when the row was read (lib/foods/sane.ts). */
-  dropped?: NutrientKey[];
+  /** Set by the read guard (lib/foods/sane.ts) when an implausible graded value was dropped: no grade is shown. */
+  gradeUnavailable?: string;
 };
 
 export interface ExtractOutput {
@@ -205,7 +206,7 @@ async function resultFromFood(
     basis: f.basis, per100: f.per100, provenance: f.provenance, portions: f.portions, defaultPortion: f.defaultPortion,
     gradeCategory: f.gradeCategory, gradePortionGrams: f.gradePortionGrams,
     ingredients: f.ingredients, allergens: f.allergens, mayContain: f.mayContain, additives: f.additives, nova: f.nova,
-    alternatives: [], hints, confidence, profile, precomputedGrade: storedGrade(f), dropped: f.dropped,
+    alternatives: [], hints, confidence, profile, precomputedGrade: storedGrade(f), gradeUnavailable: f.gradeUnavailable,
   });
   return withAlternatives(result, f.categories, f.id, deps, profile.country);
 }
@@ -390,7 +391,8 @@ async function labelScan(
     // Per-serving values of unknown weight are never passed off as per-100 (no grams logging, no grade).
     ...(servingUnknown ? { per100: null, perServing: merged.per100 } : { per100: merged.per100 }),
     portions, defaultPortion, gradeCategory, gradePortionGrams: null, ingredients, allergens, mayContain, additives,
-    nova: db?.nova ?? null, alternatives: [], hints, confidence, profile, ...(servingUnknown && { servingUnknown }), dropped: merged.dropped,
+    nova: db?.nova ?? null, alternatives: [], hints, confidence, profile, ...(servingUnknown && { servingUnknown }),
+    gradeUnavailable: gradeUnavailableReason(merged.dropped, "label") ?? undefined,
   });
   const result = await withAlternatives(built, categories, db?.id ?? null, deps, profile.country);
 
@@ -424,7 +426,8 @@ async function frontScan(x: Extraction, profile: Profile, deps: EngineDeps): Pro
     portions, defaultPortion, gradeCategory, gradePortionGrams: null, ingredients: x.ingredients ?? [],
     allergens: toOffAllergenTags(x.allergensDeclared ?? []), mayContain: toOffAllergenTags(x.mayContain ?? []),
     additives: toOffAdditiveTags(x.additives ?? []), nova: null, alternatives: [],
-    hints: est.servingUnknown ? [HINT_BACK, HINT_NO_SERVING] : [HINT_BACK], confidence: "low", profile, dropped,
+    hints: est.servingUnknown ? [HINT_BACK, HINT_NO_SERVING] : [HINT_BACK], confidence: "low", profile,
+    gradeUnavailable: gradeUnavailableReason(dropped, "estimate") ?? undefined,
     ...(est.servingUnknown && { servingUnknown: true }),
   });
   return { result: await withAlternatives(built, categories, null, deps, profile.country), crowdCandidate: null };

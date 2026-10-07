@@ -7,12 +7,23 @@ import type { ScanResult } from "@/lib/engine/result";
 import { InvalidError, NotFoundError } from "@/lib/errors";
 import { getFoodForUser } from "@/lib/foods/service";
 import { isFreeGramsPortion } from "@/lib/log/format";
+import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
+import { dropImplausible } from "@/lib/nutrition/plausible";
 import { nutrientsFor, rescaleEntry, scaleNutrients } from "@/lib/nutrition/portions";
 import { targetsFor } from "@/lib/nutrition/targets";
 import { dayTotals } from "@/lib/nutrition/totals";
 import { MEALS, type Nutrients, type Portion } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
+
+/**
+ * A log entry's nutrient snapshot for `grams` of a per-100 record. Implausible per-100 values
+ * (lib/nutrition/plausible.ts) are dropped first, the same way food views drop them, so a bad source
+ * value (a scan stored before the bounds, a row the read guard missed) never lands in a day's totals.
+ */
+export function snapshotNutrients(per100: Nutrients, grams: number): Nutrients {
+  return nutrientsFor(dropImplausible(per100).per100, grams);
+}
 
 export type EntryRow = typeof foodLog.$inferSelect;
 const Meal = z.enum(MEALS);
@@ -71,7 +82,7 @@ export async function addEntry(userId: string, raw: AddEntryInput): Promise<Entr
     : resolvePortion(f.portions, f.basis, { portionIndex: input.portionIndex, quantity: input.quantity });
   const grams = portion.grams!;
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(foodLog).values({ userId, date: input.date, meal: input.meal, foodId: f.id, name: f.brand ? `${f.name} · ${f.brand}` : f.name, portion, nutrients: nutrientsFor(f.per100, grams), grade: f.grade }).returning();
+    const [row] = await tx.insert(foodLog).values({ userId, date: input.date, meal: input.meal, foodId: f.id, name: f.brand ? `${f.name} · ${f.brand}` : f.name, portion, nutrients: snapshotNutrients(f.per100, grams), grade: f.grade }).returning();
     await bumpFoodStats(tx, userId, f.id);
     return row!;
   });
@@ -96,7 +107,7 @@ async function addScanEntry(userId: string, input: Extract<AddEntryInput, { kind
     portion = input.kind === "scan_grams"
       ? resolvePortion(result.portions, result.basis, { grams: input.grams })
       : resolvePortion(result.portions, result.basis, { portionIndex: input.portionIndex, quantity: input.quantity });
-    nutrients = nutrientsFor(result.per100, portion.grams!);
+    nutrients = snapshotNutrients(result.per100, portion.grams!);
   } else {
     // Per-serving label with no serving weight: only whole servings are loggable (the weight is unknown).
     const serving = input.kind === "scan" ? result.portions[input.portionIndex] : undefined;
@@ -110,7 +121,8 @@ async function addScanEntry(userId: string, input: Extract<AddEntryInput, { kind
   return db.transaction(async (tx) => {
     const [entry] = await tx.insert(foodLog).values({
       userId, date: input.date, meal: input.meal, scanId: input.scanId, foodId: linkedFood?.id ?? null,
-      name, portion, nutrients, grade: result.grade,
+      // A result with no grade shown ("?", lib/nutrition/grade-unavailable.ts) logs as "?" too.
+      name, portion, nutrients, grade: result.gradeUnavailable ? GRADE_UNAVAILABLE : result.grade,
     }).returning();
     if (linkedFood) await bumpFoodStats(tx, userId, linkedFood.id);
     return entry!;

@@ -2,6 +2,7 @@
 // same transaction that creates the scan, the model call finished in a background job, and every
 // terminal write conditional on the scan still running — so a sweep, a delete and a late job can
 // race freely and the user is charged at most once and refunded at most once.
+import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { and, count, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Db, type Tx } from "@/lib/db/client";
@@ -420,7 +421,8 @@ export async function listScans(userId: string, query: ListScansQuery, now: numb
   const rows = await db.select({
     id: scan.id, status: scan.status, inputKind: scan.inputKind, confidence: scan.confidence, errorCode: scan.errorCode,
     createdAt: scan.createdAt, name, brand: sql<string | null>`${scan.result}->>'brand'`,
-    grade: sql<string | null>`${scan.result}->>'grade'`, kind: sql<string | null>`${scan.result}->>'kind'`,
+    // A result whose grade is unavailable (lib/nutrition/grade-unavailable.ts) lists as "?".
+    grade: sql<string | null>`COALESCE(${scan.result}->>'grade', CASE WHEN ${scan.result}->>'gradeUnavailable' IS NOT NULL THEN ${GRADE_UNAVAILABLE} END)`, kind: sql<string | null>`${scan.result}->>'kind'`,
   }).from(scan)
     .where(and(
       visibleScanWhere(userId),
