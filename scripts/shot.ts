@@ -1,5 +1,5 @@
 // Dev-only: screenshot a signed-in page as the demo user (pnpm seed:demo writes the cookie).
-//   pnpm shot <path> [--w 390|1280] [--dark] [--full] [--out file.png]
+//   pnpm shot <path> [--w 390|1280] [--dark] [--full] [--wait ms] [--out file.png]
 // Uses the installed Chrome through puppeteer-core; the dev server must be running.
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -11,17 +11,18 @@ const COOKIE_FILE = resolve(".superpowers/demo-cookie.txt");
 const HIDE_DEV_UI = "nextjs-portal, [data-nextjs-toast], [data-next-badge-root], #__next-build-watcher { display: none !important; }";
 
 function parseArgs(argv: string[]) {
-  const out = { path: "", width: 390, dark: false, full: false, file: "" };
+  const out = { path: "", width: 390, dark: false, full: false, file: "", wait: 300 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === "--w" || a === "--width") out.width = Number(argv[++i]);
     else if (a === "--dark") out.dark = true;
     else if (a === "--full") out.full = true;
     else if (a === "--out") out.file = argv[++i] ?? "";
+    else if (a === "--wait") out.wait = Number(argv[++i]); // e.g. let chart intros finish
     else if (!a.startsWith("--") && !out.path) out.path = a;
     else throw new Error(`Unknown argument ${a}`);
   }
-  if (!out.path) throw new Error("Usage: pnpm shot <path> [--w 390|1280] [--dark] [--full] [--out file.png]");
+  if (!out.path) throw new Error("Usage: pnpm shot <path> [--w 390|1280] [--dark] [--full] [--wait ms] [--out file.png]");
   if (!Number.isInteger(out.width) || out.width < 200 || out.width > 3000) throw new Error("--w must be a width in px, e.g. 390 or 1280");
   if (!out.path.startsWith("/")) out.path = `/${out.path}`;
   return out;
@@ -49,7 +50,7 @@ async function main() {
     const url = new URL(args.path, base).toString();
     const res = await page.goto(url, { waitUntil: "networkidle0", timeout: 60_000 });
     await page.addStyleTag({ content: HIDE_DEV_UI });
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, args.wait));
     await page.screenshot({ path: file, fullPage: args.full });
     const landed = new URL(page.url()).pathname;
     console.log(`${res?.status() ?? "?"} ${url}${landed !== new URL(url).pathname ? ` → redirected to ${landed}` : ""}`);

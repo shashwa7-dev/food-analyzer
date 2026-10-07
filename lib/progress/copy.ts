@@ -39,5 +39,5 @@ export function compact(n: number): string {
   return `${Number.isInteger(k) ? k : k.toFixed(1).replace(/\.0$/, "")}k`;
 }
 
-/** Thousands with commas, en-GB, deterministic on server and client. */
-export const grouped = (n: number) => Math.round(n).toLocaleString("en-GB");
+/** Thousands with commas (en-IN, as Today uses), deterministic on server and client. */
+export const grouped = (n: number) => Math.round(n).toLocaleString("en-IN");
