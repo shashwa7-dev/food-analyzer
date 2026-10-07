@@ -211,7 +211,7 @@ export async function createCustomFood(userId: string, input: CustomFoodInput): 
  * grade-frozen, this mapping's coarseness can never affect the grade shown — it's display/ranking
  * metadata only.
  */
-export async function createCustomFoodFromScan(userId: string, scanId: string): Promise<FoodRow> {
+export async function createCustomFoodFromScan(userId: string, scanId: string): Promise<{ food: FoodRow; created: boolean }> {
   if (!z.uuid().safeParse(scanId).success) throw new NotFoundError();
   const [row] = await db.select({ status: scan.status, result: scan.result }).from(scan).where(and(eq(scan.id, scanId), visibleScanWhere(userId)));
   if (!row || row.status !== "done" || !row.result) throw new NotFoundError();
@@ -222,21 +222,39 @@ export async function createCustomFoodFromScan(userId: string, scanId: string): 
   const gradePortionGrams = kind === "dish" ? (r.portions[r.defaultPortion]?.grams ?? 100) : null;
 
   const draft = {
-    source: "custom" as const, sourceRef: null, ownerId: userId, kind, gradeCategory,
+    source: "custom" as const, sourceRef: scanId, ownerId: userId, kind, gradeCategory,
     name: r.name, brand: r.brand, basis: r.basis, per100: r.per100, provenance: r.provenance,
     portions: r.portions, defaultPortion: r.defaultPortion, gradePortionGrams, ingredients: r.ingredients,
     grade: r.grade, gradeValue: r.gradeValue, gradeComponents: r.components, gradeVersion: GRADE_VERSION,
     gradeFrozen: true, countries: [] as string[],
     ...buildSearchFields({ name: r.name, brand: r.brand }),
   };
-  const [saved] = await db.insert(food).values({ ...draft, searchText: sql`to_tsvector('simple', ${draft.searchName})` as unknown as string }).returning();
-  return saved!;
+  // Idempotent per scan via the existing unique index food_source_ref_uq (source, source_ref):
+  // ('custom', scanId) can exist once, and a scan has exactly one owner. A repeat save returns the
+  // existing food untouched; if the user had deleted it, the save restores it (deleted_at → NULL).
+  // `xmax = 0` is true only for a freshly inserted row (an ON CONFLICT update sets xmax).
+  const [saved] = await db.insert(food)
+    .values({ ...draft, searchText: sql`to_tsvector('simple', ${draft.searchName})` as unknown as string })
+    .onConflictDoUpdate({
+      target: [food.source, food.sourceRef],
+      set: {
+        deletedAt: sql`NULL`,
+        updatedAt: sql`CASE WHEN ${food.deletedAt} IS NULL THEN ${food.updatedAt} ELSE now() END`,
+      },
+      setWhere: eq(food.ownerId, userId),
+    })
+    .returning({ ...getTableColumns(food), created: sql<boolean>`(xmax = 0)` });
+  if (!saved) throw new NotFoundError(); // conflict on another owner's row — impossible for an owner-scoped scan
+  const { created, ...savedRow } = saved;
+  return { food: savedRow, created };
 }
 
 export async function updateCustomFood(userId: string, id: string, input: CustomFoodInput): Promise<FoodRow | null> {
   if (!z.uuid().safeParse(id).success) return null;
   const d = customDraft(userId, CustomFoodSchema.parse(input));
-  const [row] = await db.update(food).set({ ...d, searchText: sql`to_tsvector('simple', ${d.searchName})` as unknown as string, updatedAt: new Date() })
+  // sourceRef: undefined → Drizzle leaves the column alone, so a saved-from-scan food keeps its scan
+  // link after an edit (Save to my foods stays idempotent).
+  const [row] = await db.update(food).set({ ...d, sourceRef: undefined, searchText: sql`to_tsvector('simple', ${d.searchName})` as unknown as string, updatedAt: new Date() })
     .where(and(eq(food.id, id), eq(food.ownerId, userId), eq(food.source, "custom"), sql`${food.deletedAt} IS NULL`)).returning();
   return row ?? null;
 }

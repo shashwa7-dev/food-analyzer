@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createUser, resetDb } from "@/tests/helpers/db";
 import { db } from "@/lib/db/client";
 import { food, profile, scan } from "@/lib/db/schema";
@@ -217,7 +217,9 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
   it("copies name/brand/per100/basis/portions/provenance and the result's grade snapshot into a private custom food", async () => {
     const u = await createUser();
     const s = await insertScan(u, { result: scanResult({ brand: "Mom's kitchen" }) });
-    const f = await createCustomFoodFromScan(u, s.id);
+    const { food: f, created } = await createCustomFoodFromScan(u, s.id);
+    expect(created).toBe(true);
+    expect(f.sourceRef).toBe(s.id);
     expect(f.ownerId).toBe(u);
     expect(f.source).toBe("custom");
     expect(f.name).toBe("Homemade khichdi bowl");
@@ -235,7 +237,7 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
   it("is a private custom food: the owner's search finds it, another user's search does not", async () => {
     const owner = await createUser(); const other = await createUser();
     const s = await insertScan(owner, { result: scanResult({ name: "Grandma's khichdi special" }) });
-    const saved = await createCustomFoodFromScan(owner, s.id);
+    const { food: saved } = await createCustomFoodFromScan(owner, s.id);
     expect((await searchFoods(owner, "khichdi", "IN")).some((h) => h.id === saved.id)).toBe(true);
     expect((await searchFoods(other, "khichdi", "IN")).some((h) => h.id === saved.id)).toBe(false);
     expect(await getFoodForUser(other, saved.id)).toBeNull();
@@ -258,5 +260,47 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     const s = await insertScan(u, { status: "queued", result: null });
     await expect(createCustomFoodFromScan(u, s.id)).rejects.toBeInstanceOf(NotFoundError);
     await expect(createCustomFoodFromScan(u, "not-a-uuid")).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("is idempotent per scan: a second save returns the same food and the user keeps one row", async () => {
+    const u = await createUser();
+    const s = await insertScan(u);
+    const first = await createCustomFoodFromScan(u, s.id);
+    const second = await createCustomFoodFromScan(u, s.id);
+    expect(first.created).toBe(true);
+    expect(second.created).toBe(false);
+    expect(second.food.id).toBe(first.food.id);
+    const rows = await db.select().from(food).where(and(eq(food.ownerId, u), eq(food.source, "custom")));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("concurrent saves of the same scan create one food", async () => {
+    const u = await createUser();
+    const s = await insertScan(u);
+    const results = await Promise.all([1, 2, 3].map(() => createCustomFoodFromScan(u, s.id)));
+    expect(new Set(results.map((r) => r.food.id)).size).toBe(1);
+    expect(results.filter((r) => r.created)).toHaveLength(1);
+  });
+
+  it("restores a deleted saved food instead of duplicating it", async () => {
+    const u = await createUser();
+    const s = await insertScan(u);
+    const { food: saved } = await createCustomFoodFromScan(u, s.id);
+    expect(await deleteCustomFood(u, saved.id)).toBe(true);
+    expect(await getFoodForUser(u, saved.id)).toBeNull();
+    const again = await createCustomFoodFromScan(u, s.id);
+    expect(again.food.id).toBe(saved.id);
+    expect(again.food.deletedAt).toBeNull();
+    expect(await getFoodForUser(u, saved.id)).not.toBeNull();
+  });
+
+  it("keeps the scan link when the saved food is edited, so saving again still returns it", async () => {
+    const u = await createUser();
+    const s = await insertScan(u);
+    const { food: saved } = await createCustomFoodFromScan(u, s.id);
+    await updateCustomFood(u, saved.id, { name: "My khichdi", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 170, protein: 6, carbs: 28, fat: 4 } });
+    const again = await createCustomFoodFromScan(u, s.id);
+    expect(again.food.id).toBe(saved.id);
+    expect(again.food.name).toBe("My khichdi");
   });
 });

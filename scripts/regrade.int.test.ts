@@ -39,7 +39,7 @@ describe("staleFoodsQuery (regrade selection)", () => {
       ingredients: [], alternatives: [], hints: [], confidence: "medium", inputKind: "meal",
     };
     const [s] = await db.insert(scan).values({ userId: u, status: "done", imageCount: 0, engineVersion: "test", result }).returning();
-    const saved = await createCustomFoodFromScan(u, s!.id);
+    const { food: saved } = await createCustomFoodFromScan(u, s!.id);
     expect(saved.gradeFrozen).toBe(true);
     await markStale(saved.id);
 

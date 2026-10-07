@@ -30,7 +30,9 @@ export async function POST(req: Request) {
   if (fromScan.present) {
     if (!fromScan.scanId) return notFound();
     try {
-      return json({ food: await createCustomFoodFromScan(userId, fromScan.scanId) }, { status: 201 });
+      // Idempotent per scan: 201 when this call created the food, 200 with the same food on a repeat save.
+      const { food, created } = await createCustomFoodFromScan(userId, fromScan.scanId);
+      return json({ food }, { status: created ? 201 : 200 });
     } catch (e) {
       if (e instanceof NotFoundError) return notFound();
       return apiError(500, "SERVER_ERROR", "Something went wrong. Try again.");
