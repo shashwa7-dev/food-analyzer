@@ -33,8 +33,16 @@ function guard() {
   if (process.env.NODE_ENV === "production") throw new Error("seed:demo refuses to run with NODE_ENV=production.");
   const raw = process.env.DATABASE_URL;
   let host = "";
-  try { host = new URL(raw ?? "").hostname; } catch { /* reported below */ }
-  if (host !== "localhost" && host !== "127.0.0.1") throw new Error("seed:demo only runs against a local database (DATABASE_URL host must be localhost or 127.0.0.1).");
+  let overridesHost = true;
+  try {
+    const u = new URL(raw ?? "");
+    host = u.hostname;
+    // pg copies query params onto the connection config, so ?host=… or ?hostaddr=… would redirect a "localhost" URL.
+    overridesHost = [...u.searchParams.keys()].some((k) => /^(host|hostaddr|service)$/i.test(k));
+  } catch { /* reported below */ }
+  if (overridesHost || (host !== "localhost" && host !== "127.0.0.1")) {
+    throw new Error("seed:demo only runs against a local database (DATABASE_URL host must be localhost or 127.0.0.1, with no host/hostaddr/service params).");
+  }
 }
 
 // --- user, profile, session -------------------------------------------------------------------------

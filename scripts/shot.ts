@@ -54,9 +54,11 @@ async function main() {
     const landed = new URL(page.url()).pathname;
     console.log(`${res?.status() ?? "?"} ${url}${landed !== new URL(url).pathname ? ` → redirected to ${landed}` : ""}`);
     console.log(file);
+    const status = res?.status() ?? 0;
+    if (status >= 400 || landed !== new URL(url).pathname) process.exitCode = 2; // signed out, bounced or errored
   } finally {
     await browser.close();
   }
 }
 
-main().then(() => process.exit(0), (e: unknown) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
+main().then(() => process.exit(process.exitCode ?? 0), (e: unknown) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
