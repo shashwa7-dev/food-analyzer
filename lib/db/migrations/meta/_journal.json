@@ -57,6 +57,13 @@
       "when": 1791372899463,
       "tag": "0007_credit_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791408897076,
+      "tag": "0008_scan_photos",
+      "breakpoints": true
     }
   ]
 }

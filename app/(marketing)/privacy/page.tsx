@@ -18,6 +18,7 @@ export default function PrivacyPage() {
           <li>Basic profile info from your Google sign-in: name, email, profile photo.</li>
           <li>Your food diary: what you log, when, and the nutrition figures for it.</li>
           <li>Any custom foods you create.</li>
+          <li>Photos from AI scans are kept for 30 days so you can see them in your history; a small thumbnail stays until you delete the scan.</li>
           <li>Your goal, diet, allergies and targets, so we can personalise grades and flags.</li>
         </ul>
       </ProseSection>
@@ -32,7 +33,7 @@ export default function PrivacyPage() {
       </ProseSection>
       <ProseSection title="Deleting your account">
         <p className="m-0">
-          You can delete your account at any time from Me → Delete account. This removes your profile and diary. We keep only a
+          You can delete your account at any time from Me → Delete account. This removes your profile, diary, scans and scan photos. We keep only a
           one-way, keyed hash of your email with how many AI scans you used this month and today, so deleting and signing up again
           doesn&apos;t reset your allowance. It contains no readable email or other details. It only counts toward the month it was
           made, and we delete it after that month ends.

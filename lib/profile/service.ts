@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { profile } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
 import { pruneTombstones, recordTombstone } from "@/lib/credits/tombstone";
+import { deleteUserPhotos } from "@/lib/scans/photo-storage";
 import { TargetsSchema } from "@/lib/nutrition/targets";
 import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
 
@@ -67,6 +68,10 @@ export async function updateProfile(userId: string, raw: z.infer<typeof ProfileU
 }
 
 export async function deleteAccount(userId: string, now: Date = new Date()) {
+  // Scan photos first (spec §A Deletion): both R2 prefixes go before the user row does. A failure throws
+  // and stops here, with the account intact, so trying again finishes the job (listing is retry-safe).
+  // An upload still in flight finds its scan gone and removes its own objects (attachScanPhotos).
+  await deleteUserPhotos(userId);
   await db.transaction(async (tx) => {
     // Lock order (review N4): the user's running scans first, then the profile — the same order as
     // failScanTx (conditional scan UPDATE, then refundScan's profile lock) and deleteScan. Taking the

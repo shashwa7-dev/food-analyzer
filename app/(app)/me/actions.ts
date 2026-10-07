@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/session";
 import { allows } from "@/lib/credits/plans";
 import { gatedTargetsWrite } from "@/lib/profile/targets-gate";
 import { deleteAccount, ProfileUpdateSchema, updateProfile } from "@/lib/profile/service";
+import { deleteUserPhotos } from "@/lib/scans/photo-storage";
 
 export async function saveProfile(input: unknown): Promise<{ ok: true } | { ok: false; message: string }> {
   const { userId, profile } = await requireUser();
@@ -30,6 +31,14 @@ export async function saveProfile(input: unknown): Promise<{ ok: true } | { ok: 
 export async function deleteAccountAction(confirmText: string) {
   const { userId } = await requireUser();
   if (confirmText !== "DELETE") return { ok: false as const, message: "Type DELETE to confirm." };
+  // Scan photos go first, while the user is still signed in, so a storage error is an answer they can
+  // retry instead of a signed-out dead end. deleteAccount runs it again (cheap: nothing left to list).
+  try {
+    await deleteUserPhotos(userId);
+  } catch (err) {
+    console.error("deleteUserPhotos failed", err);
+    return { ok: false as const, message: "Couldn't delete your account. Try again." };
+  }
   await auth.api.signOut({ headers: await headers() }).catch(() => undefined);
   await deleteAccount(userId);
   redirect("/");

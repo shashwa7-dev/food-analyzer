@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireApiUser } from "@/lib/session";
 import { json, notFound, serverError } from "@/lib/http";
 import { deleteScan, getScan } from "@/lib/scans/service";
@@ -20,7 +21,8 @@ export async function DELETE(req: Request, { params }: Ctx) {
   try {
     const userId = await requireApiUser(req);
     if (userId instanceof Response) return userId;
-    return (await deleteScan(userId, (await params).id)) ? new Response(null, { status: 204 }) : notFound();
+    // The scan's stored photos are deleted in after(), once the soft delete has committed.
+    return (await deleteScan(userId, (await params).id, Date.now(), after)) ? new Response(null, { status: 204 }) : notFound();
   } catch (e) {
     console.error("DELETE /api/v1/scans/:id failed", e);
     return serverError();

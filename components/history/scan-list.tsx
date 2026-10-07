@@ -14,6 +14,7 @@ import type { ScanListItem } from "@/lib/scans/service";
 import { GradeBadge } from "@/components/grade-badge";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
+import { ScanThumb } from "@/components/scan/scan-thumb";
 import { ResponsiveSheet, SheetTitle } from "@/components/ui/responsive-sheet";
 import { GRADE_BASIS, GRADE_SHORT, GRADE_UNAVAILABLE_NOTE, GRADES, gradeLegend } from "@/lib/scans/grade-legend";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
@@ -31,7 +32,10 @@ function useDebounced<T>(v: T, ms: number) {
   return d;
 }
 
-/** A History row (mock-c1 `.arow`): a white card with the grade badge (or a status tile), the name and one meta line. */
+/**
+ * A History row (mock-c1 `.arow`): a white card with the grade badge (or a status tile), the name and one
+ * meta line. A scan with a stored thumbnail shows it in the badge's place, and the badge moves to the right.
+ */
 function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
   const running = isScanRunning(s);
   const failed = isScanFailed(s);
@@ -44,6 +48,8 @@ function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
           <IconTile size="md"><Loader2 className="animate-spin motion-reduce:animate-none" /></IconTile>
         ) : failed ? (
           <IconTile size="md" tone="bad"><AlertCircle /></IconTile>
+        ) : s.thumbnailUrl ? (
+          <ScanThumb src={s.thumbnailUrl} size="md" fallback={<GradeBadge grade={s.grade} size="md" />} />
         ) : (
           <GradeBadge grade={s.grade} size="md" />
         )}
@@ -54,6 +60,7 @@ function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
           </span>
           {meta.length > 0 && <span className="mt-0.5 block truncate text-[12.5px] text-subtle">{meta.join(" · ")}</span>}
         </span>
+        {s.thumbnailUrl && !running && !failed && <GradeBadge grade={s.grade} size="base" />}
         <ChevronRight className="size-[18px] shrink-0 text-subtle" aria-hidden />
       </Link>
     </li>

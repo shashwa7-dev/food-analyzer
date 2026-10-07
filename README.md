@@ -54,6 +54,7 @@ The app runs at `http://localhost:3000`.
 | `pnpm seed:demo` | Dev only: create/refresh the demo account and write its session cookie (see [Demo data and screenshots](#demo-data-and-screenshots-dev-only)) |
 | `pnpm shot <path>` | Dev only: screenshot one page as the demo user |
 | `pnpm ui:audit` | Dev only: the UI audit (no-wrap, lime-as-text, contrast, tap targets) over every screen; see [UI](#ui) |
+| `pnpm r2:lifecycle` | Set the photo bucket's 30-day expiry rule for `display/` (idempotent; see [Scan photos on Cloudflare R2](#scan-photos-on-cloudflare-r2)). `--print` shows the rule only |
 | `pnpm eval [--models=fast,strong]` | Scanning eval harness against a local fixture suite (needs `GOOGLE_GENERATIVE_AI_API_KEY` and fixtures — see [`eval/README.md`](eval/README.md)) |
 
 ## Environment variables
@@ -91,6 +92,22 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 - A charged scan that fails is refunded automatically, atomically with the failure write (`failScanTx` in `lib/scans/service.ts`).
 - Deleting the account keeps a tombstone — an HMAC of the normalised email with this month's used scans and today's count, no plain PII (`lib/credits/tombstone.ts`) — so signing up again with the same email starts from the same usage. A tombstone is kept only for its month: once that month ends it is deleted (`pruneTombstones`), on the next account deletion or sign-up.
 - Independent of credits, each user is capped at 25 AI-assisted scans per UTC day (`DAILY_AI_SCANS_PER_USER` in `lib/rate-limit.ts`); refunded scans still count toward it, so a refund can't be looped for free scans.
+
+### Scan photos on Cloudflare R2
+
+AI scans keep their photos (spec §A): a 1080 px WebP display copy of each photo for 30 days, and a 320 px thumbnail of the first until the scan is deleted. Originals are never stored; the copies are rotated upright and carry no metadata (no EXIF, no GPS). Processing (`sharp`, `lib/scans/photos.ts`) and the upload (`lib/scans/photo-storage.ts`) run in the scan's post-charge background job and can never fail, change or delay the scan or its charge. URLs are presigned for 10 minutes. Deleting a scan deletes its objects (best effort, after the response); deleting the account deletes both of the user's prefixes first. Barcode scans have no photos.
+
+Storage is **off unless all four vars are set**; off, the app behaves exactly as without it (no uploads, `photoUrls: []`, `thumbnailUrl: null`).
+
+| Var | Required | Source |
+|---|---|---|
+| `R2_ACCOUNT_ID` | for photo storage | Cloudflare dashboard → R2 → Account details (the account ID in `https://<id>.r2.cloudflarestorage.com`) |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | for photo storage | R2 → Manage API tokens → Create API token: **Object Read & Write**, applied to **this bucket only**. Shown once. |
+| `R2_BUCKET` | for photo storage | The bucket's name, e.g. `eatri8-photos` |
+
+Keys: `display/u/{userId}/{scanId}/{n}.webp` and `thumb/u/{userId}/{scanId}.webp` (`lib/storage/keys.ts`). The bucket stays private (no public access, no custom domain): the app only hands out presigned GET URLs.
+
+Set up once per bucket: create the bucket (R2 → Create bucket, location Automatic, Standard storage class), create the token above, put the four vars in `.env.local` (and the deployment's env), then run `pnpm r2:lifecycle`, which sets the rule expiring `display/` after 30 days and reads it back. It's idempotent and keeps any other rules on the bucket. If R2 refuses it (401/403: the bucket-scoped token can't change bucket settings), run it once with an Admin Read & Write token and revoke that token afterwards, or add the same rule in the dashboard (the bucket → Settings → Object lifecycle rules: prefix `display/`, delete objects after 30 days).
 
 ### Before launch
 

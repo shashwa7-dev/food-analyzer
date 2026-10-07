@@ -18,12 +18,15 @@ export type OverflowItem = {
 const ROUND = "grid size-11 shrink-0 place-items-center rounded-full border border-line bg-surface text-ink transition-colors hover:bg-sunken [&_svg]:size-5";
 const ITEM = "flex min-h-11 w-full items-center gap-2.5 rounded-[12px] px-3 text-[14px] font-semibold whitespace-nowrap hover:bg-sunken [&_svg]:size-[18px]";
 
-/** A top bar's round "More actions" button and its menu (mock-c1 `.round` + popover): links and actions, one per row. */
-export function OverflowMenu({ items }: { items: OverflowItem[] }) {
+/**
+ * A top bar's round "More actions" button and its menu (mock-c1 `.round` + popover): links and actions,
+ * one per row. `triggerClassName` restyles the round button (e.g. ON_MEDIA_ROUND on a photo).
+ */
+export function OverflowMenu({ items, triggerClassName }: { items: OverflowItem[]; triggerClassName?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger aria-label="More actions" className={ROUND}>
+      <Popover.Trigger aria-label="More actions" className={cn(ROUND, triggerClassName)}>
         <Ellipsis aria-hidden />
       </Popover.Trigger>
       <Popover.Portal>

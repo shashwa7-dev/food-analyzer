@@ -39,17 +39,18 @@ export function Tag({ icon: Icon, children }: { icon: LucideIcon; children: Reac
   );
 }
 
-export function Tags({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap justify-center gap-1.5">{children}</div>;
+/** The tag row: centred, or left-aligned under a photo hero (`align="start"`). */
+export function Tags({ children, align = "center" }: { children: ReactNode; align?: "center" | "start" }) {
+  return <div className={cn("flex flex-wrap gap-1.5", align === "center" ? "justify-center" : "justify-start")}>{children}</div>;
 }
 
-/** The centred result title and its brand line. */
-export function ResultTitle({ name, brand }: { name: string; brand?: string | null }) {
+/** The result title and its brand line: centred, or left-aligned under a photo hero (`align="start"`). */
+export function ResultTitle({ name, brand, align = "center" }: { name: string; brand?: string | null; align?: "center" | "start" }) {
   // A long product name (OFF's "Aptamil Gold Stage 3 Follow-up Formula Powder (From 12 Months
   // Onwards)") steps down a size and stops at three lines; the full name is in the tooltip.
   const long = name.length > 40;
   return (
-    <header className="text-center">
+    <header className={align === "center" ? "text-center" : "min-w-0 text-left"}>
       <h1
         title={long ? name : undefined}
         className={cn("title m-0 line-clamp-3 leading-[1.05] font-[650] tracking-[-0.04em] break-words text-ink", long ? "text-[24px]" : "text-[30px]")}

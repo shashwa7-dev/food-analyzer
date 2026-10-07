@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseEnv, proGatesEnforced } from "./env";
+import { parseEnv, proGatesEnforced, r2Config } from "./env";
 
 const base = {
   DATABASE_URL: "postgres://u:p@localhost:5432/db",
@@ -31,6 +31,18 @@ describe("parseEnv", () => {
   });
   it("coerces a numeric DAILY_AI_SCAN_CAP", () => {
     expect(parseEnv({ ...base, DAILY_AI_SCAN_CAP: "50" }).DAILY_AI_SCAN_CAP).toBe(50);
+  });
+});
+
+describe("r2Config", () => {
+  const all = { R2_ACCOUNT_ID: "acc", R2_ACCESS_KEY_ID: "key", R2_SECRET_ACCESS_KEY: "secret", R2_BUCKET: "eatri8-photos" };
+  it("is on only when all four values are set", () => {
+    expect(r2Config(all)).toEqual({ accountId: "acc", accessKeyId: "key", secretAccessKey: "secret", bucket: "eatri8-photos" });
+    for (const k of Object.keys(all)) {
+      expect(r2Config({ ...all, [k]: undefined })).toBeNull();
+      expect(r2Config({ ...all, [k]: "" })).toBeNull();
+    }
+    expect(r2Config({})).toBeNull();
   });
 });
 
