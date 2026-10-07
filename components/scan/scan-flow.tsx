@@ -123,9 +123,12 @@ export function ScanFlow({ meal, date, initialBarcode }: { meal: Meal | null; da
 
   async function capture() {
     const v = videoRef.current;
-    if (!v || camera !== "live" || !v.videoWidth || photos.length >= MAX_IMAGES) return;
+    if (!v || camera !== "live" || photos.length >= MAX_IMAGES) return;
     setCapturing(true);
     try {
+      // "live" can arrive a moment before the first frame (and again after a tab-switch restart).
+      if (!v.videoWidth) await new Promise((r) => { v.addEventListener("loadeddata", r, { once: true }); setTimeout(r, 2000); });
+      if (!v.videoWidth) return;
       await addPhoto(await compressSource(v, v.videoWidth, v.videoHeight));
     } catch (e) {
       setPhotoError(e instanceof PhotoError ? e.message : UNSUPPORTED_PHOTO_MESSAGE);
@@ -198,7 +201,7 @@ export function ScanFlow({ meal, date, initialBarcode }: { meal: Meal | null; da
       <input ref={galleryInput} type="file" accept="image/*" multiple className="sr-only" tabIndex={-1} aria-hidden
         onChange={(e) => void onFiles(e.target.files, e.target)} />
 
-      {live || camera === "starting" ? (
+      {camera !== "denied" && camera !== "unavailable" ? (
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <Button variant="outline" className="h-11 justify-self-start px-3.5" disabled={full || capturing} onClick={() => galleryInput.current?.click()}>
             <ImageIcon aria-hidden /> Gallery

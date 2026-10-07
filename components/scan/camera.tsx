@@ -3,22 +3,19 @@ import { useEffect, useEffectEvent, useState, type ReactNode, type RefObject } f
 import { CameraOff } from "lucide-react";
 import { getBarcodeReader } from "./barcode-reader";
 import { fitWithin } from "./compress";
+import { createCameraController, type CameraState } from "./camera-controller";
 
-export type CameraState = "starting" | "live" | "denied" | "unavailable";
+export type { CameraState };
 
 /** How often a preview frame is checked for a barcode. */
 export const SAMPLE_EVERY_MS = 300;
 /** Frames are downscaled to this long edge before decoding — plenty for an EAN, much cheaper. */
 const SAMPLE_EDGE_PX = 1280;
 
-function stateFor(err: unknown): CameraState {
-  const name = err instanceof DOMException ? err.name : "";
-  return name === "NotAllowedError" || name === "SecurityError" ? "denied" : "unavailable";
-}
-
 /**
  * Live rear-camera preview with the corner frame and hint. While `detecting`, samples a frame every
- * 300 ms and reports the first valid barcode. All tracks are stopped on unmount. When the camera is
+ * 300 ms and reports the first valid barcode. The stream (and so the sampler) stops while the tab is
+ * hidden and restarts when it is visible again; all tracks are stopped on unmount. When the camera is
  * denied or missing, renders a message instead (the photo buttons outside stay available).
  */
 export function Camera({ videoRef, detecting, onBarcode, onStateChange, status }: {
@@ -37,28 +34,25 @@ export function Camera({ videoRef, detecting, onBarcode, onStateChange, status }
   const found = useEffectEvent((code: string) => onBarcode(code));
 
   useEffect(() => {
-    let cancelled = false;
-    let stream: MediaStream | null = null;
     const video = videoRef.current;
-    const start = navigator.mediaDevices?.getUserMedia
-      ? navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-      : Promise.reject(new DOMException("No camera API", "NotFoundError"));
-    start.then(
-      (s) => {
-        if (cancelled) return s.getTracks().forEach((t) => t.stop());
-        stream = s;
-        if (video) {
-          video.srcObject = s;
-          void video.play().catch(() => undefined); // autoPlay + muted normally covers this
-        }
-        report("live");
+    const camera = createCameraController<MediaStream>({
+      request: () => navigator.mediaDevices?.getUserMedia
+        ? navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+        : Promise.reject(new DOMException("No camera API", "NotFoundError")),
+      isHidden: () => document.hidden,
+      attach: (s) => {
+        if (!video) return;
+        video.srcObject = s;
+        if (s) void video.play().catch(() => undefined); // autoPlay + muted normally covers this
       },
-      (err: unknown) => { if (!cancelled) report(stateFor(err)); },
-    );
+      report: (st) => report(st),
+    });
+    const onVisibility = () => camera.onVisibilityChange();
+    camera.start();
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      cancelled = true;
-      stream?.getTracks().forEach((t) => t.stop());
-      if (video) video.srcObject = null;
+      document.removeEventListener("visibilitychange", onVisibility);
+      camera.dispose();
     };
   }, [videoRef]);
 
@@ -117,7 +111,7 @@ export function Camera({ videoRef, detecting, onBarcode, onStateChange, status }
       ) : (
         <>
           <p className="absolute inset-x-0 top-3.5 text-center text-sm font-semibold [text-shadow:0_1px_3px_rgb(0_0_0)]">
-            {state === "starting" ? "Starting the camera…" : "Point at a barcode, a label or your plate"}
+            {state !== "live" ? "Starting the camera…" : "Point at a barcode, a label or your plate"}
           </p>
           <div className="pointer-events-none absolute inset-x-[12%] inset-y-[16%]" aria-hidden>
             <i className="absolute left-0 top-0 size-[34px] border-l-4 border-t-4 border-on-media" />
