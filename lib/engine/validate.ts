@@ -31,7 +31,7 @@ export function validateFacts(per100: Nutrients, extra?: { energyKj?: number; sa
   if (per100.sugars !== undefined && per100.sugars > per100.carbs) failed.push("sugars");
   if (per100.satFat !== undefined && per100.satFat > per100.fat) failed.push("satFat");
 
-  // The shared per-100 bounds (lib/nutrition/plausible.ts): energy ≤ 900 kcal, each macro ≤ 100 g, sodium ≤ 40,000 mg.
+  // The shared per-100 bounds (lib/nutrition/plausible.ts): energy ≤ 910 kcal, each macro ≤ 100 g, sodium ≤ 40,000 mg.
   if (outOfRangeKeys(per100).length > 0) failed.push("range");
 
   if (extra?.energyKj !== undefined) {

@@ -1,9 +1,6 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import { THEME_COLOR, themeCookie, type Theme } from "@/lib/theme";
-
-const DARK_QUERY = "(prefers-color-scheme: dark)";
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { DARK_QUERY, DEFAULT_THEME, THEME_COLOR, parseTheme, themeCookie, type Theme } from "@/lib/theme";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -26,26 +23,32 @@ function paintThemeColor(theme: Theme) {
   }
 }
 
+// The source of truth is <html data-theme>, stamped from the cookie by THEME_SCRIPT before first
+// paint. The server render (static) knows nothing, so it renders the default; after hydration the
+// controls show the real choice.
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => observer.disconnect();
+}
+const readTheme = () => parseTheme(document.documentElement.dataset.theme);
+const serverTheme = () => DEFAULT_THEME;
+
 /**
- * Holds the appearance choice. The server render already has the right `data-theme` (root layout
- * reads the cookie); a change here applies at once with no reload: cookie, `<html data-theme>`, the
- * theme-color meta, then a background refresh so the server-rendered viewport and layout agree.
+ * The appearance choice. A change applies at once with no reload and no server round trip: the cookie
+ * (for the next page load's script), `<html data-theme>` (the palette, and this store) and the
+ * theme-color meta.
  */
-export function ThemeProvider({ initial, children }: { initial: Theme; children: ReactNode }) {
-  const [theme, setThemeState] = useState(initial);
-  const router = useRouter();
-  const [, startTransition] = useTransition();
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const theme = useSyncExternalStore(subscribe, readTheme, serverTheme);
 
   const setTheme = useCallback((next: Theme) => {
     document.cookie = themeCookie(next);
     document.documentElement.dataset.theme = next;
     paintThemeColor(next);
-    setThemeState(next);
-    startTransition(() => router.refresh());
-  }, [router]);
+  }, []);
 
-  // System follows the OS live: CSS does that on its own; the theme-color meta, once painted with
-  // one colour above, needs a nudge.
+  // System follows the OS live: CSS does that on its own; the theme-color meta needs a nudge.
   useEffect(() => {
     if (theme !== "system") return;
     const mql = window.matchMedia(DARK_QUERY);

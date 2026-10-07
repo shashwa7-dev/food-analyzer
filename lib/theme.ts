@@ -1,7 +1,8 @@
 /**
- * Appearance: Dark (the default), Light, or System (follows the OS). The choice lives in a cookie,
- * not localStorage, so the server render already carries `<html data-theme>` and nothing flashes.
- * Pure helpers only; the client side is components/theme/theme-provider.tsx.
+ * Appearance: Dark (the default), Light, or System (follows the OS). The choice lives in a cookie that
+ * a tiny blocking script in <head> (THEME_SCRIPT, below) reads before first paint, so pages stay
+ * static and nothing flashes. Without JS everyone sees Dark. The client side is
+ * components/theme/theme-provider.tsx.
  */
 export const THEMES = ["dark", "light", "system"] as const;
 export type Theme = (typeof THEMES)[number];
@@ -30,11 +31,17 @@ export function themeCookie(theme: Theme): string {
   return `${THEME_COOKIE}=${theme}; Max-Age=${ONE_YEAR_S}; Path=/; SameSite=Lax`;
 }
 
-/** The viewport themeColor for a choice: one colour when it's fixed, the media pair for System. */
-export function themeColorFor(theme: Theme): string | { media: string; color: string }[] {
-  if (theme !== "system") return THEME_COLOR[theme];
-  return [
-    { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
-    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
-  ];
-}
+export const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+/**
+ * The blocking <head> script: reads the cookie, applies parseTheme's rule (only the three names count,
+ * anything else is the default), stamps <html data-theme> and points the theme-color meta at the
+ * colour being shown. A minified twin of parseTheme, built from the same constants;
+ * lib/theme.test.ts runs it against parseTheme for many cookie strings.
+ */
+export const THEME_SCRIPT =
+  `(function(){try{var d=document.documentElement,m=document.cookie.match(/(?:^|;\\s*)${THEME_COOKIE}=([^;]*)/),` +
+  `t=m?m[1]:"";if(${JSON.stringify(THEMES)}.indexOf(t)<0)t=${JSON.stringify(DEFAULT_THEME)};d.dataset.theme=t;` +
+  `var l=t==="light"||(t==="system"&&!matchMedia(${JSON.stringify(DARK_QUERY)}).matches),` +
+  `c=l?${JSON.stringify(THEME_COLOR.light)}:${JSON.stringify(THEME_COLOR.dark)},` +
+  `e=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<e.length;i++)e[i].setAttribute("content",c)}catch(_){}})()`;
