@@ -10,7 +10,7 @@ const MACROS: { key: "protein" | "carbs" | "fat"; label: string; icon: LucideIco
   { key: "fat", label: "Fat", icon: Droplet, text: "text-fat", bar: "bg-fat", track: "bg-fat/18" },
 ];
 
-/** Three macro tiles (spec §6.1): icon and name, a 6 px bar in the macro's colour, "{eaten} / {target} g"; the eaten number turns bad over target (the bar stays full in the macro colour). */
+/** Three macro tiles (spec §6.1): icon and name, a 6 px bar in the macro's colour, "{eaten} / {target} g"; the eaten number turns bad over target for carbs and fat; protein over target is not a problem, so it never turns bad (the bar stays full in the macro colour). */
 export function MacroTiles({ protein, carbs, fat }: Record<"protein" | "carbs" | "fat", MacroAmount>) {
   const values = { protein, carbs, fat };
   return (
@@ -32,7 +32,7 @@ export function MacroTiles({ protein, carbs, fat }: Record<"protein" | "carbs" |
               <div className={cn("h-full rounded-full", bar)} style={{ width: `${pct}%` }} />
             </div>
             <span className="num whitespace-nowrap text-base font-[650] tracking-[-0.02em] text-ink" aria-hidden>
-              <span className={cn(toneFor(eaten, target) === "over" && "text-bad")}>{Math.round(eaten)}</span>
+              <span className={cn(key !== "protein" && toneFor(eaten, target) === "over" && "text-bad")}>{Math.round(eaten)}</span>
               <small className="text-[11.5px] font-medium tracking-normal text-subtle"> / {Math.round(target)} g</small>
             </span>
           </section>
