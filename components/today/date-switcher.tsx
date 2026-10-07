@@ -25,8 +25,12 @@ export function DateSwitcher({ date, prev, next, today }: { date: string; prev: 
   }
 
   const calendar = (
+    // Stock cell size is 28px ([--cell-size:--spacing(7)]); override to 44px so day cells
+    // meet the tap-target rule. At 44px a 7-column week is 308px, +16px calendar padding
+    // = 324px, which still fits at a 375px viewport with no horizontal scroll.
     <Calendar
       mode="single"
+      className="[--cell-size:--spacing(11)]"
       selected={parseLocalDate(date)}
       defaultMonth={parseLocalDate(date)}
       onSelect={pick}
