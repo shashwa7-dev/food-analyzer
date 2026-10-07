@@ -1,5 +1,5 @@
 import type { Goal } from "@/lib/nutrition/types";
-import { onTargetRange, type DayAgg, type ProgressSummary } from "./aggregate";
+import { missingOn, onTargetRange, type DayAgg, type ProgressSummary } from "./aggregate";
 
 /**
  * A bar on the calories chart. `over` (the hatch) is above the top of the goal's on-target band, the
@@ -18,11 +18,14 @@ export function calorieBars(days: DayAgg[], target: number, today: string, goal:
   }));
 }
 
-/** A point on the sodium line; days with nothing logged are gaps (null), not zero. */
+/**
+ * A point on the sodium line; days with nothing logged, or with no entry's sodium known, are gaps
+ * (null), not zero.
+ */
 export type SodiumPoint = { date: string; sodium: number | null; over: boolean; isMax: boolean };
 
 export function sodiumPoints(days: DayAgg[], limit: number): SodiumPoint[] {
-  const values = days.map((d) => (d.entries > 0 ? Math.round(d.sodiumMg) : null));
+  const values = days.map((d) => (d.entries > 0 && missingOn(d, "sodium") < d.entries ? Math.round(d.sodiumMg) : null));
   let maxAt = -1;
   values.forEach((v, i) => {
     if (v !== null && v > 0 && (maxAt < 0 || v > values[maxAt]!)) maxAt = i;

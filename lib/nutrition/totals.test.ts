@@ -5,7 +5,7 @@ import type { DailyTargets } from "./types";
 const targets: DailyTargets = { energyKcal: 2000, protein: 60, carbs: 275, fat: 67, fibre: 30, sugarsMax: 50, sodiumMgMax: 1500, satFatMax: 22 };
 
 describe("sumNutrients", () => {
-  it("treats missing optional values as zero", () => {
+  it("adds only the known values (a missing optional value adds nothing)", () => {
     const s = sumNutrients([{ energyKcal: 100, protein: 1, carbs: 2, fat: 3 }, { energyKcal: 50, protein: 1, carbs: 1, fat: 1, sodiumMg: 200 }]);
     expect(s.energyKcal).toBe(150);
     expect(s.sodiumMg).toBe(200);
@@ -30,5 +30,30 @@ describe("dayTotals", () => {
   it("reports over-by for limit targets", () => {
     const sodium = t.progress.find((p) => p.key === "sodiumMgMax")!;
     expect(sodium).toMatchObject({ kind: "limit", total: 1600, target: 1500, remaining: 0, overBy: 100 });
+  });
+});
+
+describe("unknown values", () => {
+  it("counts, per nutrient, the entries with no value; the total covers the known ones", () => {
+    const t = dayTotals([
+      { meal: "lunch", nutrients: { energyKcal: 300, protein: 10, carbs: 40, fat: 8, sodiumMg: 300, sugars: 4 } },
+      // Sodium dropped from the snapshot as implausible (lib/log/service.ts snapshotNutrients).
+      { meal: "dinner", nutrients: { energyKcal: 400, protein: 12, carbs: 50, fat: 10, sugars: 2 } },
+    ], targets);
+    const by = (k: string) => t.progress.find((p) => p.key === k)!;
+    expect(by("sodiumMgMax")).toMatchObject({ total: 300, unknown: 1 });
+    expect(by("sugarsMax")).toMatchObject({ total: 6, unknown: 0 });
+    expect(by("satFatMax")).toMatchObject({ total: 0, unknown: 2 });
+    expect(by("energyKcal").unknown).toBe(0);
+  });
+  it("an empty day has nothing unknown", () => {
+    expect(dayTotals([], targets).progress.every((p) => p.unknown === 0)).toBe(true);
+  });
+});
+
+describe("rounding", () => {
+  it("rounds once at the end, as Progress does (13 x 100.042 kcal is 1,300.5, not 1,300)", () => {
+    const list = Array.from({ length: 13 }, () => ({ energyKcal: 100.042, protein: 0, carbs: 0, fat: 0 }));
+    expect(sumNutrients(list).energyKcal).toBe(1300.5);
   });
 });

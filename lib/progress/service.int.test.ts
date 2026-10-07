@@ -93,6 +93,23 @@ describe("getProgress", () => {
     expect(ny.kpis.daysLogged).toBe(0);
   });
 
+  it("counts, per day and limit, the entries with no value; the sums cover the known ones (review I1)", async () => {
+    const a = await createUser();
+    await log(a, "2026-10-06", 300, null, { sodiumMg: 400, sugars: 5, satFat: 2 });
+    await log(a, "2026-10-06", 200, null, { sugars: 3, satFat: 1 }); // sodium unknown
+    await log(a, "2026-10-07", 500, null, { sodiumMg: 2500, sugars: 4, satFat: 2 });
+    const s = await getProgress(a, "week", NOW);
+    expect(s.days.at(-2)).toMatchObject({ sodiumMg: 400, missing: { sodium: 1, sugars: 0, satFat: 0 } });
+    expect(s.days.at(-1)!.missing).toEqual({ sodium: 0, sugars: 0, satFat: 0 });
+    expect(s.incomplete).toEqual(["sodium"]);
+  });
+
+  it("a fully known week has nothing incomplete", async () => {
+    const a = await createUser();
+    await log(a, "2026-10-07", 500, null, { sodiumMg: 500, sugars: 4, satFat: 2 });
+    expect((await getProgress(a, "week", NOW)).incomplete).toEqual([]);
+  });
+
   it("returns a zeroed summary for a user with no log", async () => {
     const a = await createUser();
     const s = await getProgress(a, "week", NOW);

@@ -31,6 +31,26 @@ describe("streakEnding", () => {
   });
 });
 
+describe("summarize: incomplete limits", () => {
+  it("lists the limits some logged day has an unknown value for, in card order", () => {
+    const s = summarize([
+      day("2026-10-06", 2000, { missing: { sugars: 1 } }),
+      day("2026-10-07", 2000, { missing: { sodium: 2, satFat: 0 } }),
+    ], T, "general", "2026-10-07", "week");
+    expect(s.incomplete).toEqual(["sodium", "sugars"]);
+    expect(s.worstOverLimit).toBeNull();
+  });
+  it("is empty when every value is known, and ignores days outside the range", () => {
+    expect(summarize([day("2026-10-07", 2000)], T, "general", "2026-10-07", "week").incomplete).toEqual([]);
+    expect(summarize([day("2026-09-01", 2000, { missing: { sodium: 1 } })], T, "general", "2026-10-07", "week").incomplete).toEqual([]);
+  });
+  it("still reports a limit over on the known values", () => {
+    const s = summarize([day("2026-10-07", 2000, { sodiumMg: 3000, missing: { sodium: 1 } })], T, "general", "2026-10-07", "week");
+    expect(s.worstOverLimit).toEqual({ axis: "sodium", pct: 150 });
+    expect(s.incomplete).toEqual(["sodium"]);
+  });
+});
+
 describe("summarize", () => {
   it("returns zeros, not NaN, for no data", () => {
     const s = summarize([], T, "general", "2026-10-07", "week");

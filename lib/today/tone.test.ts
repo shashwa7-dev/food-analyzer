@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { TargetProgress } from "@/lib/nutrition/totals";
-import { flaggedLimits, limitAmount, limitRows, limitsSummary, toneFor } from "./tone";
+import { flaggedLimits, limitAmount, limitRows, limitsSummary, toneFor, unknownNote } from "./tone";
 
 const flagged = (progress: Parameters<typeof limitRows>[0]) => flaggedLimits(limitRows(progress));
 
-const p = (key: TargetProgress["key"], total: number, target: number): TargetProgress =>
-  ({ key, label: key, total, target, kind: "limit", remaining: Math.max(0, target - total), overBy: Math.max(0, total - target) });
+const p = (key: TargetProgress["key"], total: number, target: number, unknown = 0): TargetProgress =>
+  ({ key, label: key, total, target, kind: "limit", remaining: Math.max(0, target - total), overBy: Math.max(0, total - target), unknown });
 
 describe("toneFor", () => {
   it("is over only above the target", () => {
@@ -21,7 +21,7 @@ describe("flaggedLimits", () => {
     expect(flagged([p("sugarsMax", 44, 50), p("sodiumMgMax", 1000, 2000), p("satFatMax", 5, 20), p("fibre", 40, 30)])).toEqual([]);
   });
   it("marks 90–100% as near", () => {
-    expect(flagged([p("sugarsMax", 45, 50)])).toEqual([{ key: "sugarsMax", label: "Sugar", total: 45, target: 50, unit: "g", ratio: 0.9, tone: "near" }]);
+    expect(flagged([p("sugarsMax", 45, 50)])).toEqual([{ key: "sugarsMax", label: "Sugar", total: 45, target: 50, unit: "g", ratio: 0.9, tone: "near", unknown: 0 }]);
     expect(flagged([p("sodiumMgMax", 2000, 2000)])[0]?.tone).toBe("near");
   });
   it("marks above 100% as over", () => {
@@ -79,5 +79,34 @@ describe("limitsSummary", () => {
     });
     expect(limitsSummary(rows(["sodiumMgMax", 2100, 2000], ["satFatMax", 25, 22]))?.badge?.text).toBe("2 over");
     expect(limitsSummary(rows(["sodiumMgMax", 2100, 2000], ["satFatMax", 25, 22])).tip).toBe("Sat fat is over your 22 g limit.");
+  });
+});
+
+describe("limits with unknown items", () => {
+  it("is partial, never ok, when the known total is under 90% and some items are unknown", () => {
+    const [row] = limitRows([p("sodiumMgMax", 300, 2000, 1)]);
+    expect(row).toMatchObject({ tone: "partial", unknown: 1, total: 300 });
+    expect(limitRows([p("sodiumMgMax", 300, 2000)])[0]?.tone).toBe("ok");
+  });
+  it("still says near or over when the known total already is", () => {
+    expect(limitRows([p("sodiumMgMax", 2100, 2000, 2)])[0]?.tone).toBe("over");
+    expect(limitRows([p("sodiumMgMax", 1850, 2000, 1)])[0]?.tone).toBe("near");
+    expect(flagged([p("sodiumMgMax", 2100, 2000, 2), p("sugarsMax", 10, 50, 1)]).map((r) => r.key)).toEqual(["sodiumMgMax"]);
+  });
+  it("marks the amount as a floor and counts the items", () => {
+    expect(limitAmount(300, 2000, true)).toBe("300+ / 2,000");
+    expect(limitAmount(300, 2000)).toBe("300 / 2,000");
+    expect(unknownNote(1)).toBe("1 item unknown");
+    expect(unknownNote(3)).toBe("3 items unknown");
+  });
+  it("has no badge for partial rows, and a tip that the total may be higher", () => {
+    const rows = limitRows([p("sodiumMgMax", 300, 2000, 1), p("satFatMax", 5, 22), p("sugarsMax", 10, 50)]);
+    expect(limitsSummary(rows)).toEqual({ badge: null, tip: "Some items have no sodium value, so that total may be higher." });
+    const two = limitRows([p("sodiumMgMax", 300, 2000, 1), p("sugarsMax", 10, 50, 2)]);
+    expect(limitsSummary(two).tip).toBe("Some items have no sodium or sugar value, so those totals may be higher.");
+  });
+  it("a flagged limit's tip wins over the unknown note", () => {
+    const rows = limitRows([p("sodiumMgMax", 2300, 2000, 1), p("sugarsMax", 10, 50, 1)]);
+    expect(limitsSummary(rows)).toMatchObject({ badge: { text: "1 over" }, tip: "Sodium is over your 2,000 mg limit." });
   });
 });

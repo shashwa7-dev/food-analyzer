@@ -10,6 +10,9 @@ import type { ScanResult } from "@/lib/engine/result";
 import { addEntry, deleteEntry, getDay, loggedDates, updateEntry } from "./service";
 import { InvalidError, NotFoundError } from "@/lib/errors";
 import { addDays } from "@/lib/dates";
+import { getProgress } from "@/lib/progress/service";
+import { balanceTakeaway } from "@/lib/progress/copy";
+import { limitRows } from "@/lib/today/tone";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -273,6 +276,26 @@ describe("food log", () => {
     expect(e.nutrients).toMatchObject({ energyKcal: 275, sugars: 1.5 });
     expect(e.grade).toBe("?");
     expect((await getDay(u, today)).totals.sodiumMg ?? 0).toBe(0);
+  });
+
+  it("a dropped sodium is unknown, not 0, in Today's limits and Progress (review I1)", async () => {
+    const u = await createUser();
+    await addEntry(u, { kind: "quick", date: today, meal: "breakfast", name: "Poha", nutrients: { energyKcal: 250, protein: 5, carbs: 40, fat: 7, sodiumMg: 300, sugars: 2, satFat: 1 } });
+    const s = await insertScan(u, { result: scanResult({ per100: { energyKcal: 120, protein: 6, carbs: 14, fat: 4, sugars: 1, satFat: 0.5, sodiumMg: 1_259_300 }, grade: null, gradeValue: null, gradeUnavailable: "Sodium isn't plausible." }) });
+    await addEntry(u, { kind: "scan", date: today, meal: "lunch", scanId: s.id, portionIndex: 0, quantity: 1 });
+
+    const day = await getDay(u, today);
+    const sodium = day.progress.find((p) => p.key === "sodiumMgMax")!;
+    expect(sodium).toMatchObject({ total: 300, unknown: 1 });
+    const rows = limitRows(day.progress);
+    expect(rows.find((r) => r.key === "sodiumMgMax")).toMatchObject({ tone: "partial", unknown: 1 });
+    expect(rows.find((r) => r.key === "sugarsMax")).toMatchObject({ tone: "ok", unknown: 0 });
+
+    const week = await getProgress(u, "week", new Date(`${today}T12:00:00Z`));
+    expect(week.days.at(-1)).toMatchObject({ sodiumMg: 300, missing: { sodium: 1, sugars: 0, satFat: 0 } });
+    expect(week.incomplete).toEqual(["sodium"]);
+    expect(week.worstOverLimit).toBeNull();
+    expect(balanceTakeaway(week)).toBe("Sodium data is incomplete this week.");
   });
 
   it("logging a stored food with an implausible graded value: no sodium in the snapshot, grade '?'", async () => {

@@ -40,6 +40,10 @@ describe("sodiumPoints", () => {
     expect(pts.map((p) => p.over)).toEqual([true, false, false]);
     expect(pts.map((p) => p.isMax)).toEqual([true, false, false]);
   });
+  it("a day with no entry's sodium known is a gap, not 0; a partly known day keeps its known sum", () => {
+    const pts = sodiumPoints([{ ...d("2026-10-06", 900, 0, 2), missing: { sodium: 2 } }, { ...d("2026-10-07", 900, 400, 2), missing: { sodium: 1 } }], 2000);
+    expect(pts.map((p) => p.sodium)).toEqual([null, 400]);
+  });
   it("has no max when nothing was logged", () => {
     expect(sodiumPoints([d("2026-10-07", 0, 0, 0)], 2000).some((p) => p.isMax)).toBe(false);
   });

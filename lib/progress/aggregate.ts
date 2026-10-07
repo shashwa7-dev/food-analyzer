@@ -8,6 +8,11 @@ export interface DayAgg {
   entries: number;
   /** kcal per grade snapshot; ungraded entries are left out. */
   gradeKcal: Partial<Record<Grade, number>>;
+  /**
+   * Per limit, the entries whose snapshot has no value for it (a missing key is unknown); that day's
+   * sum covers the known entries only. Absent means none.
+   */
+  missing?: Partial<Record<LimitAxis, number>>;
 }
 export type Range = "week" | "month";
 export type LimitAxis = "sugars" | "sodium" | "satFat";
@@ -26,7 +31,12 @@ export interface ProgressSummary {
   gradeMix: Record<Grade, number>;
   /** The limit furthest over 100% (uncapped pct), or null when every limit is within. */
   worstOverLimit: { axis: LimitAxis; pct: number } | null;
+  /** Limits some entry in the range has no value for (sodium, sat fat, sugar order): their sums are floors. */
+  incomplete: LimitAxis[];
 }
+
+/** The limits in the order Today's Daily limits card lists them. */
+export const LIMIT_ORDER: readonly LimitAxis[] = ["sodium", "satFat", "sugars"];
 
 export const GRADES: Grade[] = ["A", "B", "C", "D", "E"];
 export const RANGES = ["week", "month"] as const;
@@ -36,9 +46,11 @@ export const STREAK_CAP = 365;
 /** Balance values are capped here so one wild day can't flatten the radar. */
 export const BALANCE_CAP = 150;
 
-type Summed = Exclude<keyof DayAgg, "date" | "entries" | "gradeKcal">;
+type Summed = Exclude<keyof DayAgg, "date" | "entries" | "gradeKcal" | "missing">;
 
 const emptyDay = (date: string): DayAgg => ({ date, kcal: 0, protein: 0, carbs: 0, fat: 0, fibre: 0, sugars: 0, sodiumMg: 0, satFat: 0, entries: 0, gradeKcal: {} });
+/** Entries on `d` with no value for `axis`. */
+export const missingOn = (d: DayAgg, axis: LimitAxis) => d.missing?.[axis] ?? 0;
 const pct = (v: number, t: number) => (t > 0 ? Math.round((v / t) * 100) : 0);
 
 /** The share of the calorie target that counts as "on target" for this goal. */
@@ -122,5 +134,6 @@ export function summarize(
     balance,
     gradeMix: Object.fromEntries(GRADES.map((g, i) => [g, mix[i]!])) as Record<Grade, number>,
     worstOverLimit: over.length ? { axis: over[0]!, pct: raw[over[0]!] } : null,
+    incomplete: LIMIT_ORDER.filter((a) => logged.some((d) => missingOn(d, a) > 0)),
   };
 }

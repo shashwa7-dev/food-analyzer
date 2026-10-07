@@ -1,17 +1,24 @@
-import type { LimitAxis, ProgressSummary, Range } from "./aggregate";
+import type { ProgressSummary, Range } from "./aggregate";
 
 export const AXIS_LABEL: Record<keyof ProgressSummary["balance"], string> = {
   protein: "Protein", fibre: "Fibre", energy: "Calories", sugars: "Sugar", sodium: "Sodium", satFat: "Sat fat",
 };
-export const LIMIT_AXES: readonly LimitAxis[] = ["sugars", "sodium", "satFat"];
 
 const period = (r: Range) => (r === "week" ? "this week" : "this month");
 
-/** The line under the nutrient-balance radar. */
-export function balanceTakeaway(s: Pick<ProgressSummary, "worstOverLimit" | "range">): string {
+/**
+ * The line under the nutrient-balance radar. A limit over on the known values says so; otherwise a
+ * limit some entries have no value for is "incomplete", never "within your limits".
+ */
+export function balanceTakeaway(s: Pick<ProgressSummary, "worstOverLimit" | "range" | "incomplete">): string {
   const w = s.worstOverLimit;
-  if (!w) return `Everything within your limits ${period(s.range)}.`;
-  return `${AXIS_LABEL[w.axis]} is ${w.pct - 100}% over your limit ${period(s.range)}.`;
+  if (w) return `${AXIS_LABEL[w.axis]} is ${w.pct - 100}% over your limit ${period(s.range)}.`;
+  if (s.incomplete.length) {
+    const names = s.incomplete.map((a, i) => (i === 0 ? AXIS_LABEL[a] : AXIS_LABEL[a].toLowerCase()));
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+    return `${list} data is incomplete ${period(s.range)}.`;
+  }
+  return `Everything within your limits ${period(s.range)}.`;
 }
 
 /** The line under the food-quality donut, or null when nothing logged was graded. */

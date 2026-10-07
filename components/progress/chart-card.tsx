@@ -26,10 +26,10 @@ export function CardNote({ children }: { children: ReactNode }) {
 }
 
 /** The one-line takeaway under a chart (mock `.cc-note`). */
-export function Takeaway({ icon: Icon, tone, children }: { icon: LucideIcon; tone: "warn" | "good"; children: ReactNode }) {
+export function Takeaway({ icon: Icon, tone, children }: { icon: LucideIcon; tone: "warn" | "good" | "muted"; children: ReactNode }) {
   return (
     <p className="m-0 flex items-center gap-2 text-[13px] text-ink">
-      <Icon className={cn("size-4 shrink-0", tone === "warn" ? "text-warn" : "text-brand-deep")} aria-hidden />
+      <Icon className={cn("size-4 shrink-0", tone === "warn" ? "text-warn" : tone === "muted" ? "text-subtle" : "text-brand-deep")} aria-hidden />
       <span>{children}</span>
     </p>
   );
