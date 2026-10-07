@@ -1,56 +1,31 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/session";
-import { myFoods } from "@/lib/foods/service";
-import { GradeBadge } from "@/components/grade-badge";
+import { DateSchema, defaultMealIn, todayIn } from "@/lib/dates";
+import { dayLabels } from "@/lib/today/headline";
+import { MEALS, type Meal } from "@/lib/nutrition/types";
+import { MEAL_META } from "@/components/food/meal-meta";
 import { FoodsPageSearch } from "@/components/add-food/foods-page-search";
 
-export default async function FoodsPage() {
-  const { userId } = await requireUser();
-  const mine = await myFoods(userId);
+type Params = { meal?: string; date?: string };
+
+/**
+ * Full-page food search (spec §6.2). Opened from a meal's "+" as /foods?meal=&date=, which decides
+ * where adds go and titles the page "Add to {Meal}"; opened bare (sidebar) it's "Foods" and adds go to
+ * today's meal for the current time.
+ */
+export default async function FoodsPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const { profile } = await requireUser();
+  const sp = await searchParams;
+  const today = todayIn(profile.timezone);
+  const meal = (MEALS as readonly string[]).includes(sp.meal ?? "") ? (sp.meal as Meal) : null;
+  const date = sp.date && DateSchema.safeParse(sp.date).success ? sp.date : today;
+  const labels = dayLabels(date);
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="title text-[30px] md:text-[34px]">Foods</h1>
-        <Link href="/foods/new" className="inline-flex min-h-11 items-center rounded-md border border-line px-3.5 text-sm font-semibold">
-          Create
-        </Link>
-      </div>
-      <FoodsPageSearch />
-      {mine.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="section-title">My foods</h2>
-          <ul className="flex flex-col overflow-hidden rounded-lg border border-line bg-surface">
-            {mine.map((f) => (
-              <li key={f.id} className="border-b border-line last:border-b-0">
-                <Link href={`/foods/${f.id}`} className="flex min-h-14 items-center gap-3.5 px-3.5 py-3">
-                  <GradeBadge grade={f.grade} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
-                      {f.name}
-                      {f.brand && <span className="font-normal text-subtle"> · {f.brand}</span>}
-                    </span>
-                    <span className="text-sm text-subtle">
-                      {f.defaultPortion.label}
-                      {f.defaultPortion.kcal !== null && (
-                        <>
-                          {" "}
-                          · <span className="num">{f.defaultPortion.kcal}</span> kcal
-                        </>
-                      )}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <p className="text-sm text-subtle">
-        Data: INDB, USDA FoodData Central, Open Food Facts.{" "}
-        <Link href="/about/data" className="underline">
-          Learn more
-        </Link>
-      </p>
-    </div>
+    <FoodsPageSearch
+      title={meal ? `Add to ${MEAL_META[meal].label}` : "Foods"}
+      subtitle={meal ? (date === today ? `Today · ${labels.short}` : labels.long) : null}
+      meal={meal ?? defaultMealIn(profile.timezone)}
+      date={date}
+      backHref={date === today ? "/today" : `/today?date=${date}`}
+    />
   );
 }

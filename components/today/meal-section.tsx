@@ -1,20 +1,14 @@
 "use client";
 import { useId, useState } from "react";
-import { Cookie, Flame, Moon, Sun, Sunrise, type LucideIcon } from "lucide-react";
+import { Flame } from "lucide-react";
 import { AddFoodButton } from "@/components/add-food/add-food-button";
+import { MEAL_META } from "@/components/food/meal-meta";
 import { EntryRowButton } from "@/components/today/entry-row";
 import { IconTile } from "@/components/ui/icon-tile";
 import { portionMeta } from "@/lib/log/format";
 import { cn } from "@/lib/utils";
 import type { Meal } from "@/lib/nutrition/types";
 import type { EntryRow } from "@/lib/log/service";
-
-const MEAL: Record<Meal, { label: string; icon: LucideIcon }> = {
-  breakfast: { label: "Breakfast", icon: Sunrise },
-  lunch: { label: "Lunch", icon: Sun },
-  snack: { label: "Snacks", icon: Cookie },
-  dinner: { label: "Dinner", icon: Moon },
-};
 
 /** "Poha · 1 katori" for a single entry, else the names in order: "Dal, Chapati/Roti, Boiled rice". */
 function summary(entries: EntryRow[]): string {
@@ -30,7 +24,7 @@ function summary(entries: EntryRow[]): string {
 export function MealSection({ meal, date, entries, kcal }: { meal: Meal; date: string; entries: EntryRow[]; kcal: number }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
-  const { label, icon: Icon } = MEAL[meal];
+  const { label, icon: Icon } = MEAL_META[meal];
   const empty = entries.length === 0;
 
   const head = (

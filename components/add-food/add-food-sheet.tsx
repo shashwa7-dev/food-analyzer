@@ -1,138 +1,97 @@
 "use client";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { ChevronLeft, ScanLine } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
-import { FoodSearch } from "@/components/add-food/food-search";
-import { QuickAddForm } from "@/components/add-food/quick-add-form";
-import { AddToMeal } from "@/components/food/add-to-meal";
-import { api } from "@/lib/api-client";
-import type { FoodHit } from "@/lib/foods/types";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronRight } from "lucide-react";
+import { ResponsiveSheet, SheetTitle } from "@/components/ui/responsive-sheet";
+import { Button } from "@/components/ui/button";
 import { GradeBadge } from "@/components/grade-badge";
-import { FlagList, ReasonList } from "@/components/food/food-verdict";
-import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
-import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
-import type { Flag, Meal, Nutrients, Portion, Reason } from "@/lib/nutrition/types";
+import { FoodIcon } from "@/components/food/food-icon";
+import { AddToMeal } from "@/components/food/add-to-meal";
+import { FlagNotes } from "@/components/food/sheet-parts";
+import { INGREDIENTS_UNKNOWN_NOTE } from "@/components/food/ingredients-unknown-note";
+import { api } from "@/lib/api-client";
+import { sourceLine } from "@/lib/foods/display";
+import { foodIconKey } from "@/lib/foods/icon";
+import type { FoodHit } from "@/lib/foods/types";
+import type { Flag, Meal, Nutrients, Portion } from "@/lib/nutrition/types";
 
 type DetailFood = {
-  id: string; name: string; brand: string | null; grade: string | null; source: string;
+  id: string; name: string; brand: string | null; grade: string | null; source: string; kind: string;
   per100: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml";
+  barcode: string | null; gradeCategory: string | null; categories: string[];
 };
-type Detail = { food: DetailFood; reasons: Reason[]; flags: Flag[]; ingredientsKnown: boolean };
+type Detail = { food: DetailFood; flags: Flag[]; ingredientsKnown: boolean };
 type Me = { profile: { allergies: string[] } };
 
-const TABS = ["search", "scan", "quick"] as const;
-type Tab = (typeof TABS)[number];
-const TAB_LABEL: Record<Tab, string> = { search: "Search", scan: "Scan", quick: "Quick add" };
-
-function AddFoodSheetBody({ meal, date, onOpenChange }: { meal: Meal; date: string; onOpenChange: (open: boolean) => void }) {
-  const [tab, setTab] = useState<Tab>("search");
-  const [picked, setPicked] = useState<FoodHit | null>(null);
-  const detail = useQuery({
-    queryKey: ["foods", picked?.id],
-    queryFn: () => api<Detail>(`/api/v1/foods/${picked!.id}`),
-    enabled: picked !== null,
-  });
-  const me = useQuery({
-    queryKey: ["me"],
-    queryFn: () => api<Me>("/api/v1/me"),
-    enabled: picked !== null,
-  });
-
-  if (picked) {
-    return (
-      <div className="flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={() => setPicked(null)}
-          className="flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold text-subtle"
-        >
-          <ChevronLeft className="size-4" aria-hidden /> Back
-        </button>
-        {detail.isLoading && <p className="text-sm text-subtle">Loading…</p>}
-        {detail.isError && <p className="text-sm text-bad">Couldn’t load that food. Try again.</p>}
-        {detail.data && (
-          <>
-            <div className="flex items-center gap-3">
-              <GradeBadge grade={detail.data.food.grade} />
-              <div className="min-w-0">
-                <div className="font-semibold">{detail.data.food.name}</div>
-                {detail.data.food.brand && <div className="text-sm text-subtle">{detail.data.food.brand}</div>}
-              </div>
-            </div>
-            <div className="text-sm"><ReasonList reasons={detail.data.reasons} /></div>
-            <FlagList flags={detail.data.flags} />
-            <IngredientsUnknownNote ingredientsKnown={detail.data.ingredientsKnown} hasAllergies={(me.data?.profile.allergies.length ?? 0) > 0} />
-            <IndbSodiumNote source={detail.data.food.source} />
-            <AddToMeal food={detail.data.food} target={{ kind: "food", foodId: detail.data.food.id }} date={date} defaultMeal={meal} onDone={() => onOpenChange(false)} />
-          </>
-        )}
-      </div>
-    );
-  }
-
+function Skeleton() {
+  const block = "rounded-[22px] bg-sunken animate-pulse motion-reduce:animate-none";
   return (
-    <div className="flex flex-col">
-      <div className="mb-3.5 flex gap-1 rounded-md bg-sunken p-1" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className="min-h-11 flex-1 rounded-[8px] text-sm font-semibold text-subtle aria-selected:bg-surface aria-selected:text-ink aria-selected:shadow-card"
-          >
-            {TAB_LABEL[t]}
-          </button>
-        ))}
-      </div>
-      {tab === "search" && <FoodSearch autoFocus onPick={setPicked} />}
-      {tab === "quick" && <QuickAddForm date={date} meal={meal} onDone={() => onOpenChange(false)} />}
-      {tab === "scan" && (
-        <div className="flex flex-col gap-3.5 pt-1">
-          <p className="text-sm">Barcode, label, front of pack or your plate. One button does all of it.</p>
-          <Link
-            href={`/scan?${new URLSearchParams({ meal, date })}`}
-            onClick={() => onOpenChange(false)}
-            className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-accent px-4 font-semibold text-accent-ink"
-          >
-            <ScanLine className="size-5" aria-hidden /> Open camera
-          </Link>
-          <p className="text-sm text-subtle">Barcode scans are free. A photo uses 1 AI scan.</p>
-        </div>
-      )}
+    <div className="flex flex-col gap-3.5" aria-busy="true" aria-label="Loading">
+      <div className={`${block} h-16`} />
+      <div className={`${block} h-11 rounded-[13px]`} />
+      <div className={`${block} h-[58px] rounded-[13px]`} />
+      <div className={`${block} h-5 rounded-full`} />
+      <div className={`${block} h-[54px] rounded-full`} />
     </div>
   );
 }
 
-export function AddFoodSheet({ meal, date, open, onOpenChange }: { meal: Meal; date: string; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const isDesktop = useMediaQuery("(min-width: 900px)");
-
-  if (isDesktop) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
-          <DialogTitle className="section-title capitalize">Add to {meal}</DialogTitle>
-          <AddFoodSheetBody meal={meal} date={date} onOpenChange={onOpenChange} />
-        </DialogContent>
-      </Dialog>
-    );
-  }
+function AddFoodSheetBody({ hit, meal, date, onClose }: { hit: FoodHit; meal: Meal; date: string; onClose: () => void }) {
+  const detail = useQuery({ queryKey: ["foods", hit.id], queryFn: () => api<Detail>(`/api/v1/foods/${hit.id}`) });
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/api/v1/me") });
+  const food = detail.data?.food;
+  const iconKey = food ? foodIconKey(food) : (hit.iconKey ?? foodIconKey(hit));
+  const hasAllergies = (me.data?.profile.allergies.length ?? 0) > 0;
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle className="section-title text-left capitalize">Add to {meal}</DrawerTitle>
-        </DrawerHeader>
-        <div className="flex-1 overflow-y-auto px-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))]">
-          <AddFoodSheetBody meal={meal} date={date} onOpenChange={onOpenChange} />
+    <>
+      <div className="flex items-center gap-3">
+        <FoodIcon iconKey={iconKey} size="lg" tone="brand" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <SheetTitle className="block truncate text-[18px] font-semibold tracking-[-0.02em] text-ink">{hit.name}</SheetTitle>
+          <span className="block truncate text-[13px] text-subtle">{sourceLine(food ?? hit)}</span>
         </div>
-      </DrawerContent>
-    </Drawer>
+        <GradeBadge grade={food?.grade ?? hit.grade} size="md" />
+      </div>
+      {detail.isPending && <Skeleton />}
+      {detail.isError && (
+        <div className="flex flex-col items-start gap-2 rounded-[18px] bg-surface p-4 shadow-card">
+          <p className="m-0 text-sm text-ink">Couldn’t load that food.</p>
+          <Button type="button" variant="ghost-sunken" shape="pill" size="lg" onClick={() => void detail.refetch()}>Try again</Button>
+        </div>
+      )}
+      {food && detail.data && (
+        <AddToMeal
+          food={food}
+          target={{ kind: "food", foodId: food.id }}
+          date={date}
+          defaultMeal={meal}
+          onDone={onClose}
+          notes={<FlagNotes flags={detail.data.flags} note={!detail.data.ingredientsKnown && hasAllergies ? INGREDIENTS_UNKNOWN_NOTE : null} />}
+        />
+      )}
+      <Link
+        href={`/foods/${hit.id}`}
+        className="-my-1.5 inline-flex min-h-11 items-center justify-center gap-1 self-center rounded-full px-3 text-[13px] font-semibold whitespace-nowrap text-brand-deep"
+      >
+        Nutrition and details
+        <ChevronRight className="size-4" aria-hidden />
+      </Link>
+    </>
+  );
+}
+
+/**
+ * The add-food sheet (spec §6.3), opened by tapping a search row: the food's icon, name, source and
+ * grade, then AddToMeal with the user's personal flags above the button. A bottom sheet on phones,
+ * a dialog from 900 px. The caller keeps `hit` set while it closes, so the sheet doesn't empty mid-animation.
+ */
+export function AddFoodSheet({ hit, session, meal, date, open, onOpenChange }: {
+  hit: FoodHit | null; session: number; meal: Meal; date: string; open: boolean; onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <ResponsiveSheet open={open && hit !== null} onOpenChange={onOpenChange}>
+      {hit && <AddFoodSheetBody key={`${hit.id}:${session}`} hit={hit} meal={meal} date={date} onClose={() => onOpenChange(false)} />}
+    </ResponsiveSheet>
   );
 }

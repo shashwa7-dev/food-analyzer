@@ -1,99 +1,112 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { invalidateLogQueries } from "@/lib/log/invalidate";
-import { api, ApiError } from "@/lib/api-client";
+import { useState, type ReactNode } from "react";
+import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { logEntryBody, stepQuantity, type LogTarget } from "@/lib/log/quantity";
-import { MEALS, type Meal, type Nutrients, type Portion } from "@/lib/nutrition/types";
+import { AmountStepper } from "@/components/food/amount-stepper";
+import { LiveMacros, MealTiles, UnitChips } from "@/components/food/sheet-parts";
+import { MEAL_META } from "@/components/food/meal-meta";
+import { useLogEntry } from "@/components/food/use-log-entry";
+import { logEntryBody, MAX_QUANTITY, type LogTarget } from "@/lib/log/quantity";
+import { stepAmount, stepFor, unitChipLabel, unitWord } from "@/lib/log/stepper";
+import type { Meal, Nutrients, Portion, PortionUnit } from "@/lib/nutrition/types";
 
 /** per100 null (+ perServing): a per-serving label with no serving weight — logged by servings only, never by grams. */
 export type LoggableFood = { name: string; per100: Nutrients | null; perServing?: Nutrients; portions: Portion[]; defaultPortion: number; basis: "per_100g" | "per_100ml" };
 
+const GRAMS = "grams";
+const MAX_GRAMS = 5000;
+
+/** A portion's amount is a multiplier, so a "100 g" portion steps by halves like any other. */
+export const multiplierUnit = (u: PortionUnit): PortionUnit => (u === "g" || u === "ml" ? "serving" : u);
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
 /**
- * Portion chips, quantity stepper / custom grams and meal chips, then POST /log. `target` says what
- * the entry is made from — a food (kinds food/grams) or a scan's own result (kinds scan/scan_grams);
- * `food` supplies what's shown (name, portions, per-100 nutrients) in both cases.
+ * The add sheet's controls (spec §6.3): amount stepper, unit chips (the food's portions plus Grams),
+ * meal tiles, live macros, `notes` (personal flags) and "Add to {Meal}", then POST /log with the
+ * Undo toast. `target` says what the entry is made from — a food (kinds food/grams) or a scan's own
+ * result (kinds scan/scan_grams); `food` supplies what's shown in both cases. The bare "100 g"
+ * portion every food carries is the Grams chip, not a chip of its own.
  */
-export function AddToMeal({ food, target, date, defaultMeal, onDone }: {
-  food: LoggableFood; target: LogTarget; date: string; defaultMeal: Meal; onDone?: () => void;
+export function AddToMeal({ food, target, date, defaultMeal, onDone, notes }: {
+  food: LoggableFood; target: LogTarget; date: string; defaultMeal: Meal; onDone?: () => void; notes?: ReactNode;
 }) {
-  const router = useRouter();
-  const qc = useQueryClient();
+  const logEntry = useLogEntry();
   const servingsOnly = food.per100 === null;
-  const loggable = food.portions.map((p, i) => ({ p, i })).filter(({ p }) => p.grams || servingsOnly);
-  const [portionIndex, setPortionIndex] = useState(loggable.find(({ i }) => i === food.defaultPortion)?.i ?? loggable[0]?.i ?? 0);
-  const [quantity, setQuantity] = useState(1);
-  const [meal, setMeal] = useState<Meal>(defaultMeal);
-  const [custom, setCustom] = useState(false);
-  const [customText, setCustomText] = useState("100");
-  const customGrams = Number(customText);
-  const customValid = customText.trim() !== "" && Number.isFinite(customGrams) && customGrams >= 1 && customGrams <= 5000;
-  const grams = custom ? (customValid ? customGrams : 0) : (food.portions[portionIndex]?.grams ?? 0) * quantity;
-  const kcal = food.per100 ? Math.round((food.per100.energyKcal * grams) / 100) : Math.round((food.perServing?.energyKcal ?? 0) * quantity);
   const unit = food.basis === "per_100ml" ? "ml" : "g";
-  const step = (dir: 1 | -1) => setQuantity((q) => stepQuantity(q, dir));
-  const add = useMutation({
-    mutationFn: () => api("/api/v1/log", {
-      method: "POST",
-      body: JSON.stringify(logEntryBody(target, custom ? { date, meal, grams: customGrams } : { date, meal, portionIndex, quantity })),
-    }),
-    onSuccess: () => {
-      toast.success(`Added ${food.name} to ${meal}.`);
-      void qc.invalidateQueries({ queryKey: ["foods", "recent"] });
-      invalidateLogQueries(qc);
-      router.refresh();
-      onDone?.();
-    },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn't add that. Try again."),
-  });
+  const chips = food.portions
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => (servingsOnly ? true : p.grams !== null && p.unit !== "g" && p.unit !== "ml"));
+  const defaultChip = chips.find(({ i }) => i === food.defaultPortion);
+  const initialGrams = food.portions[food.defaultPortion]?.grams ?? 100;
+  // Mode: a portion index, or free grams (a food whose default is its "100 g" portion opens on Grams).
+  const [mode, setMode] = useState<number | typeof GRAMS>(defaultChip?.i ?? (servingsOnly ? (chips[0]?.i ?? 0) : GRAMS));
+  const [quantity, setQuantity] = useState(1);
+  const [gramsText, setGramsText] = useState(String(initialGrams));
+  const [meal, setMeal] = useState<Meal>(defaultMeal);
+  const [pending, setPending] = useState(false);
+
+  const isGrams = mode === GRAMS;
+  const portion = isGrams ? null : food.portions[mode];
+  const typed = Number(gramsText);
+  const gramsValid = gramsText.trim() !== "" && Number.isFinite(typed) && typed >= 1 && typed <= MAX_GRAMS;
+  const grams = isGrams ? (gramsValid ? typed : 0) : (portion?.grams ?? 0) * quantity;
+  const n: Nutrients = food.per100
+    ? { energyKcal: (food.per100.energyKcal * grams) / 100, protein: (food.per100.protein * grams) / 100, carbs: (food.per100.carbs * grams) / 100, fat: (food.per100.fat * grams) / 100 }
+    : { energyKcal: (food.perServing?.energyKcal ?? 0) * quantity, protein: (food.perServing?.protein ?? 0) * quantity, carbs: (food.perServing?.carbs ?? 0) * quantity, fat: (food.perServing?.fat ?? 0) * quantity };
+
+  const stepUnit: PortionUnit = isGrams ? unit : multiplierUnit(portion?.unit ?? "serving");
+  const amount = isGrams ? (gramsValid ? typed : 0) : quantity;
+  const max = isGrams ? MAX_GRAMS : MAX_QUANTITY;
+  const step = (dir: 1 | -1) => {
+    const next = Math.min(max, stepAmount(amount, stepUnit, dir));
+    if (isGrams) setGramsText(String(next));
+    else setQuantity(next);
+  };
+  const pick = (key: string) => {
+    if (key === GRAMS) {
+      // Carry the weight over, so "1½ katori · 225 g" becomes 225 g.
+      if (!isGrams && grams > 0) setGramsText(String(Math.min(MAX_GRAMS, Math.round(grams))));
+      setMode(GRAMS);
+    } else {
+      setMode(Number(key));
+    }
+  };
+
+  const options = [
+    ...chips.map(({ p, i }) => ({ key: String(i), label: unitChipLabel(p.label) })),
+    ...(servingsOnly ? [] : [{ key: GRAMS, label: unit === "ml" ? "Millilitres" : "Grams" }]),
+  ];
+  const sub = isGrams
+    ? (unit === "ml" ? "millilitres" : "grams")
+    : `${unitWord(portion?.label ?? "", quantity)}${portion?.grams ? ` · ${round1(grams)} ${unit}` : ""}`;
+  const canAdd = isGrams ? gramsValid : chips.length > 0;
+
+  async function add() {
+    setPending(true);
+    const choice = isGrams ? { date, meal, grams: typed } : { date, meal, portionIndex: mode as number, quantity };
+    const id = await logEntry(logEntryBody(target, choice), { name: food.name, meal });
+    setPending(false);
+    if (id) onDone?.();
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <fieldset className="flex flex-col gap-2"><legend className="section-title mb-2">Portion</legend>
-        <div className="flex flex-wrap gap-2">
-          {loggable.map(({ p, i }) => (
-            <button key={p.label} type="button" aria-pressed={!custom && i === portionIndex} onClick={() => { setPortionIndex(i); setCustom(false); }}
-              className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">
-              {p.label} {p.grams !== null && <span className="num opacity-70">{p.grams} {unit}</span>}
-            </button>
-          ))}
-          {!servingsOnly && (
-          <button type="button" aria-pressed={custom} onClick={() => setCustom(true)}
-            className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">
-            Custom g/ml
-          </button>
-          )}
-        </div>
-      </fieldset>
-      {custom ? (
-        <label className="flex items-center justify-between gap-3 text-sm text-subtle">
-          Amount ({unit})
-          <input
-            inputMode="decimal"
-            value={customText}
-            onChange={(e) => setCustomText(e.target.value)}
-            aria-invalid={!customValid}
-            className="num min-h-11 w-28 rounded-md border border-line bg-surface px-3 text-right text-base text-ink outline-none focus-visible:border-accent aria-invalid:border-bad"
-          />
-        </label>
-      ) : (
-      <div className="flex items-center justify-between"><span className="text-sm text-subtle">How many?</span>
-        <div className="flex items-center overflow-hidden rounded-md border border-line">
-          <button type="button" className="size-11 text-xl font-bold" aria-label="Less" onClick={() => step(-1)}>−</button>
-          <span className="num min-w-16 text-center font-semibold">{quantity}</span>
-          <button type="button" className="size-11 text-xl font-bold" aria-label="More" onClick={() => step(1)}>+</button>
-        </div>
-      </div>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm text-subtle">Meal</span>
-        <div className="flex flex-wrap gap-2">{MEALS.map((m) => (
-          <button key={m} type="button" aria-pressed={m === meal} onClick={() => setMeal(m)} className="min-h-11 rounded-md border border-line bg-surface px-3 text-sm font-medium capitalize aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-bg">{m}</button>
-        ))}</div>
-      </div>
-      <Button className="h-12 w-full" disabled={add.isPending || (custom ? !customValid : loggable.length === 0)} onClick={() => add.mutate()}>
-        {add.isPending ? "Adding…" : <>Add to {meal} · <span className="num">{kcal}</span> kcal</>}
+    <div className="flex flex-col gap-3.5">
+      <AmountStepper
+        amount={amount}
+        sub={sub}
+        onStep={step}
+        canDecrease={amount > stepFor(stepUnit)}
+        canIncrease={amount < max}
+        input={isGrams ? { value: gramsText, onChange: setGramsText, invalid: !gramsValid, label: `Amount in ${unit}` } : undefined}
+      />
+      {options.length > 1 && <UnitChips options={options} active={String(mode)} onPick={pick} />}
+      <MealTiles meal={meal} onPick={setMeal} />
+      <LiveMacros kcal={n.energyKcal} protein={n.protein} carbs={n.carbs} fat={n.fat} />
+      {notes}
+      <Button type="button" shape="pill" size="xl" className="h-[54px] w-full" disabled={pending || !canAdd} onClick={() => void add()}>
+        {pending ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Plus aria-hidden />}
+        {pending ? "Adding…" : `Add to ${MEAL_META[meal].label}`}
       </Button>
     </div>
   );

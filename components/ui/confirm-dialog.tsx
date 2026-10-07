@@ -50,9 +50,9 @@ export function ConfirmDialog({
             UI skips it by default) and dim harder than a plain dialog (mock .dim). */}
         <AlertDialog.Backdrop
           forceRender
-          className="fixed inset-0 isolate z-50 bg-black/40 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          className="fixed inset-0 isolate z-50 bg-black/40 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         />
-        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-40px)] -translate-x-1/2 -translate-y-1/2 justify-items-center gap-2.5 rounded-[28px] bg-bg p-[22px] text-center text-ink shadow-[0_30px_60px_rgb(0_0_0/.3)] outline-none duration-100 sm:max-w-[360px] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
+        <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-40px)] -translate-x-1/2 -translate-y-1/2 justify-items-center gap-2.5 rounded-[28px] bg-bg p-[22px] text-center text-ink shadow-[0_30px_60px_rgb(0_0_0/.3)] outline-none! duration-100 sm:max-w-[360px] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
           <IconTile tone="bad" className="size-[54px] rounded-[18px] [&_svg]:size-[26px]">
             {icon}
           </IconTile>

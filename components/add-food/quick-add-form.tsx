@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { invalidateLogQueries } from "@/lib/log/invalidate";
+import { Loader2, Zap } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { MEAL_META } from "@/components/food/meal-meta";
+import { useLogEntry } from "@/components/food/use-log-entry";
 import type { Meal } from "@/lib/nutrition/types";
 
 const FIELDS = [
@@ -15,104 +16,106 @@ const FIELDS = [
   { key: "fat", label: "Fat (g)", placeholder: "10", max: 500 },
 ] as const;
 
+const EMPTY = { energyKcal: "", protein: "", carbs: "", fat: "" };
+const INPUT = "min-h-12 rounded-2xl border-0 bg-sunken px-4 text-base text-ink outline-none! placeholder:text-subtle/70 focus-visible:ring-2 focus-visible:ring-brand-deep";
+
+/**
+ * Quick add (M1): a name and macros, logged as one serving — saved to My foods first when the box is
+ * ticked, so it's searchable next time. Ghost inputs and the primary pill (mock-c1); the add toast
+ * offers Undo like every other add. The form clears after a successful add.
+ */
 export function QuickAddForm({ date, meal, onDone }: { date: string; meal: Meal; onDone?: () => void }) {
-  const router = useRouter();
   const qc = useQueryClient();
+  const logEntry = useLogEntry();
   const [name, setName] = useState("");
-  const [values, setValues] = useState<Record<string, string>>({ energyKcal: "", protein: "", carbs: "", fat: "" });
+  const [values, setValues] = useState<Record<string, string>>(EMPTY);
   const [save, setSave] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   function validate() {
     const trimmed = name.trim();
     if (!trimmed) return "Name it so you can find it again.";
-    if (values.energyKcal.trim() === "") return "Enter the calories.";
+    if (values.energyKcal!.trim() === "") return "Enter the calories.";
     for (const f of FIELDS) {
-      const raw = values[f.key];
+      const raw = values[f.key]!;
       const v = raw === "" ? 0 : Number(raw);
       if (!Number.isFinite(v) || v < 0 || v > f.max) return `${f.label} should be between 0 and ${f.max}.`;
     }
     return null;
   }
 
-  const add = useMutation({
-    mutationFn: async () => {
-      const trimmed = name.trim();
-      const nutrients = {
-        energyKcal: Number(values.energyKcal) || 0,
-        protein: Number(values.protein) || 0,
-        carbs: Number(values.carbs) || 0,
-        fat: Number(values.fat) || 0,
-      };
-      if (save) {
+  async function add() {
+    const trimmed = name.trim();
+    const nutrients = {
+      energyKcal: Number(values.energyKcal) || 0,
+      protein: Number(values.protein) || 0,
+      carbs: Number(values.carbs) || 0,
+      fat: Number(values.fat) || 0,
+    };
+    setPending(true);
+    let body: Record<string, unknown> = { kind: "quick", date, meal, name: trimmed, nutrients };
+    if (save) {
+      try {
         const created = await api<{ food: { id: string } }>("/api/v1/foods", {
           method: "POST",
           body: JSON.stringify({ name: trimmed, per: { amount: 1, unit: "serving" }, nutrients }),
         });
-        await api("/api/v1/log", {
-          method: "POST",
-          body: JSON.stringify({ kind: "food", date, meal, foodId: created.food.id, portionIndex: 0, quantity: 1 }),
-        });
-      } else {
-        await api("/api/v1/log", { method: "POST", body: JSON.stringify({ kind: "quick", date, meal, name: trimmed, nutrients }) });
+        void qc.invalidateQueries({ queryKey: ["foods", "mine"] });
+        body = { kind: "food", date, meal, foodId: created.food.id, portionIndex: 0, quantity: 1 };
+      } catch (e) {
+        const message = e instanceof ApiError ? e.message : "Couldn't save that. Try again.";
+        setError(message);
+        toast.error(message);
+        setPending(false);
+        return;
       }
-      return trimmed;
-    },
-    onSuccess: (loggedName) => {
-      toast.success(`Added ${loggedName} to ${meal}.`);
-      void qc.invalidateQueries({ queryKey: ["foods", "recent"] });
-      invalidateLogQueries(qc);
-      router.refresh();
-      onDone?.();
-    },
-    onError: (e) => {
-      const message = e instanceof ApiError ? e.message : "Couldn't add that. Try again.";
-      setError(message);
-      toast.error(message);
-    },
-  });
+    }
+    const id = await logEntry(body, { name: trimmed, meal });
+    setPending(false);
+    if (!id) return;
+    setName("");
+    setValues(EMPTY);
+    setError(null);
+    onDone?.();
+  }
 
   return (
     <form
-      className="mt-3.5 flex flex-col gap-3.5"
+      className="flex flex-col gap-3.5 rounded-[22px] bg-surface p-4 shadow-card"
       onSubmit={(e) => {
         e.preventDefault();
         const message = validate();
         setError(message);
-        if (!message) add.mutate();
+        if (!message) void add();
       }}
     >
-      <label className="flex flex-col gap-1.5 text-sm font-medium">
+      <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-subtle">
         Name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Mom's rajma"
-          maxLength={120}
-          className="min-h-11 rounded-md border border-line bg-surface px-3 text-base outline-none focus-visible:border-accent"
-        />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mom's rajma" maxLength={120} className={INPUT} />
       </label>
       <div className="grid grid-cols-2 gap-2.5">
         {FIELDS.map(({ key, label, placeholder }) => (
-          <label key={key} className="flex flex-col gap-1.5 text-sm font-medium">
+          <label key={key} className="flex min-w-0 flex-col gap-1.5 text-[13px] font-semibold whitespace-nowrap text-subtle">
             {label}
             <input
               inputMode="decimal"
               value={values[key]}
               onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
               placeholder={placeholder}
-              className="num min-h-11 rounded-md border border-line bg-surface px-3 text-base outline-none focus-visible:border-accent"
+              className={`num min-w-0 ${INPUT}`}
             />
           </label>
         ))}
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="size-5" />
+      <label className="flex min-h-11 items-center gap-2.5 text-sm text-ink">
+        <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="size-5 shrink-0 accent-brand-deep" />
         Save to My foods so I can search it later
       </label>
-      {error && <p className="text-sm text-bad">{error}</p>}
-      <Button type="submit" className="h-12 w-full" disabled={add.isPending}>
-        {add.isPending ? "Adding…" : `Add to ${meal}`}
+      {error && <p className="m-0 text-sm text-bad" role="alert">{error}</p>}
+      <Button type="submit" shape="pill" size="xl" className="h-[54px] w-full" disabled={pending}>
+        {pending ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <Zap aria-hidden />}
+        {pending ? "Adding…" : `Add to ${MEAL_META[meal].label}`}
       </Button>
     </form>
   );

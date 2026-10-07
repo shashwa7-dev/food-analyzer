@@ -14,18 +14,24 @@ import { targetsFor } from "@/lib/nutrition/targets";
 import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
+import { foodIconKey } from "./icon";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
 import type { FoodHit, FoodRow } from "./types";
 
 export type { FoodHit, FoodRow };
 
-export function toHit(f: Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade" | "source" | "portions" | "defaultPortion" | "per100">): FoodHit {
-  const p = f.portions[f.defaultPortion] ?? f.portions[0]!;
+export function toHit(f: Pick<FoodRow, "id" | "name" | "brand" | "kind" | "grade" | "source" | "portions" | "defaultPortion" | "per100" | "basis" | "barcode" | "gradeCategory" | "categories">): FoodHit {
+  const index = f.portions[f.defaultPortion] ? f.defaultPortion : 0;
+  const p = f.portions[index]!;
   return { id: f.id, name: f.name, brand: f.brand, kind: f.kind, grade: f.grade, source: f.source,
-    defaultPortion: { label: p.label, grams: p.grams, kcal: p.grams ? Math.round((f.per100.energyKcal * p.grams) / 100) : null } };
+    defaultPortion: { label: p.label, grams: p.grams, kcal: p.grams ? Math.round((f.per100.energyKcal * p.grams) / 100) : null, index, unit: f.basis === "per_100ml" ? "ml" : "g" },
+    iconKey: foodIconKey(f) };
 }
 
-const HIT_COLUMNS = { id: food.id, name: food.name, brand: food.brand, kind: food.kind, grade: food.grade, source: food.source, portions: food.portions, defaultPortion: food.defaultPortion, per100: food.per100 };
+const HIT_COLUMNS = {
+  id: food.id, name: food.name, brand: food.brand, kind: food.kind, grade: food.grade, source: food.source, portions: food.portions,
+  defaultPortion: food.defaultPortion, per100: food.per100, basis: food.basis, barcode: food.barcode, gradeCategory: food.gradeCategory, categories: food.categories,
+};
 
 const QUALIFIER = "(cooked|boiled|plain|nfs|raw)";
 const GENERIC_QUALIFIERS = `^(${QUALIFIER} )+|( ${QUALIFIER})+$`;
