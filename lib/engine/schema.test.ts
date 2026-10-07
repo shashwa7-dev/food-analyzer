@@ -91,3 +91,65 @@ describe("sanitiseExtraction", () => {
     expect(() => ExtractionSchema.parse(out)).not.toThrow();
   });
 });
+
+describe("sanitiseExtraction never throws on malformed/garbage input", () => {
+  // These bypass ModelExtractionSchema.parse() on purpose — e.g. {images: "oops"} would be
+  // rejected by that schema before it ever reached sanitiseExtraction. The point here is
+  // that sanitiseExtraction itself must not assume its input is well-shaped.
+  it("top-level null/undefined/primitive input returns the minimal valid shape", () => {
+    expect(sanitiseExtraction(null)).toEqual({ images: [] });
+    expect(sanitiseExtraction(undefined)).toEqual({ images: [] });
+    expect(sanitiseExtraction("x")).toEqual({ images: [] });
+    expect(sanitiseExtraction(42)).toEqual({ images: [] });
+    expect(sanitiseExtraction([1, 2, 3])).toEqual({ images: [] });
+  });
+
+  it("a non-array images field does not throw", () => {
+    expect(() => sanitiseExtraction({ images: "oops" })).not.toThrow();
+    expect(sanitiseExtraction({ images: "oops" }).images).toEqual([]);
+    expect(() => sanitiseExtraction({ images: { 0: "x" } })).not.toThrow();
+    expect(() => sanitiseExtraction({ images: 42 })).not.toThrow();
+  });
+
+  it("non-object entries inside images (null, strings) are skipped, not dereferenced", () => {
+    const out = sanitiseExtraction({ images: [null, "oops", 42, { index: 0, kind: "front", quality: [] }] });
+    expect(out.images).toEqual([{ index: 0, kind: "front", quality: [] }]);
+  });
+
+  it("a non-array quality field inside an image does not throw", () => {
+    const out = sanitiseExtraction({ images: [{ index: 0, kind: "front", quality: "x" }] });
+    expect(out.images[0]?.quality).toEqual([]);
+  });
+
+  it("a non-array meal.items field does not throw", () => {
+    expect(() => sanitiseExtraction({ meal: { items: "oops" } })).not.toThrow();
+    expect(sanitiseExtraction({ meal: { items: "oops" } }).meal).toBeUndefined();
+  });
+
+  it("a non-array, non-string ingredients field does not throw and yields no ingredients", () => {
+    expect(() => sanitiseExtraction({ ingredients: 42 })).not.toThrow();
+    expect(sanitiseExtraction({ ingredients: 42 }).ingredients).toBeUndefined();
+    expect(() => sanitiseExtraction({ ingredients: { 0: "x" } })).not.toThrow();
+    expect(sanitiseExtraction({ ingredients: { 0: "x" } }).ingredients).toBeUndefined();
+  });
+
+  it("non-string entries inside ingredients are dropped, not coerced", () => {
+    const out = sanitiseExtraction({ ingredients: ["rice", 42, null, { x: 1 }, "salt"] });
+    expect(out.ingredients).toEqual(["rice", "salt"]);
+  });
+
+  it("non-finite numbers (NaN/Infinity) in facts are dropped, not passed through", () => {
+    const out = sanitiseExtraction({ facts: { basis: "per_100g", energyKcal: Number.NaN, protein: Number.POSITIVE_INFINITY, carbs: 10, fat: 5 } });
+    expect(out.facts?.energyKcal).toBeUndefined();
+    expect(out.facts?.protein).toBeUndefined();
+    expect(out.facts?.carbs).toBe(10);
+  });
+
+  it("garbage product/facts/meal objects (arrays, primitives) are treated as absent", () => {
+    expect(() => sanitiseExtraction({ product: "oops", facts: [1, 2], meal: "oops" })).not.toThrow();
+    const out = sanitiseExtraction({ product: "oops", facts: [1, 2], meal: "oops" });
+    expect(out.product).toBeUndefined();
+    expect(out.facts).toBeUndefined();
+    expect(out.meal).toBeUndefined();
+  });
+});

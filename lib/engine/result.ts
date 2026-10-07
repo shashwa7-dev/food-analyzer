@@ -76,7 +76,7 @@ export function buildResult(args: {
   });
 
   const portion = args.portions[args.defaultPortion] ?? args.portions[0] ?? FALLBACK_PORTION;
-  const portionGrams = portion.grams ?? 100;
+  const portionGrams = portion.grams && portion.grams > 0 ? portion.grams : 100;
   const perPortion = nutrientsFor(args.per100, portionGrams);
 
   const reasons = explain({

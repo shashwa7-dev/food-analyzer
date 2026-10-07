@@ -7,6 +7,7 @@ const ENERGY_TOLERANCE_ABS_KCAL = 20;
 const ENERGY_ABS_THRESHOLD_KCAL = 100;
 const KJ_TOLERANCE_PCT = 0.05;
 const SALT_TOLERANCE_PCT = 0.1;
+const SALT_ZERO_SODIUM_THRESHOLD_G = 0.05; // sodiumMg 0 but a non-trivial printed saltG is still inconsistent.
 const KCAL_PER_PROTEIN = 4;
 const KCAL_PER_CARBS = 4;
 const KCAL_PER_FAT = 9;
@@ -42,7 +43,12 @@ export function validateFacts(per100: Nutrients, extra?: { energyKj?: number; sa
 
   if (extra?.saltG !== undefined && per100.sodiumMg !== undefined) {
     const expectedSalt = per100.sodiumMg * SALT_PER_SODIUM_MG;
-    if (expectedSalt > 0 && Math.abs(extra.saltG - expectedSalt) / expectedSalt > SALT_TOLERANCE_PCT) failed.push("salt");
+    if (expectedSalt > 0) {
+      if (Math.abs(extra.saltG - expectedSalt) / expectedSalt > SALT_TOLERANCE_PCT) failed.push("salt");
+    } else if (extra.saltG > SALT_ZERO_SODIUM_THRESHOLD_G) {
+      // sodiumMg 0/0 would otherwise skip the check entirely and silently pass.
+      failed.push("salt");
+    }
   }
 
   return { ok: failed.length === 0, failed };

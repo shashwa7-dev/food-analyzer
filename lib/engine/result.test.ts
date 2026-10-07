@@ -81,4 +81,16 @@ describe("buildResult", () => {
     expect(result.tip).toBeUndefined();
     expect(result.servingUnknown).toBeUndefined();
   });
+
+  it("does not throw when the default portion has no grams (serving-unknown case) and uses a 100 g equivalent", () => {
+    const unknownServingPortions: Portion[] = [{ label: "1 serving", amount: 1, unit: "serving", grams: null }];
+    const result = buildResult(baseArgs({ portions: unknownServingPortions, defaultPortion: 0, servingUnknown: true }));
+    expect(result.flags).toBeDefined();
+    expect(result.reasons.length).toBeGreaterThan(0);
+  });
+
+  it("does not throw when the default portion has grams: 0", () => {
+    const zeroGramPortions: Portion[] = [{ label: "1 pinch", amount: 1, unit: "household", grams: 0 }];
+    expect(() => buildResult(baseArgs({ portions: zeroGramPortions, defaultPortion: 0 }))).not.toThrow();
+  });
 });

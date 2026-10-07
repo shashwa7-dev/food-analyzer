@@ -158,17 +158,25 @@ export const ModelExtractionSchema = z.object({
 });
 export type ModelExtraction = z.infer<typeof ModelExtractionSchema>;
 
-// --- sanitiseExtraction: pure conversion from the lenient model shape to the strict
-// Extraction type. Truncates strings, slices arrays, drops nulls and out-of-range numbers —
-// never throws on bad model output (that's what the strict schema is for, on trusted input). ---
-const clampStr = (v: string | null | undefined, max: number): string | undefined => (typeof v === "string" ? v.slice(0, max) : undefined);
+// --- sanitiseExtraction: pure conversion from whatever the model (or a malformed test
+// fixture) produced to the strict Extraction type. Truncates strings, slices arrays, drops
+// nulls, non-finite numbers and out-of-range numbers — never throws, regardless of input
+// shape (that's what the strict schema is for, on trusted input). raw is `unknown` on
+// purpose: this is the last line of defense against garbage, not just a ModelExtraction
+// post-processor, so every field access below is guarded rather than assumed. ---
+const clampStr = (v: unknown, max: number): string | undefined => (typeof v === "string" ? v.slice(0, max) : undefined);
 
-const clampNum = (v: number | null | undefined, max: number): number | undefined =>
+const clampNum = (v: unknown, max: number): number | undefined =>
   typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max ? v : undefined;
 
-function clampStrArray(v: (string | null | undefined)[] | null | undefined, maxItems: number, maxLen: number): string[] {
+const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+// A "plain object" entry: not null, not an array, not a primitive (string/number/...).
+const asRecord = (v: unknown): Record<string, unknown> => (v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+
+function clampStrArray(v: unknown, maxItems: number, maxLen: number): string[] {
   const items: string[] = [];
-  for (const raw of v ?? []) {
+  for (const raw of asArray(v)) {
     const s = clampStr(raw, maxLen);
     if (s !== undefined) items.push(s);
     if (items.length === maxItems) break;
@@ -181,76 +189,85 @@ const isImageKind = (v: unknown): v is ImageKind => (IMAGE_KINDS as readonly str
 const isQualityFlag = (v: unknown): v is QualityFlag => (QUALITY_FLAGS as readonly string[]).includes(v as string);
 const isBasis = (v: unknown): v is Basis => (BASES as readonly string[]).includes(v as string);
 
-export function sanitiseExtraction(raw: ModelExtraction): Extraction {
-  const rawImages = raw.images ?? [];
-  const images = rawImages
-    .filter((img): img is NonNullable<typeof rawImages[number]> => img != null && isImageKind(img.kind))
+export function sanitiseExtraction(raw: unknown): Extraction {
+  const r = asRecord(raw);
+
+  const images = asArray(r.images)
+    .map(asRecord)
+    .filter((img) => isImageKind(img.kind))
     .slice(0, 3)
     .map((img, i) => ({
       index: typeof img.index === "number" && Number.isInteger(img.index) && img.index >= 0 && img.index <= 2 ? img.index : i,
       kind: img.kind as ImageKind,
-      quality: (img.quality ?? []).filter(isQualityFlag).slice(0, 4),
+      quality: asArray(img.quality).filter(isQualityFlag).slice(0, 4),
     }));
 
-  const name = clampStr(raw.product?.name, 120);
+  const productRec = asRecord(r.product);
+  const name = clampStr(productRec.name, 120);
   const product =
-    raw.product && name !== undefined
+    name !== undefined
       ? {
           name,
-          brand: clampStr(raw.product.brand, 80),
-          variant: clampStr(raw.product.variant, 80),
-          categoryGuess: clampStr(raw.product.categoryGuess, 80),
-          packSize:
-            raw.product.packSize && isUnit(raw.product.packSize.unit) && clampNum(raw.product.packSize.value, 10000) !== undefined
-              ? { value: raw.product.packSize.value as number, unit: raw.product.packSize.unit }
-              : undefined,
+          brand: clampStr(productRec.brand, 80),
+          variant: clampStr(productRec.variant, 80),
+          categoryGuess: clampStr(productRec.categoryGuess, 80),
+          packSize: (() => {
+            const packSizeRec = asRecord(productRec.packSize);
+            return isUnit(packSizeRec.unit) && clampNum(packSizeRec.value, 10000) !== undefined
+              ? { value: packSizeRec.value as number, unit: packSizeRec.unit }
+              : undefined;
+          })(),
         }
       : undefined;
 
-  const basis: Basis | undefined = raw.facts && isBasis(raw.facts.basis) ? raw.facts.basis : undefined;
-  const facts = raw.facts && basis
+  const factsRec = asRecord(r.facts);
+  const basis: Basis | undefined = isBasis(factsRec.basis) ? factsRec.basis : undefined;
+  const facts = basis
     ? {
         basis,
-        servingSize:
-          raw.facts.servingSize && isUnit(raw.facts.servingSize.unit) && clampNum(raw.facts.servingSize.value, 2000) !== undefined
-            ? { value: raw.facts.servingSize.value as number, unit: raw.facts.servingSize.unit }
-            : undefined,
-        energyKcal: clampNum(raw.facts.energyKcal, 5000),
-        energyKj: clampNum(raw.facts.energyKj, 20000),
-        protein: clampNum(raw.facts.protein, 500),
-        carbs: clampNum(raw.facts.carbs, 500),
-        sugars: clampNum(raw.facts.sugars, 500),
-        addedSugars: clampNum(raw.facts.addedSugars, 500),
-        fat: clampNum(raw.facts.fat, 500),
-        satFat: clampNum(raw.facts.satFat, 500),
-        transFat: clampNum(raw.facts.transFat, 500),
-        fibre: clampNum(raw.facts.fibre, 500),
-        sodiumMg: clampNum(raw.facts.sodiumMg, 20000),
-        saltG: clampNum(raw.facts.saltG, 50),
+        servingSize: (() => {
+          const servingSizeRec = asRecord(factsRec.servingSize);
+          return isUnit(servingSizeRec.unit) && clampNum(servingSizeRec.value, 2000) !== undefined
+            ? { value: servingSizeRec.value as number, unit: servingSizeRec.unit }
+            : undefined;
+        })(),
+        energyKcal: clampNum(factsRec.energyKcal, 5000),
+        energyKj: clampNum(factsRec.energyKj, 20000),
+        protein: clampNum(factsRec.protein, 500),
+        carbs: clampNum(factsRec.carbs, 500),
+        sugars: clampNum(factsRec.sugars, 500),
+        addedSugars: clampNum(factsRec.addedSugars, 500),
+        fat: clampNum(factsRec.fat, 500),
+        satFat: clampNum(factsRec.satFat, 500),
+        transFat: clampNum(factsRec.transFat, 500),
+        fibre: clampNum(factsRec.fibre, 500),
+        sodiumMg: clampNum(factsRec.sodiumMg, 20000),
+        saltG: clampNum(factsRec.saltG, 50),
       }
     : undefined;
 
-  const ingredients = clampStrArray(raw.ingredients, 80, 80);
-  const allergensDeclared = clampStrArray(raw.allergensDeclared, 20, 40);
-  const mayContain = clampStrArray(raw.mayContain, 20, 40);
-  const additives = clampStrArray(raw.additives, 40, 20);
+  const ingredients = clampStrArray(r.ingredients, 80, 80);
+  const allergensDeclared = clampStrArray(r.allergensDeclared, 20, 40);
+  const mayContain = clampStrArray(r.mayContain, 20, 40);
+  const additives = clampStrArray(r.additives, 40, 20);
 
-  const mealItems = (raw.meal?.items ?? [])
+  const mealItems = asArray(asRecord(r.meal).items)
     .map((it) => {
-      const itemName = clampStr(it?.name, 80);
-      const grams = typeof it?.grams === "number" && it.grams >= 1 && it.grams <= 2000 ? it.grams : undefined;
-      const est = it?.estimate;
-      const energyKcal = clampNum(est?.energyKcal, 5000);
-      const protein = clampNum(est?.protein, 500);
-      const carbs = clampNum(est?.carbs, 500);
-      const fat = clampNum(est?.fat, 500);
+      const itemRec = asRecord(it);
+      const itemName = clampStr(itemRec.name, 80);
+      const grams = typeof itemRec.grams === "number" && Number.isFinite(itemRec.grams) && itemRec.grams >= 1 && itemRec.grams <= 2000 ? itemRec.grams : undefined;
+      const est = asRecord(itemRec.estimate);
+      const energyKcal = clampNum(est.energyKcal, 5000);
+      const protein = clampNum(est.protein, 500);
+      const carbs = clampNum(est.carbs, 500);
+      const fat = clampNum(est.fat, 500);
       if (itemName === undefined || grams === undefined || energyKcal === undefined || protein === undefined || carbs === undefined || fat === undefined) {
         return null;
       }
       return {
         name: itemName,
         grams,
-        estimate: { energyKcal, protein, carbs, fat, fibre: clampNum(est?.fibre, 500), sugars: clampNum(est?.sugars, 500), sodiumMg: clampNum(est?.sodiumMg, 20000) },
+        estimate: { energyKcal, protein, carbs, fat, fibre: clampNum(est.fibre, 500), sugars: clampNum(est.sugars, 500), sodiumMg: clampNum(est.sodiumMg, 20000) },
       };
     })
     .filter((it): it is NonNullable<typeof it> => it != null)
@@ -258,7 +275,7 @@ export function sanitiseExtraction(raw: ModelExtraction): Extraction {
 
   const sanitised = {
     images,
-    barcodeText: clampStr(raw.barcodeText, 20),
+    barcodeText: clampStr(r.barcodeText, 20),
     product,
     facts,
     ingredients: ingredients.length > 0 ? ingredients : undefined,
@@ -266,7 +283,7 @@ export function sanitiseExtraction(raw: ModelExtraction): Extraction {
     mayContain: mayContain.length > 0 ? mayContain : undefined,
     additives: additives.length > 0 ? additives : undefined,
     meal: mealItems.length > 0 ? { items: mealItems } : undefined,
-    printedLanguage: clampStr(raw.printedLanguage, 20),
+    printedLanguage: clampStr(r.printedLanguage, 20),
   };
 
   return ExtractionSchema.parse(sanitised);

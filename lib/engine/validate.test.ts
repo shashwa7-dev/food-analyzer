@@ -49,6 +49,16 @@ describe("validateFacts", () => {
     expect(result.failed).not.toContain("kj");
   });
 
+  it("fails salt when sodiumMg is 0 but a non-trivial saltG is printed (avoids a silent 0/0 pass)", () => {
+    const n: Nutrients = { ...consistent, sodiumMg: 0 };
+    expect(validateFacts(n, { saltG: 1 }).failed).toContain("salt");
+  });
+
+  it("does not fail salt when sodiumMg is 0 and saltG is negligible", () => {
+    const n: Nutrients = { ...consistent, sodiumMg: 0 };
+    expect(validateFacts(n, { saltG: 0.01 }).failed).not.toContain("salt");
+  });
+
   it("honours the fibre convention: passes if either 4P+4C+9F or +2*fibre is within tolerance", () => {
     // 4*5+4*30+9*6 = 194 (close to 200, within 15%); with fibre 2 -> 198, also fine.
     expect(validateFacts(consistent).failed).not.toContain("energy");
