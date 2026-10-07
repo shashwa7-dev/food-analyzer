@@ -46,6 +46,22 @@ export const MICRO_MAX: Record<MicroKey, number> = {
   vitaminB12Ug: 200, // fortified nutritional yeast ~160 µg; clams 99 µg; beef liver 83 µg
 };
 
+/** The upper bounds a set of values is checked against: per 100 g/ml, or per serving of unknown weight. */
+export interface PlausibleBounds { max: Record<NutrientKey, number>; microMax: Record<MicroKey, number> }
+export const PER100_BOUNDS: PlausibleBounds = { max: PER100_MAX, microMax: MICRO_MAX };
+
+/**
+ * Bounds for one serving of unknown weight: a custom food entered "per serving" with no weight (Quick
+ * add's "Save to My foods" always is one) is stored as if the serving were 100 g, so its "per 100"
+ * values are really a whole serving's, and a 1,100 kcal thali is a normal meal. These are the log's own
+ * per-entry limits (NutrientsInput: 5,000 kcal, 500 g a macro, 20,000 mg sodium); a micro may be what
+ * a 500 g serving of the richest food holds (5x MICRO_MAX). Parts are still checked against wholes.
+ */
+export const SERVING_BOUNDS: PlausibleBounds = {
+  max: { energyKcal: 5000, protein: 500, carbs: 500, fat: 500, fibre: 500, sugars: 500, addedSugars: 500, satFat: 500, transFat: 500, sodiumMg: 20_000 },
+  microMax: Object.fromEntries(Object.entries(MICRO_MAX).map(([k, v]) => [k, v * 5])) as Record<MicroKey, number>,
+};
+
 /**
  * Slack for a part-of-whole check: 1 g or 5 % of the whole, whichever is larger. Reference tables
  * measure sugars and carbs separately, so a part can exceed its whole by analytical noise (FNDDS butter:
@@ -61,11 +77,11 @@ export const CORE_KEYS = ["energyKcal", "protein", "carbs", "fat"] as const sati
 export type CoreKey = (typeof CORE_KEYS)[number];
 const isCore = (k: NutrientKey): k is CoreKey => (CORE_KEYS as readonly string[]).includes(k);
 
-const inRange = (k: NutrientKey, v: number): boolean => Number.isFinite(v) && v >= 0 && v <= PER100_MAX[k];
+const inRange = (k: NutrientKey, v: number, b: PlausibleBounds = PER100_BOUNDS): boolean => Number.isFinite(v) && v >= 0 && v <= b.max[k];
 
-/** The keys of `per100` outside their range: negative, non-finite, or past PER100_MAX. */
-export function outOfRangeKeys(per100: Partial<Record<NutrientKey, number | undefined>>): NutrientKey[] {
-  return NUTRIENT_KEYS.filter((k) => per100[k] !== undefined && !inRange(k, per100[k]));
+/** The keys of `per100` outside their range: negative, non-finite, or past PER100_MAX (or `bounds`). */
+export function outOfRangeKeys(per100: Partial<Record<NutrientKey, number | undefined>>, bounds: PlausibleBounds = PER100_BOUNDS): NutrientKey[] {
+  return NUTRIENT_KEYS.filter((k) => per100[k] !== undefined && !inRange(k, per100[k], bounds));
 }
 
 /**
@@ -73,15 +89,15 @@ export function outOfRangeKeys(per100: Partial<Record<NutrientKey, number | unde
  * PER100_MAX), or a part larger than its whole by more than PART_SLACK. A part is only compared with a
  * whole that is itself in range (an absurd whole is reported on its own).
  */
-export function implausibleKeys(per100: Partial<Record<NutrientKey, number | undefined>>): NutrientKey[] {
+export function implausibleKeys(per100: Partial<Record<NutrientKey, number | undefined>>, bounds: PlausibleBounds = PER100_BOUNDS): NutrientKey[] {
   const out: NutrientKey[] = [];
   for (const k of NUTRIENT_KEYS) {
     const v = per100[k];
     if (v === undefined) continue;
-    if (!inRange(k, v)) { out.push(k); continue; }
+    if (!inRange(k, v, bounds)) { out.push(k); continue; }
     const exceeds = (PART_OF[k] ?? []).some((w) => {
       const whole = per100[w];
-      return whole !== undefined && !out.includes(w) && inRange(w, whole) && v > whole + partSlack(whole);
+      return whole !== undefined && !out.includes(w) && inRange(w, whole, bounds) && v > whole + partSlack(whole);
     });
     if (exceeds) out.push(k);
   }
@@ -89,10 +105,10 @@ export function implausibleKeys(per100: Partial<Record<NutrientKey, number | und
 }
 
 /** The micros of `per100` holding an implausible value: negative, non-finite, or past MICRO_MAX. */
-export function implausibleMicroKeys(per100: Partial<Record<MicroKey, number | undefined>>): MicroKey[] {
+export function implausibleMicroKeys(per100: Partial<Record<MicroKey, number | undefined>>, bounds: PlausibleBounds = PER100_BOUNDS): MicroKey[] {
   return MICRO_KEYS.filter((k) => {
     const v = per100[k];
-    return v !== undefined && !(Number.isFinite(v) && v >= 0 && v <= MICRO_MAX[k]);
+    return v !== undefined && !(Number.isFinite(v) && v >= 0 && v <= bounds.microMax[k]);
   });
 }
 
@@ -107,10 +123,14 @@ export interface PlausibleNutrients<T> {
   badCore: CoreKey[];
 }
 
-/** Drops implausible optional per-100 values (they become unknown) and reports implausible core ones. */
-export function dropImplausible<T extends Partial<Record<NutrientKey | MicroKey, number | undefined>>>(per100: T): PlausibleNutrients<T> {
-  const bad = implausibleKeys(per100);
-  const droppedMicros = implausibleMicroKeys(per100);
+/**
+ * Drops implausible optional per-100 values (they become unknown) and reports implausible core ones.
+ * `bounds` is SERVING_BOUNDS for a food whose "per 100" is really one serving of unknown weight
+ * (lib/foods/sane.ts boundsFor).
+ */
+export function dropImplausible<T extends Partial<Record<NutrientKey | MicroKey, number | undefined>>>(per100: T, bounds: PlausibleBounds = PER100_BOUNDS): PlausibleNutrients<T> {
+  const bad = implausibleKeys(per100, bounds);
+  const droppedMicros = implausibleMicroKeys(per100, bounds);
   if (bad.length === 0 && droppedMicros.length === 0) return { per100, dropped: [], droppedMicros, badCore: [] };
   const out = { ...per100 };
   for (const k of droppedMicros) delete out[k];

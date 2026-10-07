@@ -27,15 +27,14 @@ describe("customNutrientIssues", () => {
     expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, servingGrams: 30, nutrients: { energyKcal: 80, protein: 20, carbs: 0, fat: 0 } })).toEqual([]);
   });
 
-  it("checks a serving of unknown weight against the per-100 bounds it's stored under, and asks for its weight (review M5)", () => {
-    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 800, protein: 30, carbs: 90, fat: 35, sodiumMg: 3000 } })).toEqual([]);
+  it("checks a serving of unknown weight as one serving, not per 100 g (Quick add's Save to My foods)", () => {
+    // A 1,100 kcal thali with 140 g carbs is a normal meal.
+    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 1100, protein: 35, carbs: 140, fat: 45, sodiumMg: 3000 } })).toEqual([]);
+    // A 1 L soda: 106 g sugars a serving.
+    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 420, protein: 0, carbs: 106, fat: 0, sugars: 106 } })).toEqual([]);
     expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { ...base, sugars: 40 } })).toEqual([{ field: "sugars", message: "Sugars can't be more than carbs." }]);
-    // A 1 L soda: 106 g sugars a serving would be stored as 106 g per 100 g and dropped on read.
-    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 420, protein: 0, carbs: 106, fat: 0, sugars: 106 } }))
-      .toEqual([
-        { field: "carbs", message: "Carbs can't be more than 100 g per serving without its weight. Add the serving size." },
-        { field: "sugars", message: "Sugars can't be more than 100 g per serving without its weight. Add the serving size." },
-      ]);
+    expect(customNutrientIssues({ per: { amount: 1, unit: "serving" }, nutrients: { ...base, energyKcal: 6000 } }))
+      .toEqual([{ field: "energyKcal", message: "Calories can't be more than 5,000 kcal per serving." }]);
   });
 
   it("checks the vitamins and minerals against their bounds, in their own units", () => {

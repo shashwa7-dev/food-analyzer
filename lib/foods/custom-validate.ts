@@ -1,4 +1,4 @@
-import { implausibleKeys, implausibleMicroKeys, MICRO_MAX, outOfRangeKeys, PER100_MAX } from "@/lib/nutrition/plausible";
+import { implausibleKeys, implausibleMicroKeys, outOfRangeKeys, PER100_BOUNDS, SERVING_BOUNDS } from "@/lib/nutrition/plausible";
 import { MICRONUTRIENTS } from "@/lib/nutrition/nutrient-display";
 import type { MicroKey, NutrientKey, Nutrients } from "@/lib/nutrition/types";
 
@@ -26,9 +26,9 @@ const WHOLE: Partial<Record<NutrientKey, string>> = { sugars: "carbs", addedSuga
  * food is rejected here rather than silently losing a value later. Used by the form (before saving)
  * and by CustomFoodSchema (the API's backstop).
  *
- * A serving of unknown weight is stored as if it were 100 g (lib/foods/service.ts customDraft), so its
- * values are checked against the per-100 bounds too, with a message asking for the serving's weight:
- * a value past them would otherwise be accepted here and dropped on read.
+ * A serving of unknown weight (Quick add's "Save to My foods" always is one) is stored as if it were
+ * 100 g (lib/foods/service.ts customDraft), and is checked, here and on every read, as one serving
+ * (SERVING_BOUNDS: a 1,100 kcal thali is fine), never as per 100 g.
  */
 export function customNutrientIssues(entry: CustomNutrientsEntry): FieldIssue[] {
   const perServing = entry.per.unit === "serving";
@@ -36,17 +36,18 @@ export function customNutrientIssues(entry: CustomNutrientsEntry): FieldIssue[] 
   const factor = grams && grams > 0 ? 100 / grams : 1;
   const per100 = Object.fromEntries(Object.entries(entry.nutrients).map(([k, v]) => [k, typeof v === "number" ? v * factor : v])) as Nutrients;
   const basis = entry.per.unit === "ml" ? "100 ml" : "100 g";
-  const range = new Set(outOfRangeKeys(per100));
+  const bounds = perServing && !grams ? SERVING_BOUNDS : PER100_BOUNDS;
+  const range = new Set(outOfRangeKeys(per100, bounds));
   const tooMuch = (label: string, limit: string): string =>
     perServing && grams ? `${label} works out to more than ${limit} per ${basis}. Check the serving size.`
-      : perServing ? `${label} can't be more than ${limit} per serving without its weight. Add the serving size.`
+      : perServing ? `${label} can't be more than ${limit} per serving.`
         : `${label} can't be more than ${limit} per ${basis}.`;
-  const macros = implausibleKeys(per100).map((k): FieldIssue => (range.has(k)
-    ? { field: k, message: tooMuch(NAME[k], `${PER100_MAX[k].toLocaleString("en-IN")} ${UNIT[k]}`) }
+  const macros = implausibleKeys(per100, bounds).map((k): FieldIssue => (range.has(k)
+    ? { field: k, message: tooMuch(NAME[k], `${bounds.max[k].toLocaleString("en-IN")} ${UNIT[k]}`) }
     : { field: k, message: `${NAME[k]} can't be more than ${WHOLE[k]}.` }));
-  const micros = implausibleMicroKeys(per100).map((k): FieldIssue => {
+  const micros = implausibleMicroKeys(per100, bounds).map((k): FieldIssue => {
     const m = MICRO_META.get(k)!;
-    return { field: k, message: tooMuch(m.label, `${MICRO_MAX[k].toLocaleString("en-IN")} ${m.unit}`) };
+    return { field: k, message: tooMuch(m.label, `${bounds.microMax[k].toLocaleString("en-IN")} ${m.unit}`) };
   });
   return [...macros, ...micros];
 }

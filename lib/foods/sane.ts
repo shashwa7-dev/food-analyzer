@@ -3,8 +3,8 @@ import { food } from "@/lib/db/schema";
 import { classify } from "@/lib/nutrition/classify";
 import { gradeFood } from "@/lib/nutrition/grade";
 import { figureSourceOf, GRADE_UNAVAILABLE, gradeUnavailableReason } from "@/lib/nutrition/grade-unavailable";
-import { CORE_KEYS, dropImplausible, PER100_MAX } from "@/lib/nutrition/plausible";
-import type { GradeResult, NutrientKey } from "@/lib/nutrition/types";
+import { CORE_KEYS, dropImplausible, PER100_BOUNDS, PER100_MAX, SERVING_BOUNDS, type PlausibleBounds } from "@/lib/nutrition/plausible";
+import type { GradeResult, NutrientKey, Portion } from "@/lib/nutrition/types";
 import { saneDefaultPortion, wweiaOf } from "./seed-map";
 import type { FoodRow } from "./types";
 
@@ -23,6 +23,22 @@ export function gradeStoredFood(f: GradeInputs): GradeResult {
 }
 
 /**
+ * True for a custom food entered per serving with no weight (Quick add's "Save to My foods" always is
+ * one): lib/foods/service.ts customDraft stores it as a "1 serving" portion of 100 g with the serving's
+ * values as its per-100, so they are checked as one serving (SERVING_BOUNDS), never as per 100 g. A
+ * custom food weighed at exactly 100 g a serving looks the same and gets the looser bounds too; its
+ * values were checked per 100 g when it was saved.
+ */
+export function isUnknownWeightServing(f: { source: string; portions?: Portion[] }): boolean {
+  return f.source === "custom" && (f.portions ?? []).some((p) => p.unit === "serving" && p.label === "1 serving" && p.grams === 100);
+}
+
+/** The bounds a stored food's per100 is checked against (lib/nutrition/plausible.ts). */
+export function boundsFor(f: { source: string; portions?: Portion[] }): PlausibleBounds {
+  return isUnknownWeightServing(f) ? SERVING_BOUNDS : PER100_BOUNDS;
+}
+
+/**
  * Read-time guard for food rows (lib/nutrition/plausible.ts): an implausible per-100 value stored before
  * the bounds existed (e.g. an OFF unit error, sodium 350,428 mg/100 g) is shown as unknown, with its
  * provenance removed. The stored grade was computed with that value, so it isn't shown:
@@ -36,7 +52,7 @@ export function gradeStoredFood(f: GradeInputs): GradeResult {
  * the stored data.
  */
 export function plausibleFood<T extends GradeInputs & Pick<FoodRow, "grade"> & Partial<Pick<FoodRow, "provenance" | "gradeValue" | "gradeComponents" | "gradeFrozen" | "portions" | "defaultPortion">>>(f: T): T & Plausibility {
-  const { per100, dropped, droppedMicros } = dropImplausible(f.per100);
+  const { per100, dropped, droppedMicros } = dropImplausible(f.per100, boundsFor(f));
   // A default portion stored before the pack rule (lib/foods/seed-map.ts) is corrected on read too.
   const defaultPortion = f.portions && f.defaultPortion !== undefined ? saneDefaultPortion(f.portions, f.defaultPortion) : f.defaultPortion;
   if (dropped.length === 0 && droppedMicros.length === 0) return defaultPortion === f.defaultPortion ? f : { ...f, defaultPortion };

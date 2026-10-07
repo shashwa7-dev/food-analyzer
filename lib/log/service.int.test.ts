@@ -317,4 +317,30 @@ describe("food log", () => {
     await expect(addEntry(u, { kind: "scan_grams", date: today, meal: "lunch", scanId: s.id, grams: 50 })).rejects.toBeInstanceOf(InvalidError);
     expect((await getDay(u, today)).entries).toHaveLength(0);
   });
+
+  it("Quick add + save, 1,100 kcal: the meal saves as a serving of unknown weight, logs, and logs again later from My foods", async () => {
+    const u = await createUser();
+    // What the Quick add form POSTs with "Save to My foods" on, then logs (components/add-food/quick-add-form.tsx).
+    const thali = { energyKcal: 1100, protein: 35, carbs: 140, fat: 45 };
+    const saved = await createCustomFood(u, { name: "Office thali", per: { amount: 1, unit: "serving" }, nutrients: thali });
+    const first = await addEntry(u, { kind: "food", date: today, meal: "lunch", foodId: saved.id, portionIndex: 0, quantity: 1 });
+    expect(first.nutrients).toMatchObject(thali);
+    const again = await addEntry(u, { kind: "food", date: addDays(today, -1), meal: "dinner", foodId: saved.id, portionIndex: 0, quantity: 2 });
+    expect(again.nutrients).toMatchObject({ energyKcal: 2200, carbs: 280 });
+    // Read as one serving everywhere: a 106 g-sugar serving isn't dropped as "over 100 g per 100 g".
+    const soda = await createCustomFood(u, { name: "1 L cola", per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 420, protein: 0, carbs: 106, fat: 0, sugars: 106 } });
+    expect((await addEntry(u, { kind: "food", date: today, meal: "snack", foodId: soda.id, portionIndex: 0, quantity: 1 })).nutrients.sugars).toBe(106);
+  });
+
+  it("an older unknown-weight custom food over 910 kcal logs again; the user's own implausible food says to edit it", async () => {
+    const u = await createUser();
+    const old = await createCustomFood(u, { name: "Biryani handi", per: { amount: 1, unit: "serving" }, nutrients: { energyKcal: 800, protein: 30, carbs: 90, fat: 35 } });
+    await db.update(food).set({ per100: { ...old.per100, energyKcal: 1500 } }).where(eq(food.id, old.id));
+    expect((await addEntry(u, { kind: "food", date: today, meal: "dinner", foodId: old.id, portionIndex: 0, quantity: 1 })).nutrients.energyKcal).toBe(1500);
+
+    const per100 = await createCustomFood(u, { name: "Ghee laddoo", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 450, protein: 6, carbs: 50, fat: 25 } });
+    await db.update(food).set({ per100: { ...per100.per100, energyKcal: 3000 } }).where(eq(food.id, per100.id));
+    await expect(addEntry(u, { kind: "food", date: today, meal: "snack", foodId: per100.id, portionIndex: 0, quantity: 1 }))
+      .rejects.toThrow("Edit this food to fix its calories or macros.");
+  });
 });

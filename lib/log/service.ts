@@ -8,7 +8,8 @@ import { InvalidError, NotFoundError } from "@/lib/errors";
 import { getFoodForUser } from "@/lib/foods/service";
 import { isFreeGramsPortion } from "@/lib/log/format";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
-import { dropImplausible } from "@/lib/nutrition/plausible";
+import { dropImplausible, PER100_BOUNDS } from "@/lib/nutrition/plausible";
+import { boundsFor } from "@/lib/foods/sane";
 import { nutrientsFor, rescaleEntry, scaleNutrients } from "@/lib/nutrition/portions";
 import { targetsFor } from "@/lib/nutrition/targets";
 import { dayTotals } from "@/lib/nutrition/totals";
@@ -22,10 +23,18 @@ import { visibleScanWhere } from "@/lib/scans/service";
  * value (a scan stored before the bounds, a row the read guard missed) never lands in a day's totals.
  * Energy and the macros can't be dropped, so a record with an implausible one (a scan stored before
  * the bounds with 3,000 kcal per 100 g, an old custom food) is refused instead of logged.
+ *
+ * `from` is the stored food being logged (none for a scan): a custom serving of unknown weight is
+ * checked as one serving (lib/foods/sane.ts boundsFor), so a 1,100 kcal Quick add meal logs, and the
+ * user's own food is refused with a message to edit it.
  */
-export function snapshotNutrients(per100: Nutrients, grams: number): Nutrients {
-  const { per100: sane, badCore } = dropImplausible(per100);
-  if (badCore.length > 0) throw new InvalidError("This food's calories or macros don't look right, so it can't be logged. Scan it again or add it with Quick add.");
+export function snapshotNutrients(per100: Nutrients, grams: number, from?: { source: string; portions: Portion[] }): Nutrients {
+  const { per100: sane, badCore } = dropImplausible(per100, from ? boundsFor(from) : PER100_BOUNDS);
+  if (badCore.length > 0) {
+    throw new InvalidError(from?.source === "custom"
+      ? "This food's calories or macros don't look right. Edit this food to fix its calories or macros."
+      : "This food's calories or macros don't look right, so it can't be logged. Scan it again or add it with Quick add.");
+  }
   return nutrientsFor(sane, grams);
 }
 
@@ -86,7 +95,7 @@ export async function addEntry(userId: string, raw: AddEntryInput): Promise<Entr
     : resolvePortion(f.portions, f.basis, { portionIndex: input.portionIndex, quantity: input.quantity });
   const grams = portion.grams!;
   return db.transaction(async (tx) => {
-    const [row] = await tx.insert(foodLog).values({ userId, date: input.date, meal: input.meal, foodId: f.id, name: f.brand ? `${f.name} · ${f.brand}` : f.name, portion, nutrients: snapshotNutrients(f.per100, grams), grade: f.grade }).returning();
+    const [row] = await tx.insert(foodLog).values({ userId, date: input.date, meal: input.meal, foodId: f.id, name: f.brand ? `${f.name} · ${f.brand}` : f.name, portion, nutrients: snapshotNutrients(f.per100, grams, f), grade: f.grade }).returning();
     await bumpFoodStats(tx, userId, f.id);
     return row!;
   });
