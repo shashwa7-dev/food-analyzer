@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     const profile = await getProfile(userId);
     if (!allows(profile.plan, "dataExport")) return apiError(403, "PRO_REQUIRED", "Exporting your data is part of Pro.");
     const what = parsed.data.what;
-    const body = exportCsv(userId, what);
+    const body = exportCsv(userId, what, profile.timezone);
     if (!body) return apiError(400, "NOT_AVAILABLE", "That export isn't available yet.");
     return new Response(body, {
       headers: {

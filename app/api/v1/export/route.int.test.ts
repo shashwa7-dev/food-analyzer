@@ -71,6 +71,19 @@ describe("GET /api/v1/export", () => {
     expect(rows[0]).toMatch(/,label,failed,,,,,,,,UNREADABLE_IMAGE$/);
   });
 
+  it("writes logged_at and scanned_at on the user's clock: a 01:00 IST entry shows the same day as its date", async () => {
+    const me = (session.userId = await createUser()); // profile timezone defaults to Asia/Kolkata
+    const at = new Date("2026-10-01T19:30:00Z"); // 01:00 on 2 Oct in IST
+    await db.insert(foodLog).values({ userId: me, date: "2026-10-02", meal: "breakfast", name: "Chai", portion, nutrients: { energyKcal: 30, protein: 1, carbs: 5, fat: 1 }, createdAt: at });
+    await db.insert(scan).values({ userId: me, status: "failed", inputKind: "label", engineVersion: "t", errorCode: "UNREADABLE_IMAGE", createdAt: at });
+    const [, diary] = await lines(await call("diary"));
+    expect(diary).toMatch(/^2026-10-02,breakfast,Chai,.*,2026-10-02 01:00$/);
+    const [, scanned] = await lines(await call("scans"));
+    expect(scanned).toMatch(/^2026-10-02 01:00,label,failed,/);
+    await db.update(profile).set({ timezone: "America/New_York" }).where(eq(profile.userId, me));
+    expect((await lines(await call("diary")))[1]).toMatch(/,2026-10-01 15:30$/);
+  });
+
   it("writes just the header with nothing logged", async () => {
     session.userId = await createUser();
     expect(await lines(await call("diary"))).toHaveLength(1);
