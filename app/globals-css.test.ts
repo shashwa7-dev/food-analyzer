@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { THEME_COLOR } from "@/lib/theme";
 
@@ -59,5 +59,24 @@ describe("globals.css dark palette", () => {
   it("keeps the camera tokens on the light :root only (always dark, never redefined)", () => {
     expect(declarations(body(":root {")).get("--viewfinder")).toBeDefined();
     expect(dark.has("--viewfinder")).toBe(false);
+  });
+});
+
+describe("the shadcn muted aliases", () => {
+  // --color-muted is shadcn's muted *fill* and maps to --sunken, so `text-muted` would paint text in the
+  // sunken background colour: all but invisible. Muted text is `text-subtle` (or shadcn's
+  // `text-muted-foreground`). Review M16.
+  const root = resolve(__dirname, "..");
+  const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? files(join(dir, e.name)) : /\.tsx?$/.test(e.name) && !e.name.includes(".test.") ? [join(dir, e.name)] : []);
+
+  it("maps --color-muted to the sunken fill", () => {
+    expect(css).toMatch(/--color-muted:\s*var\(--sunken\)/);
+  });
+
+  it("never uses text-muted (a fill colour) for text", () => {
+    const offenders = ["app", "components", "lib"].flatMap((d) => files(join(root, d)))
+      .filter((f) => /(^|[\s"'`:])text-muted(?![\w-])/.test(readFileSync(f, "utf8")));
+    expect(offenders).toEqual([]);
   });
 });

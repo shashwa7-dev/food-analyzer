@@ -72,6 +72,7 @@
   --color-background: var(--bg); --color-foreground: var(--ink);
   --color-primary: var(--action); --color-primary-foreground: var(--action-ink);
   --color-secondary: var(--sunken); --color-secondary-foreground: var(--ink);
+  /* shadcn's muted is a fill: never use text-muted (invisible); muted text is text-subtle. */
   --color-muted: var(--sunken); --color-muted-foreground: var(--muted);
   --color-popover: var(--surface); --color-popover-foreground: var(--ink);
   --color-card: var(--surface); --color-card-foreground: var(--ink);
