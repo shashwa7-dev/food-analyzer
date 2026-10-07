@@ -11,7 +11,7 @@ import { gradeFood } from "@/lib/nutrition/grade";
 import { foodIconKey } from "./icon";
 import { upsertFood, upsertFoods } from "./insert";
 import { toFoodDraft, parseHouseholdCsv } from "./seed-map";
-import { createCustomFood, createCustomFoodFromScan, customFoodFieldError, CustomFoodSchema, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, getOwnCustomFoodForEdit, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
+import { createCustomFood, createCustomFoodFromScan, customFoodFieldError, customFoodFormInitial, CustomFoodSchema, deleteCustomFood, findAlternatives, findFoodByBarcode, foodDetail, getFoodForUser, getOwnCustomFoodForEdit, myFoods, recentFoods, searchFoodRows, searchFoods, updateCustomFood } from "./service";
 
 const rules = parseHouseholdCsv("keyword,label,grams\nrice,1 katori,150\n");
 const rec = (sourceRef: string, name: string, per100 = { energyKcal: 130, protein: 2.7, carbs: 28, fat: 0.3 }, source: "indb" | "fndds" = "indb") =>
@@ -488,6 +488,30 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     const alts = await findAlternatives(u, { name: "Masala noodles", categories: ["en:instant-noodles"], country: "IN", grade: subject.grade as never, excludeId: subject.id });
     expect(alts.map((a) => a.id)).toContain(real.id);
     expect(alts.map((a) => a.id)).not.toContain(stale.id);
+  });
+
+  it("a Quick add + save at 1,100 kcal, opened for edit and saved unchanged, saves: no serving size is pre-filled", async () => {
+    const u = await createUser();
+    const thali = { energyKcal: 1100, protein: 35, carbs: 140, fat: 45 };
+    const saved = await createCustomFood(u, { name: "Office thali", per: { amount: 1, unit: "serving" }, nutrients: thali });
+    const initial = customFoodFormInitial((await getOwnCustomFoodForEdit(u, saved.id))!);
+    expect(initial.per).toEqual({ amount: 1, unit: "serving" });
+    expect(initial.servingGrams).toBeUndefined();
+    expect(initial.nutrients).toMatchObject(thali);
+    // What the form sends back unchanged: no servingGrams.
+    const body = { name: initial.name, per: initial.per, nutrients: initial.nutrients };
+    expect(CustomFoodSchema.safeParse(body).success).toBe(true);
+    const edited = await updateCustomFood(u, saved.id, body);
+    expect(edited!.per100).toMatchObject(thali);
+    expect(edited!.portions).toContainEqual({ label: "1 serving", amount: 1, unit: "serving", grams: 100 });
+    // Adding a weight switches to the per-100 g check: 1,100 kcal in 500 g is fine, in 100 g it isn't.
+    expect(CustomFoodSchema.safeParse({ ...body, servingGrams: 500 }).success).toBe(true);
+    expect(CustomFoodSchema.safeParse({ ...body, servingGrams: 100 }).success).toBe(false);
+    // A weighed serving still loads with its weight.
+    const weighed = await createCustomFood(u, { name: "Paratha", per: { amount: 1, unit: "serving" }, servingGrams: 80, nutrients: { energyKcal: 260, protein: 5, carbs: 32, fat: 12 } });
+    const w = customFoodFormInitial((await getOwnCustomFoodForEdit(u, weighed.id))!);
+    expect(w.servingGrams).toBe(80);
+    expect(w.nutrients.energyKcal).toBeCloseTo(260, 1);
   });
 
   it("custom foods: implausible numbers are rejected with the field and a message; the edit form reads the stored row unguarded", async () => {

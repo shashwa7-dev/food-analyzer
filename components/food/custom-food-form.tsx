@@ -15,15 +15,8 @@ import { amountError, parseAmount } from "@/lib/parse-amount";
 import { customNutrientIssues } from "@/lib/foods/custom-validate";
 import { MICRONUTRIENTS } from "@/lib/nutrition/nutrient-display";
 import type { MicroKey, Nutrients } from "@/lib/nutrition/types";
+import type { CustomFoodFormInitial } from "@/lib/foods/service";
 
-export interface CustomFoodFormInitial {
-  id: string;
-  name: string;
-  brand: string;
-  per: { amount: number; unit: "g" | "ml" | "serving" };
-  servingGrams?: number;
-  nutrients: Nutrients;
-}
 
 type Unit = "g" | "ml" | "serving";
 const UNIT_LABEL: Record<Unit, string> = { serving: "1 serving", g: "100 g", ml: "100 ml" };
@@ -61,12 +54,14 @@ function toText(v: number | undefined): string {
 }
 
 /** A ghost input (mock-c1 `.field` on --sunken): label above, the unit inside on the right, red when it's the one to fix. */
-function Field({ id, label, unit, value, onChange, error, inputMode, maxLength }: {
+function Field({ id, label, unit, value, onChange, error, hint, inputMode, maxLength }: {
   id: string; label: string; unit?: string; value: string; onChange: (v: string) => void; error: string | null;
-  inputMode?: "decimal"; maxLength?: number;
+  /** A quiet line under the field, replaced by the error when there is one. */
+  hint?: string; inputMode?: "decimal"; maxLength?: number;
 }) {
   const invalid = error !== null;
   const errorId = `${id}-error`;
+  const hintId = `${id}-hint`;
   return (
     <label htmlFor={id} className="flex min-w-0 flex-col gap-1.5">
       <span className="truncate px-1 text-[13px] font-medium text-subtle">{label}</span>
@@ -83,12 +78,13 @@ function Field({ id, label, unit, value, onChange, error, inputMode, maxLength }
           inputMode={inputMode}
           maxLength={maxLength}
           aria-invalid={invalid || undefined}
-          aria-describedby={invalid ? errorId : undefined}
+          aria-describedby={invalid ? errorId : hint ? hintId : undefined}
           className={cn("h-full w-full min-w-0 bg-transparent text-base text-ink outline-none!", inputMode && "num font-semibold")}
         />
         {unit && <span className="shrink-0 text-[13px] text-subtle">{unit}</span>}
       </span>
       {invalid && <span id={errorId} className="px-1 text-[12.5px] leading-snug font-medium text-bad">{error}</span>}
+      {!invalid && hint && <span id={hintId} className="px-1 text-[12.5px] leading-snug text-subtle">{hint}</span>}
     </label>
   );
 }
@@ -141,8 +137,10 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
   function validate(): { message: string; field: FieldId | null } | null {
     if (!name.trim()) return { message: "Give it a name.", field: "name" };
     if (unit === "serving") {
+      // Optional: with no weight the serving is checked as one serving (lib/foods/custom-validate.ts);
+      // with one, its values are checked per 100 g.
       const g = parseAmount(servingGrams);
-      if (g === null || !(g >= 1 && g <= 2000)) return { message: "Serving size should be between 1 and 2000 g.", field: "servingGrams" };
+      if (g !== null && !(g >= 1 && g <= 2000)) return { message: "Serving size should be between 1 and 2000 g.", field: "servingGrams" };
     }
     for (const f of REQUIRED_FIELDS) {
       const v = parseAmount(values[f.key]!);
@@ -181,7 +179,7 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
         name: trimmed,
         ...(trimmedBrand ? { brand: trimmedBrand } : {}),
         per: perOf(unit),
-        ...(unit === "serving" ? { servingGrams: parseAmount(servingGrams) } : {}),
+        ...(unit === "serving" && parseAmount(servingGrams) !== null ? { servingGrams: parseAmount(servingGrams) } : {}),
         nutrients: typedNutrients(),
       };
       return initial
@@ -258,7 +256,7 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
           </div>
         </fieldset>
         {unit === "serving" && (
-          <Field id={fieldId("servingGrams")} label="Serving size" unit="g" inputMode="decimal" value={servingGrams} onChange={edit("servingGrams", setServingGrams)} error={fieldError("servingGrams")} />
+          <Field id={fieldId("servingGrams")} label="Serving size" unit="g" inputMode="decimal" value={servingGrams} onChange={edit("servingGrams", setServingGrams)} error={fieldError("servingGrams")} hint="Optional, add the weight to compare per 100 g" />
         )}
         <div className="grid grid-cols-2 gap-2.5">
           {REQUIRED_FIELDS.map((f) => (

@@ -17,7 +17,7 @@ import { visibleScanWhere } from "@/lib/scans/service";
 import { closeness, isRelevantAlternative, minSharedCategories, specificCategories, type AlternativeQuery } from "./alternatives";
 import { foodIconKey } from "./icon";
 import { customNutrientIssues } from "./custom-validate";
-import { plausibleCoreWhere, plausibleFood, type SaneFoodRow } from "./sane";
+import { isUnknownWeightServing, plausibleCoreWhere, plausibleFood, type SaneFoodRow } from "./sane";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
 import type { FoodHit, FoodRow } from "./types";
 
@@ -333,6 +333,36 @@ export async function getOwnCustomFoodForEdit(userId: string, id: string): Promi
   const [row] = await db.select().from(food)
     .where(and(eq(food.id, id), eq(food.ownerId, userId), eq(food.source, "custom"), sql`${food.deletedAt} IS NULL`));
   return row ?? null;
+}
+
+/** The custom-food form's starting values for editing a stored food (components/food/custom-food-form.tsx). */
+export interface CustomFoodFormInitial {
+  id: string;
+  name: string;
+  brand: string;
+  per: { amount: number; unit: "g" | "ml" | "serving" };
+  servingGrams?: number;
+  nutrients: Nutrients;
+}
+
+/**
+ * A stored custom food as the edit form shows it: per serving (with its weight) when it has a serving
+ * portion, else per 100 g/ml. A serving of unknown weight (Quick add's "Save to My foods",
+ * lib/foods/sane.ts isUnknownWeightServing) loads with no serving size, so saving it unchanged is
+ * checked as one serving again, not as a 100 g serving.
+ */
+export function customFoodFormInitial(row: FoodRow): CustomFoodFormInitial {
+  const servingPortion = row.portions.find((p) => p.unit === "serving");
+  const unknownWeight = isUnknownWeightServing(row);
+  const servingGrams = !unknownWeight && servingPortion?.grams ? servingPortion.grams : undefined;
+  return {
+    id: row.id,
+    name: row.name,
+    brand: row.brand ?? "",
+    per: servingPortion ? { amount: 1, unit: "serving" } : { amount: 100, unit: row.basis === "per_100ml" ? "ml" : "g" },
+    ...(servingGrams !== undefined && { servingGrams }),
+    nutrients: servingGrams ? nutrientsFor(row.per100, servingGrams) : row.per100,
+  };
 }
 
 export async function deleteCustomFood(userId: string, id: string): Promise<boolean> {
