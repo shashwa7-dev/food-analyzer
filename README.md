@@ -1,6 +1,6 @@
 # EATRi8
 
-EATRi8 is a mobile-first daily food tracker — MyFitnessPal-style logging made effortless by scanning — that tells you how healthy each food is, personalised to your diet, allergies and goals, and (from M2 onward) suggests a better option sold in your country. This milestone (M1) ships the tracker core: Google sign-in, onboarding, a seeded food catalogue (INDB + USDA FNDDS + Open Food Facts India, ~14.8k foods), search, food log, a Today view with a date switcher, and account settings. Scanning and AI-assisted extraction land in M2.
+EATRi8 is a mobile-first daily food tracker — MyFitnessPal-style logging made effortless by scanning — that tells you how healthy each food is, personalised to your diet, allergies and goals, and suggests a better option sold in your country. M1 shipped the tracker core: Google sign-in, onboarding, a seeded food catalogue (INDB + USDA FNDDS + Open Food Facts India, ~14.8k foods), search, food log, a Today view with a date switcher, and account settings. M2 adds scanning: free barcode lookups and AI-assisted photo extraction with a monthly credit allowance (see [Scanning](#scanning-m2)).
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ The app runs at `http://localhost:3000`.
 | `pnpm test:int` | Integration tests against local Postgres (`vitest`, needs `pnpm db:up`) |
 | `pnpm db:up` | Start local Postgres 17 via Docker Compose |
 | `pnpm db:generate` | Generate a Drizzle migration from schema changes |
-| `pnpm db:migrate` | Apply Drizzle migrations |
+| `pnpm db:migrate` | Apply Drizzle migrations. Always use this, never `drizzle-kit push`: the `daily_ai_cost` view (migration `0003`) isn't declared in `schema.ts`, so `push` would drop it |
 | `pnpm fetch:sources` | Download/refresh raw catalogue sources (INDB, USDA FNDDS, OFF India) |
 | `pnpm seed:foods` | Normalise and seed the food catalogue into Postgres (idempotent on `(source, sourceRef)`) |
 | `pnpm regrade` | Recompute stored food grades after a `gradeVersion` bump |
@@ -53,7 +53,7 @@ The app runs at `http://localhost:3000`.
 | `pnpm scan:try <image...>` | Manual smoke test of the scanning engine against 1–3 real image files (needs `GOOGLE_GENERATIVE_AI_API_KEY`) |
 | `pnpm eval [--models=fast,strong]` | Scanning eval harness against a local fixture suite (needs `GOOGLE_GENERATIVE_AI_API_KEY` and fixtures — see [`eval/README.md`](eval/README.md)) |
 
-## Environment variables (M1)
+## Environment variables
 
 | Var | Required | Source |
 |---|---|---|
@@ -61,6 +61,7 @@ The app runs at `http://localhost:3000`.
 | `BETTER_AUTH_SECRET` | yes | `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | yes | `http://localhost:3000` locally, your deployed URL in prod |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | yes | Google Cloud Console → OAuth 2.0 Web client; redirect URI `{BETTER_AUTH_URL}/api/auth/callback/google` |
+| `CREDIT_TOMBSTONE_PEPPER` | no | Keys the email HMAC kept when an account is deleted (so deleting and signing up again can't reset AI-scan usage). Falls back to `BETTER_AUTH_SECRET`; set a dedicated value (≥ 16 chars, `openssl rand -base64 32`) so rotating the auth secret doesn't orphan tombstones. |
 | `OFF_CONTACT_EMAIL` | no | Contact email sent in the `User-Agent` header on Open Food Facts requests (`EATRi8/2.0 (<contact>)`) |
 | `TEST_DATABASE_URL` | yes, for `pnpm test:int` | Points at a separate local database, e.g. `postgres://eatri8:eatri8@localhost:5432/eatri8_test` |
 
@@ -84,7 +85,12 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 - Each plan gets a monthly allowance of AI-assisted (photo) scans: Basic 20/month, Pro 200/month (`lib/credits/plans.ts`). The allowance resets lazily — on the first read or spend after the UTC month rolls over, not on a schedule (`lib/credits/ledger.ts`).
 - A barcode scan (code found in our catalogue or Open Food Facts) costs 0 credits — only AI-assisted scans are charged, 1 credit each.
 - A charged scan that fails is refunded automatically, atomically with the failure write (`failScanTx` in `lib/scans/service.ts`).
+- Deleting the account keeps a tombstone — an HMAC of the normalised email with this month's used scans and today's count, no plain PII (`lib/credits/tombstone.ts`) — so signing up again with the same email starts from the same usage.
 - Independent of credits, each user is capped at 25 AI-assisted scans per UTC day (`DAILY_AI_SCANS_PER_USER` in `lib/rate-limit.ts`); refunded scans still count toward it, so a refund can't be looped for free scans.
+
+### Before launch
+
+- Rotate the old Gemini key: `NEXT_PUBLIC_GEMINI_API_KEY` is still in `master` history (added in `3afd1c4`, removed in `4d2b34c`). Revoke it in Google AI Studio and make sure `GOOGLE_GENERATIVE_AI_API_KEY` is a different, server-only key.
 
 ### Scanning eval harness
 
