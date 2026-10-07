@@ -56,7 +56,7 @@ export function SidebarCredits({ credits, allowance, resetsLabel }: { credits: n
         shape="pill"
         size="lg"
         variant={low ? "default" : "outline"}
-        className="w-full gap-1.5 text-[13px]"
+        className={cn("w-full gap-1.5 text-[13px]", !low && "bg-transparent hover:bg-sunken")}
       >
         <Sparkles className="size-4" aria-hidden />
         {low ? "Get more with Pro" : "Join Pro waitlist"}

@@ -74,7 +74,7 @@ export function AppNav({
                 href={href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-[14px] px-3 font-medium text-subtle hover:bg-sunken hover:text-ink",
+                  "flex min-h-11 items-center gap-3 whitespace-nowrap rounded-[14px] px-3 font-medium text-subtle hover:bg-sunken hover:text-ink",
                   isActive && "bg-surface font-semibold text-ink shadow-card",
                 )}
               >
@@ -106,7 +106,7 @@ export function AppNav({
           if (primary) {
             return (
               <Link key={href} href={href} aria-label="Scan" className="flex h-full items-center justify-center">
-                <span className="-mt-[30px] grid size-[60px] place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_18px_-2px_rgba(166,216,74,0.6)] ring-[6px] ring-bg">
+                <span className="-mt-[30px] grid size-[60px] place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_18px_-2px_color-mix(in_srgb,var(--brand)_55%,transparent)] ring-[6px] ring-bg">
                   <Icon className="size-[26px]" aria-hidden />
                 </span>
               </Link>
@@ -117,7 +117,7 @@ export function AppNav({
               key={href}
               href={href}
               aria-current={isActive ? "page" : undefined}
-              className={cn("flex h-full flex-col items-center justify-center gap-[3px] text-[10.5px] font-semibold text-subtle", isActive && "text-ink")}
+              className={cn("flex h-full flex-col items-center justify-center gap-[3px] whitespace-nowrap text-[10.5px] font-semibold text-subtle", isActive && "text-ink")}
             >
               <Icon className="size-[22px]" aria-hidden />
               {label}
