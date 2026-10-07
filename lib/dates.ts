@@ -61,6 +61,7 @@ const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
  */
 export function relativeDate(iso: string, tz: string, now: Date = new Date()): string {
   const at = new Date(iso);
+  if (at.getTime() > now.getTime()) return "Just now"; // clock skew: never show a future date
   const today = todayIn(tz, now);
   const scanDay = todayIn(tz, at);
   if (scanDay === today) {

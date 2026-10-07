@@ -48,6 +48,10 @@ describe("relativeDate", () => {
   const tz = "Asia/Kolkata";
   const now = new Date("2026-10-07T12:00:00Z"); // 17:30 IST on 7 Oct
 
+  it("shows a future timestamp (clock skew) as just now, even across midnight", () => {
+    expect(relativeDate("2026-10-07T21:00:00Z", tz, now)).toBe("Just now"); // 02:30 IST on 8 Oct
+  });
+
   it("ticks through the elapsed-time tiers within today's calendar day", () => {
     expect(relativeDate("2026-10-07T11:59:30Z", tz, now)).toBe("Just now");
     expect(relativeDate("2026-10-07T11:55:00Z", tz, now)).toBe("5 min ago");
