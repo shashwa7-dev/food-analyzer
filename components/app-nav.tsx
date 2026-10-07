@@ -1,54 +1,129 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, History, Search, ScanLine, User } from "lucide-react";
+import { CalendarDays, History, LineChart, ScanLine, Search, Settings, User } from "lucide-react";
+import { SidebarCredits } from "@/components/nav/sidebar-credits";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
+type NavIcon = typeof CalendarDays;
+type NavItem = { href: string; label: string; icon: NavIcon; primary?: boolean; showCount?: boolean };
+
+const PHONE_ITEMS: NavItem[] = [
   { href: "/today", label: "Today", icon: CalendarDays },
-  { href: "/foods", label: "Foods", icon: Search },
+  { href: "/progress", label: "Progress", icon: LineChart },
   { href: "/scan", label: "Scan", icon: ScanLine, primary: true },
   { href: "/history", label: "History", icon: History },
   { href: "/me", label: "Me", icon: User },
 ];
 
-export function AppNav({ credits, allowance, planLabel }: { credits: number; allowance: number; planLabel: string }) {
+const DESKTOP_ITEMS: NavItem[] = [
+  { href: "/today", label: "Today", icon: CalendarDays },
+  { href: "/progress", label: "Progress", icon: LineChart },
+  { href: "/foods", label: "Foods", icon: Search },
+  { href: "/history", label: "History", icon: History, showCount: true },
+];
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0]!.charAt(0);
+  const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : "";
+  return (first + last).toUpperCase();
+}
+
+export function AppNav({
+  credits,
+  allowance,
+  resetsLabel,
+  planLabel,
+  name,
+  historyCount,
+}: {
+  credits: number;
+  allowance: number;
+  resetsLabel: string;
+  planLabel: string;
+  name: string;
+  historyCount: number;
+}) {
   const path = usePathname();
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
-  const pct = allowance > 0 ? Math.min(credits / allowance, 1) * 100 : 0;
+
   return (
     <>
-      <nav aria-label="Main" className="hidden md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:gap-1 md:border-r md:border-line md:px-3.5 md:py-5">
-        <div className="px-2.5 pb-4 text-[22px] font-bold tracking-[-0.04em]">EATRi<span className="text-accent">8</span></div>
-        {ITEMS.filter((i) => !i.primary).map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href} aria-current={active(href) ? "page" : undefined}
-            className={cn("flex min-h-11 items-center gap-3 rounded-md px-3 font-medium text-subtle", active(href) && "bg-accent-soft font-semibold text-ink")}>
-            <Icon className="size-5" aria-hidden />{label}
-          </Link>
-        ))}
-        <Link href="/scan" className="mt-2.5 flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent font-semibold text-accent-ink">
-          <ScanLine className="size-5" aria-hidden />Scan food
-        </Link>
-        <Link href="/me/credits" className="mt-auto flex flex-col gap-1.5 rounded-md border border-line bg-surface p-3">
-          <span className="text-xs text-subtle">AI scans left</span>
-          <span className="flex items-center justify-between">
-            <span className="num text-lg font-semibold">{credits} / {allowance}</span>
-            <span className="text-sm text-subtle">{planLabel}</span>
+      {/* Desktop sidebar (spec §5) */}
+      <nav
+        aria-label="Main"
+        className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-[252px] md:flex-col md:gap-3 md:border-r md:border-line md:bg-surface/55 md:px-3.5 md:py-5"
+      >
+        <div className="px-2.5 text-xl font-bold tracking-[-0.04em]">
+          EATR<span className="ml-0.5 rounded-lg bg-brand px-1.5 text-brand-ink">i8</span>
+        </div>
+        <Button render={<Link href="/scan" />} nativeButton={false} shape="pill" size="xl" className="w-full justify-center gap-2.5 bg-brand text-brand-ink hover:bg-brand/90">
+          <ScanLine aria-hidden />
+          Scan food
+          <kbd className="rounded-md bg-brand-ink/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold">S</kbd>
+        </Button>
+        <div className="grid gap-0.5">
+          {DESKTOP_ITEMS.map(({ href, label, icon: Icon, showCount }) => {
+            const isActive = active(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "flex min-h-11 items-center gap-3 rounded-[14px] px-3 font-medium text-subtle hover:bg-sunken hover:text-ink",
+                  isActive && "bg-surface font-semibold text-ink shadow-card",
+                )}
+              >
+                <Icon className={cn("size-5", isActive && "text-brand-deep")} aria-hidden />
+                {label}
+                {showCount && <span className="ml-auto rounded-full bg-sunken px-2 py-0.5 text-xs font-semibold text-subtle num">{historyCount}</span>}
+              </Link>
+            );
+          })}
+        </div>
+        <SidebarCredits credits={credits} allowance={allowance} resetsLabel={resetsLabel} />
+        <Link href="/me" className="flex items-center gap-2.5 rounded-2xl p-2 hover:bg-sunken">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-bold text-brand-deep">{initials(name)}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-ink">{name}</span>
+            <span className="block text-xs text-subtle">{planLabel} plan</span>
           </span>
-          <span className="h-1.5 overflow-hidden rounded-full bg-sunken">
-            <span className="block h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-          </span>
-          <span className="text-xs text-subtle">Barcode scans are free.</span>
+          <Settings className="size-5 shrink-0 text-subtle" aria-hidden />
         </Link>
       </nav>
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 items-end border-t border-line bg-surface px-2 pb-[calc(8px+env(safe-area-inset-bottom))] pt-1.5 md:hidden">
-        {ITEMS.map(({ href, label, icon: Icon, primary }) => (
-          <Link key={href} href={href} aria-current={active(href) ? "page" : undefined}
-            className={cn("flex min-h-12 flex-col items-center gap-0.5 text-[11px] font-semibold text-subtle", active(href) && "text-ink")}>
-            {primary ? <span className="-mt-6 grid size-14 place-items-center rounded-full bg-accent text-accent-ink shadow-lg"><Icon className="size-6" aria-hidden /></span> : <Icon className="size-[22px]" aria-hidden />}
-            {label}
-          </Link>
-        ))}
+
+      {/* Phone bottom nav (spec §5) */}
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-30 mx-3 mb-[calc(12px+env(safe-area-inset-bottom))] grid h-[72px] grid-cols-5 rounded-[28px] bg-surface px-1.5 shadow md:hidden"
+      >
+        {PHONE_ITEMS.map(({ href, label, icon: Icon, primary }) => {
+          const isActive = active(href);
+          if (primary) {
+            return (
+              <Link key={href} href={href} aria-label="Scan" className="flex h-full items-center justify-center">
+                <span className="-mt-[30px] grid size-[60px] place-items-center rounded-full bg-brand text-brand-ink shadow-[0_8px_18px_-2px_rgba(166,216,74,0.6)] ring-[6px] ring-bg">
+                  <Icon className="size-[26px]" aria-hidden />
+                </span>
+              </Link>
+            );
+          }
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={isActive ? "page" : undefined}
+              className={cn("flex h-full flex-col items-center justify-center gap-[3px] text-[10.5px] font-semibold text-subtle", isActive && "text-ink")}
+            >
+              <Icon className="size-[22px]" aria-hidden />
+              {label}
+            </Link>
+          );
+        })}
       </nav>
     </>
   );

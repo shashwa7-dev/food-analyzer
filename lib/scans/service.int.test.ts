@@ -19,7 +19,7 @@ import { createCustomFoodFromScan } from "@/lib/foods/service";
 import { addEntry, updateEntry } from "@/lib/log/service";
 import { realDeps } from "./deps";
 import { NOT_CONFIGURED_MESSAGE, REFUNDED_MESSAGE, SCAN_MESSAGES } from "./messages";
-import { completeScan, createScan, deleteScan, getScan, listScans, visibleScanWhere, type CreateScanInput, type ScanDeps, type Schedule } from "./service";
+import { completeScan, countVisibleScans, createScan, deleteScan, getScan, listScans, visibleScanWhere, type CreateScanInput, type ScanDeps, type Schedule } from "./service";
 
 // --- fixtures ---------------------------------------------------------------------------------------
 
@@ -619,6 +619,17 @@ describe("soft delete keeps deleted scans in every guard", () => {
     expect(await deleteScan(u, body(r).scanId, clock)).toBe(false);
     expect(await testDb().select().from(scan).where(visibleScanWhere(u))).toHaveLength(0);
     expect(await credits(u)).toBe(19); // a done scan is not refunded on delete
+  });
+
+  it("countVisibleScans counts only this user's non-deleted scans", async () => {
+    const u = await createUser();
+    const other = await createUser();
+    await testDb().insert(scan).values([
+      { userId: u, status: "done", imageCount: 1, engineVersion: "e", charged: false, createdAt: new Date(clock) },
+      { userId: u, status: "done", imageCount: 1, engineVersion: "e", charged: false, createdAt: new Date(clock), deletedAt: new Date(clock) },
+      { userId: other, status: "done", imageCount: 1, engineVersion: "e", charged: false, createdAt: new Date(clock) },
+    ]);
+    expect(await countVisibleScans(u)).toBe(1);
   });
 
   it("replaying an Idempotency-Key after its scan was deleted → 409 CONFLICT, no new scan, no charge", async () => {

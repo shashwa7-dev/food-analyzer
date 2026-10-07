@@ -2,7 +2,7 @@
 // same transaction that creates the scan, the model call finished in a background job, and every
 // terminal write conditional on the scan still running — so a sweep, a delete and a late job can
 // race freely and the user is charged at most once and refunded at most once.
-import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Db, type Tx } from "@/lib/db/client";
 import { scan } from "@/lib/db/schema";
@@ -70,6 +70,12 @@ export type CreateScanResult =
  */
 export function visibleScanWhere(userId: string): SQL {
   return and(eq(scan.userId, userId), isNull(scan.deletedAt))!;
+}
+
+/** The user's non-deleted scan count — the sidebar's History badge. */
+export async function countVisibleScans(userId: string): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(scan).where(visibleScanWhere(userId));
+  return row?.n ?? 0;
 }
 
 const isUuid = (id: string) => z.uuid().safeParse(id).success;
