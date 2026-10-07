@@ -23,6 +23,8 @@ export async function GET(req: Request) {
         credits,
         allowance,
         periodResetsAt,
+        weeklyWorkoutGoal: prof.weeklyWorkoutGoal,
+        goalWeightKg: prof.goalWeightKg,
       },
     });
   } catch {

@@ -1,11 +1,11 @@
 // The Pro data export (spec §B "CSV export"): each dataset's documented columns and a CSV stream of the
 // signed-in user's rows, read a page at a time. Owner-scoped: every query filters on the caller's id.
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { foodLog, scan } from "@/lib/db/schema";
+import { bodyWeight, foodLog, scan, workout, workoutExercise, workoutSet } from "@/lib/db/schema";
 import { csvLine, type CsvColumn } from "@/lib/export/csv";
 
-/** Every export the API knows. `workouts` and `weight` arrive with the fitness tracker (Phase 2 Task 3). */
+/** Every export the API knows. */
 export const EXPORT_KINDS = ["diary", "scans", "workouts", "weight"] as const;
 export type ExportKind = (typeof EXPORT_KINDS)[number];
 
@@ -82,10 +82,50 @@ export const SCAN_COLUMNS: CsvColumn<ScanRow>[] = [
   { key: "error", header: "error" },
 ];
 
+type WorkoutCsvRow = {
+  date: string; started_at: string; title: string; kind: string; preset: string | null; activity: string | null; intensity: string;
+  duration_min: number; kcal_burned: number; kcal_estimated: string; notes: string | null;
+  exercise: string | null; set: number | null; weight_kg: number | null; reps: number | null; done: string | null;
+};
+
+/**
+ * Workouts: one line per set, oldest workout first, with the workout's columns repeated on each. An
+ * activity (or a gym session with no sets) is one line with the exercise columns blank. Deleted
+ * workouts are left out. `started_at` is "YYYY-MM-DD HH:mm" in the user's timezone (profile.timezone);
+ * `kcal_estimated` is "yes" when no body weight was logged and 70 kg was assumed.
+ */
+export const WORKOUT_COLUMNS: CsvColumn<WorkoutCsvRow>[] = [
+  { key: "date", header: "date" },
+  { key: "started_at", header: "started_at" },
+  { key: "title", header: "title" },
+  { key: "kind", header: "kind" },
+  { key: "preset", header: "preset" },
+  { key: "activity", header: "activity" },
+  { key: "intensity", header: "intensity" },
+  { key: "duration_min", header: "duration_min" },
+  { key: "kcal_burned", header: "kcal_burned" },
+  { key: "kcal_estimated", header: "kcal_estimated" },
+  { key: "notes", header: "notes" },
+  { key: "exercise", header: "exercise" },
+  { key: "set", header: "set" },
+  { key: "weight_kg", header: "weight_kg" },
+  { key: "reps", header: "reps" },
+  { key: "done", header: "done" },
+];
+
+type WeightCsvRow = { date: string; kg: number; logged_at: string };
+
+/** Weight: one line per weigh-in, oldest first. `logged_at` is "YYYY-MM-DD HH:mm" in the user's timezone. */
+export const WEIGHT_COLUMNS: CsvColumn<WeightCsvRow>[] = [
+  { key: "date", header: "date" },
+  { key: "kg", header: "kg" },
+  { key: "logged_at", header: "logged_at" },
+];
+
 // Keyset paging: each page starts after the last row of the one before, in the export's own order, so
 // rows written while the export runs can't shift a page (no duplicates, no gaps, unlike OFFSET). The
 // cursor keeps created_at as Postgres text: a JS Date would drop its microseconds and misplace ties.
-const createdText = (col: typeof foodLog.createdAt | typeof scan.createdAt) => sql<string>`${col}::text`;
+const createdText = (col: typeof foodLog.createdAt | typeof scan.createdAt | typeof workout.startedAt) => sql<string>`${col}::text`;
 
 type DiaryCursor = { date: string; created: string; id: string };
 type ScanCursor = { created: string; id: string };
@@ -109,6 +149,55 @@ function scanPage(userId: string, after: ScanCursor | null, pageSize: number) {
       after ? sql`(${scan.createdAt}, ${scan.id}) > (${after.created}::timestamptz, ${after.id}::uuid)` : undefined,
     ))
     .orderBy(asc(scan.createdAt), asc(scan.id)).limit(pageSize);
+}
+
+type WorkoutCursor = { date: string; started: string; id: string };
+
+// Pages count workouts (each brings all its sets), so a page edge never splits a workout's lines.
+function workoutPage(userId: string, after: WorkoutCursor | null, pageSize: number) {
+  return db.select({ row: workout, started: createdText(workout.startedAt) }).from(workout)
+    .where(and(
+      eq(workout.userId, userId), isNull(workout.deletedAt),
+      after ? sql`(${workout.date}, ${workout.startedAt}, ${workout.id}) > (${after.date}::date, ${after.started}::timestamptz, ${after.id}::uuid)` : undefined,
+    ))
+    .orderBy(asc(workout.date), asc(workout.startedAt), asc(workout.id)).limit(pageSize);
+}
+
+async function* workoutPages(userId: string, tz: string, pageSize: number): AsyncGenerator<WorkoutCsvRow[]> {
+  let after: WorkoutCursor | null = null;
+  for (;;) {
+    const rows = await workoutPage(userId, after, pageSize);
+    const ids = rows.map((r) => r.row.id);
+    const sets = ids.length
+      ? await db.select({ workoutId: workoutExercise.workoutId, exercise: workoutExercise.name, exPos: workoutExercise.position, set: workoutSet })
+        .from(workoutExercise).innerJoin(workoutSet, eq(workoutSet.exerciseId, workoutExercise.id))
+        .where(inArray(workoutExercise.workoutId, ids)).orderBy(asc(workoutExercise.position), asc(workoutSet.position))
+      : [];
+    yield rows.flatMap(({ row: w }): WorkoutCsvRow[] => {
+      const base = {
+        date: w.date, started_at: localStamp(w.startedAt, tz), title: w.title, kind: w.kind, preset: w.preset, activity: w.activity,
+        intensity: w.intensity, duration_min: w.durationMin, kcal_burned: w.kcalBurned, kcal_estimated: w.kcalBasis.estimated ? "yes" : "no", notes: w.notes,
+      };
+      const mine = sets.filter((s) => s.workoutId === w.id);
+      if (!mine.length) return [{ ...base, exercise: null, set: null, weight_kg: null, reps: null, done: null }];
+      return mine.map((s) => ({ ...base, exercise: s.exercise, set: s.set.position + 1, weight_kg: s.set.weightKg, reps: s.set.reps, done: s.set.done ? "yes" : "no" }));
+    });
+    if (rows.length < pageSize) return;
+    const last = rows[rows.length - 1]!;
+    after = { date: last.row.date, started: last.started, id: last.row.id };
+  }
+}
+
+async function* weightPages(userId: string, tz: string, pageSize: number): AsyncGenerator<WeightCsvRow[]> {
+  let after: string | null = null; // dates are unique per user, so the date alone is the cursor
+  for (;;) {
+    const rows = await db.select().from(bodyWeight)
+      .where(and(eq(bodyWeight.userId, userId), after ? sql`${bodyWeight.date} > ${after}::date` : undefined))
+      .orderBy(asc(bodyWeight.date)).limit(pageSize);
+    yield rows.map((r) => ({ date: r.date, kg: r.kg, logged_at: localStamp(r.createdAt, tz) }));
+    if (rows.length < pageSize) return;
+    after = rows[rows.length - 1]!.date;
+  }
 }
 
 async function* diaryPages(userId: string, tz: string, pageSize: number): AsyncGenerator<DiaryRow[]> {
@@ -168,17 +257,12 @@ function stream<T>(what: ExportKind, userId: string, columns: CsvColumn<T>[], pa
   }, { highWaterMark: 0 });
 }
 
-/**
- * The CSV stream for `what`, timestamps on `tz`'s clock, or null when that export isn't built yet
- * (workouts, weight: Task 3). `pageSize` is for tests.
- */
-export function exportCsv(userId: string, what: ExportKind, tz: string, pageSize = PAGE): ReadableStream<Uint8Array> | null {
+/** The CSV stream for `what`, timestamps on `tz`'s clock. `pageSize` is for tests. */
+export function exportCsv(userId: string, what: ExportKind, tz: string, pageSize = PAGE): ReadableStream<Uint8Array> {
   switch (what) {
     case "diary": return stream(what, userId, DIARY_COLUMNS, diaryPages(userId, tz, pageSize));
     case "scans": return stream(what, userId, SCAN_COLUMNS, scanPages(userId, tz, pageSize));
-    // Phase 2 Task 3 adds the workout and weight tables; until then the route answers 400 "not available yet".
-    case "workouts":
-    case "weight":
-      return null;
+    case "workouts": return stream(what, userId, WORKOUT_COLUMNS, workoutPages(userId, tz, pageSize));
+    case "weight": return stream(what, userId, WEIGHT_COLUMNS, weightPages(userId, tz, pageSize));
   }
 }

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { createUser, resetDb } from "@/tests/helpers/db";
 import { db } from "@/lib/db/client";
-import { foodLog, profile, scan } from "@/lib/db/schema";
+import { bodyWeight, foodLog, profile, scan, workout, workoutExercise, workoutSet } from "@/lib/db/schema";
 
 const session = vi.hoisted(() => ({ userId: null as string | null }));
 vi.mock("@/lib/session", async () => {
@@ -98,16 +98,52 @@ describe("GET /api/v1/export", () => {
       expect((await res.json()).error.code).toBe("PRO_REQUIRED");
     }
     await db.update(profile).set({ plan: "pro" }).where(eq(profile.userId, session.userId));
-    expect((await call("diary")).status).toBe(200);
-    expect((await call("scans")).status).toBe(200);
+    for (const what of ["diary", "scans", "workouts", "weight"]) expect((await call(what)).status).toBe(200);
   });
 
-  it("answers 400 NOT_AVAILABLE for workouts and weight until the fitness tracker lands", async () => {
-    session.userId = await createUser();
-    for (const what of ["workouts", "weight"]) {
-      const res = await call(what);
-      expect(res.status).toBe(400);
-      expect((await res.json()).error.code).toBe("NOT_AVAILABLE");
-    }
+  it("streams workouts one line per set (an activity as one line), leaving out deleted ones and other users'", async () => {
+    const me = (session.userId = await createUser());
+    const other = await createUser();
+    const at = new Date("2026-10-01T19:30:00Z"); // 01:00 on 2 Oct in IST
+    const basis = { met: 5, weightKg: 70, estimated: true, minutes: 45 };
+    const [gym] = await db.insert(workout).values({ userId: me, date: "2026-10-02", kind: "gym", preset: "push", title: "Push", intensity: "moderate", startedAt: at, durationMin: 45, kcalBurned: 263, kcalBasis: basis, notes: "Good, strong" }).returning();
+    const [bench, dip] = await db.insert(workoutExercise).values([
+      { workoutId: gym!.id, position: 0, exerciseKey: "bench_press", name: "Bench press" },
+      { workoutId: gym!.id, position: 1, exerciseKey: "dip", name: "Dip" },
+    ]).returning();
+    await db.insert(workoutSet).values([
+      { exerciseId: bench!.id, position: 0, weightKg: 60, reps: 8, done: true },
+      { exerciseId: bench!.id, position: 1, weightKg: 62.5, reps: 6, done: false },
+      { exerciseId: dip!.id, position: 0, weightKg: null, reps: 12, done: true },
+    ]);
+    await db.insert(workout).values([
+      { userId: me, date: "2026-10-03", kind: "activity", activity: "walk", title: "Walk", intensity: "easy", startedAt: new Date("2026-10-03T12:00:00Z"), durationMin: 30, kcalBurned: 101, kcalBasis: { met: 2.8, weightKg: 72, estimated: false, minutes: 30 } },
+      { userId: me, date: "2026-10-04", kind: "activity", activity: "run", title: "Deleted run", intensity: "easy", startedAt: at, durationMin: 30, kcalBurned: 245, kcalBasis: basis, deletedAt: new Date() },
+      { userId: other, date: "2026-10-02", kind: "activity", activity: "run", title: "Other run", intensity: "easy", startedAt: at, durationMin: 30, kcalBurned: 245, kcalBasis: basis },
+    ]);
+    const res = await call("workouts");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-disposition")).toMatch(/filename="eatri8-workouts-/);
+    const [header, ...rows] = await lines(res);
+    expect(header).toBe("date,started_at,title,kind,preset,activity,intensity,duration_min,kcal_burned,kcal_estimated,notes,exercise,set,weight_kg,reps,done");
+    expect(rows).toEqual([
+      '2026-10-02,2026-10-02 01:00,Push,gym,push,,moderate,45,263,yes,"Good, strong",Bench press,1,60,8,yes',
+      '2026-10-02,2026-10-02 01:00,Push,gym,push,,moderate,45,263,yes,"Good, strong",Bench press,2,62.5,6,no',
+      '2026-10-02,2026-10-02 01:00,Push,gym,push,,moderate,45,263,yes,"Good, strong",Dip,1,,12,yes',
+      "2026-10-03,2026-10-03 17:30,Walk,activity,,walk,easy,30,101,no,,,,,,",
+    ]);
+  });
+
+  it("streams the caller's weigh-ins, oldest first, logged_at on the user's clock", async () => {
+    const me = (session.userId = await createUser());
+    const other = await createUser();
+    await db.insert(bodyWeight).values([
+      { userId: me, date: "2026-10-02", kg: 72.4, createdAt: new Date("2026-10-01T19:30:00Z") },
+      { userId: me, date: "2026-10-01", kg: 72.85, createdAt: new Date("2026-10-01T03:00:00Z") },
+      { userId: other, date: "2026-10-01", kg: 99 },
+    ]);
+    const [header, ...rows] = await lines(await call("weight"));
+    expect(header).toBe("date,kg,logged_at");
+    expect(rows).toEqual(["2026-10-01,72.85,2026-10-01 08:30", "2026-10-02,72.4,2026-10-02 01:00"]);
   });
 });

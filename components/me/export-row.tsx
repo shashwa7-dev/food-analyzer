@@ -8,13 +8,12 @@ import { UpgradeSheet } from "@/components/pro/upgrade-sheet";
 import { usePro } from "@/components/pro/pro-context";
 import type { ExportKind } from "@/lib/export/service";
 
-// The four exports (GET /api/v1/export?what=). Workouts and weight come with the fitness tracker
-// (Phase 2 Task 3): until then the API answers 400 NOT_AVAILABLE, so they show as "Soon".
+// The four exports (GET /api/v1/export?what=). `ready: false` shows an export as "Soon" (none today).
 const EXPORTS: { what: ExportKind; icon: LucideIcon; label: string; hint: string; ready: boolean }[] = [
   { what: "diary", icon: NotebookText, label: "Diary", hint: "Everything you've logged", ready: true },
   { what: "scans", icon: ScanLine, label: "Scans", hint: "Your scan history", ready: true },
-  { what: "workouts", icon: Dumbbell, label: "Workouts", hint: "Sessions and sets", ready: false },
-  { what: "weight", icon: Scale, label: "Weight", hint: "Your weigh-ins", ready: false },
+  { what: "workouts", icon: Dumbbell, label: "Workouts", hint: "Sessions and sets", ready: true },
+  { what: "weight", icon: Scale, label: "Weight", hint: "Your weigh-ins", ready: true },
 ];
 
 const ROW = "flex min-h-[54px] w-full items-center gap-3.5 px-4 text-left not-first:border-t not-first:border-line";

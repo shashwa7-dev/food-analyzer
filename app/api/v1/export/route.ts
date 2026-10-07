@@ -11,7 +11,6 @@ const Query = z.object({ what: z.enum(EXPORT_KINDS) });
 /**
  * GET /api/v1/export?what=diary|scans|workouts|weight → the signed-in user's data as a CSV download
  * (columns in lib/export/service.ts). Pro-only once PRO_GATES_ENFORCED is on (403 PRO_REQUIRED).
- * workouts and weight answer 400 NOT_AVAILABLE until the fitness tracker (Phase 2 Task 3) adds them.
  */
 export async function GET(req: Request) {
   try {
@@ -23,7 +22,6 @@ export async function GET(req: Request) {
     if (!allows(profile.plan, "dataExport")) return apiError(403, "PRO_REQUIRED", "Exporting your data is part of Pro.");
     const what = parsed.data.what;
     const body = exportCsv(userId, what, profile.timezone);
-    if (!body) return apiError(400, "NOT_AVAILABLE", "That export isn't available yet.");
     return new Response(body, {
       headers: {
         "content-type": "text/csv; charset=utf-8",
