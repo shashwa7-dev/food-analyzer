@@ -26,6 +26,10 @@ describe("foodIconKey", () => {
     expect(f("Gulab jamun")).toBe("snack");
     expect(f("Samosa")).toBe("snack");
     expect(f("Masala Peanuts")).toBe("snack");
+    // Spreads and oils aren't snacks.
+    expect(f("Peanut butter")).not.toBe("snack");
+    expect(f("Groundnut oil")).not.toBe("snack");
+    expect(f("Roasted groundnuts")).toBe("snack");
     expect(f("Masala dosa")).toBe("wheat");
     expect(f("Idli")).toBe("bowl");
     expect(f("Medu vada")).toBe("snack");

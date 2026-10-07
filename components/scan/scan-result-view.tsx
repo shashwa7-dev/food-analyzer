@@ -8,14 +8,14 @@ import {
 } from "lucide-react";
 import type { ScanView } from "@/lib/scans/service";
 import { scanErrorAction } from "@/lib/scans/messages";
-import { DIET_CHIP, macroShare, oneLineReason, packSize, sodiumLevel, typicalPortion, verdict } from "@/lib/scans/result-display";
+import { dietChip, macroShare, oneLineReason, packSize, sodiumLevel, typicalPortion, verdict, warningFlags } from "@/lib/scans/result-display";
 import { foodIconKey, type FoodIconKey } from "@/lib/foods/icon";
 import { nutrientsFor } from "@/lib/nutrition/portions";
 import type { Diet, Flag, Grade, Meal, Nutrients } from "@/lib/nutrition/types";
 import type { ScanResult } from "@/lib/engine/result";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
-import { GradeBadge } from "@/components/grade-badge";
+import { GRADE_FILL, GradeBadge } from "@/components/grade-badge";
 import { FOOD_ICON, FoodIcon } from "@/components/food/food-icon";
 import { ReasonList } from "@/components/food/food-verdict";
 import { FlagNotes } from "@/components/food/sheet-parts";
@@ -73,9 +73,6 @@ function Tags({ children }: { children: React.ReactNode }) {
 const HERO_BG: Record<Grade, string> = {
   A: "bg-grade-a/15", B: "bg-grade-b/15", C: "bg-grade-c/15", D: "bg-grade-d/15", E: "bg-grade-e/15",
 };
-const SCALE_BG: Record<Grade, string> = {
-  A: "bg-grade-a", B: "bg-grade-b", C: "bg-grade-c", D: "bg-grade-d", E: "bg-grade-e",
-};
 const GRADES: Grade[] = ["A", "B", "C", "D", "E"];
 
 function GradeHero({ grade, reason }: { grade: Grade | null; reason: string | null }) {
@@ -95,9 +92,8 @@ function GradeHero({ grade, reason }: { grade: Grade | null; reason: string | nu
               key={g}
               className={cn(
                 "grid h-[26px] place-items-center rounded-[8px] text-[12px] font-bold",
-                SCALE_BG[g],
-                g === grade ? "scale-y-[1.18] text-on-media ring-2 ring-surface" : "text-on-media-ink/55",
-                g === grade && g === "C" && "text-on-media-ink",
+                GRADE_FILL[g],
+                g === grade ? "scale-y-[1.18] ring-2 ring-surface" : "opacity-45",
               )}
             >
               {g}
@@ -157,9 +153,9 @@ function MacroRings({ n }: { n: Nutrients }) {
 
 /* ---------- flags ---------- */
 
-function FlagChip({ icon: Icon, tone, title, children }: { icon: LucideIcon; tone: string; title?: string; children: React.ReactNode }) {
+function FlagChip({ icon: Icon, tone, children }: { icon: LucideIcon; tone: string; children: React.ReactNode }) {
   return (
-    <span title={title} className="inline-flex items-center gap-1.5 rounded-[12px] bg-sunken px-[11px] py-[7px] text-[13px] font-medium whitespace-nowrap text-ink">
+    <span className="inline-flex items-center gap-1.5 rounded-[12px] bg-sunken px-[11px] py-[7px] text-[13px] font-medium whitespace-nowrap text-ink">
       <Icon className={cn("size-4 shrink-0", tone)} aria-hidden />
       {children}
     </span>
@@ -168,29 +164,40 @@ function FlagChip({ icon: Icon, tone, title, children }: { icon: LucideIcon; ton
 
 const SODIUM_TONE = { low: "text-ok", medium: "text-warn", high: "text-bad" } as const;
 
-/** Allergen and diet flags (the personal ones from M1), sodium, and the diet fit, as short icon chips. */
-function FlagChips({ flags, sodiumMg, sodiumPer100, diet }: { flags: Flag[]; sodiumMg: number | undefined; sodiumPer100: number | undefined; diet: Diet }) {
+/**
+ * Allergen, sodium and diet as short icon chips for a glance, then the allergen and diet sentences in
+ * full (announced as alerts, as in M1/M2). Sodium is banded only per 100 g; a serving-only label gets a plain chip.
+ */
+function FlagChips({ flags, sodiumMg, sodiumPer100, diet, ingredientsKnown }: {
+  flags: Flag[]; sodiumMg: number | undefined; sodiumPer100: number | undefined; diet: Diet; ingredientsKnown: boolean;
+}) {
   const allergens = flags.filter((f) => f.type === "allergen");
-  const dietFlag = flags.find((f) => f.type === "diet");
+  const dietFit = dietChip(diet, flags, ingredientsKnown);
   const chips = [
     ...allergens.map((f) => (
-      <FlagChip key={f.key} icon={TriangleAlert} tone="text-bad" title={f.text}>
+      <FlagChip key={f.key} icon={TriangleAlert} tone="text-bad">
         {f.severity === "may_contain" ? "May contain" : "Contains"} {f.key.replace("_", " ")}
       </FlagChip>
     )),
     sodiumMg !== undefined && (
-      <FlagChip key="sodium" icon={Droplets} tone={SODIUM_TONE[sodiumLevel(sodiumPer100 ?? sodiumMg)]}>
+      <FlagChip key="sodium" icon={Droplets} tone={sodiumPer100 !== undefined ? SODIUM_TONE[sodiumLevel(sodiumPer100)] : "text-subtle"}>
         <span className="num">Sodium {fmt(sodiumMg)} mg</span>
       </FlagChip>
     ),
-    dietFlag ? (
-      <FlagChip key="diet" icon={Leaf} tone="text-bad" title={dietFlag.text}>Not {DIET_CHIP[dietFlag.key as Exclude<Diet, "none">] ?? dietFlag.key}</FlagChip>
-    ) : diet !== "none" ? (
-      <FlagChip key="diet" icon={Leaf} tone="text-ok">{DIET_CHIP[diet]}</FlagChip>
-    ) : null,
+    dietFit && <FlagChip key="diet" icon={Leaf} tone={dietFit.fits ? "text-ok" : "text-bad"}>{dietFit.label}</FlagChip>,
   ].filter(Boolean);
-  if (chips.length === 0) return null;
-  return <div className="flex flex-wrap gap-1.5" aria-label="Flags" role="list">{chips.map((c, i) => <span role="listitem" key={i} className="contents">{c}</span>)}</div>;
+  const warnings = warningFlags(flags);
+  if (chips.length === 0 && warnings.length === 0) return null;
+  return (
+    <>
+      {chips.length > 0 && (
+        <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="Flags">
+          {chips.map((c, i) => <li key={i} className="contents">{c}</li>)}
+        </ul>
+      )}
+      <FlagNotes flags={warnings} />
+    </>
+  );
 }
 
 /* ---------- better pick ---------- */
@@ -301,7 +308,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
           <GradeHero grade={r.grade} reason={oneLineReason(r.reasons)} />
           <CalorieRow kcal={shown.energyKcal} basis={basis} portion={portionText} />
           <MacroRings n={shown} />
-          <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} diet={diet} />
+          <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
           <BetterPick r={r} />
         </div>
         <div className="flex min-w-0 flex-col gap-3">

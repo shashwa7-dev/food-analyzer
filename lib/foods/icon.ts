@@ -5,7 +5,7 @@ const RULES: [FoodIconKey, RegExp][] = [
   ["egg", /\b(egg|omelette|omelet|anda)\b/],
   ["wheat", /\b(roti|chapati|chapatti|phulka|paratha|naan|kulcha|bread|toast|puri|poori|bhatura|thepla|dosa|dosai|uttapam|uthappam|appam|chilla|cheela|pancake)\b/],
   ["milk", /\b(milk|curd|dahi|yogurt|yoghurt|paneer|cheese|raita|kheer)\b/],
-  ["snack", /\b(peanuts?|groundnuts?|makhana|samosa|pakora|bhaji|namkeen|bhujia|biscuit|cookie|cake|chips|ladoo|laddu|jalebi|gulab jamun|barfi|halwa|mithai|chocolate|kachori|vada|vadai|bonda|dhokla|khandvi|chakli|mathri)\b/],
+  ["snack", /\b((?:peanuts?|groundnuts?)(?! (?:butter|oil|spread))|makhana|samosa|pakora|bhaji|namkeen|bhujia|biscuit|cookie|cake|chips|ladoo|laddu|jalebi|gulab jamun|barfi|halwa|mithai|chocolate|kachori|vada|vadai|bonda|dhokla|khandvi|chakli|mathri)\b/],
   ["fruit", /\b(banana|apple|mango|orange|papaya|grapes|guava|watermelon|pomegranate|fruit|salad)\b/],
   ["bowl", /\b(dal|daal|rice|khichdi|curry|sabzi|sabji|rajma|chole|chana|sambar|rasam|biryani|pulao|poha|upma|idli|idly|pongal|soup|korma|makhani|kadhi|stew|bowl)\b/],
 ];

@@ -109,6 +109,7 @@ export function AnalysingCard({ scanId, photoUrl = null, onFinished }: {
                 );
               })}
             </ol>
+            {!slow && <p className="m-0 text-[12.5px] text-subtle">You can leave this screen. The result will be in History.</p>}
             <p className="m-0 flex items-center gap-2 border-t border-line pt-3 text-[13px] text-subtle">
               <ShieldCheck className="size-4 shrink-0" aria-hidden />
               If this fails, your scan is refunded.

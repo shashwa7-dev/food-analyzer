@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { macroShare, oneLineReason, packSize, sodiumLevel, typicalPortion, verdict } from "./result-display";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { FlagNotes } from "@/components/food/sheet-parts";
+import type { Flag } from "@/lib/nutrition/types";
+import { dietChip, macroShare, oneLineReason, packSize, sodiumLevel, typicalPortion, verdict, warningFlags } from "./result-display";
 
 describe("scan result display", () => {
   it("names a verdict per grade", () => {
@@ -33,5 +37,25 @@ describe("scan result display", () => {
     expect(typicalPortion(portions, 2)).toBeNull();
     expect(packSize(portions, "g")).toBe("150 g pack");
     expect(packSize(portions.slice(2), "g")).toBeNull();
+  });
+});
+
+describe("scan result flags", () => {
+  const allergen: Flag = { type: "allergen", key: "peanut", severity: "contains", text: "Contains peanut. Check the pack to confirm." };
+  const diet: Flag = { type: "diet", key: "vegetarian", severity: "contains", text: "Not vegetarian: contains egg. Check the pack to confirm." };
+  const goal: Flag = { type: "goal", key: "sodium", severity: "note", text: "1 serving uses 30% of your daily sodium limit." };
+
+  it("renders allergen and diet sentences in full, as alerts", () => {
+    const html = renderToStaticMarkup(createElement(FlagNotes, { flags: warningFlags([allergen, goal, diet]) }));
+    expect(html).toContain("Contains peanut. Check the pack to confirm.");
+    expect(html).toContain("Not vegetarian: contains egg.");
+    expect(html).not.toContain("daily sodium limit");
+    expect(html.match(/role="alert"/g)).toHaveLength(2);
+  });
+  it("only claims a diet fit from a real ingredient list", () => {
+    expect(dietChip("vegetarian", [], true)).toEqual({ label: "Veg", fits: true });
+    expect(dietChip("vegetarian", [], false)).toBeNull();
+    expect(dietChip("none", [], true)).toBeNull();
+    expect(dietChip("vegetarian", [diet], false)).toEqual({ label: "Not Veg", fits: false });
   });
 });

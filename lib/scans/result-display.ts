@@ -1,6 +1,6 @@
 // Pure helpers for the C1 scan result (spec §6.11): the grade hero's verdict and one-line reason,
 // the calorie row's portion, the macro rings' share of calories and the sodium chip's level.
-import type { Diet, Grade, Nutrients, Portion, Reason } from "@/lib/nutrition/types";
+import type { Diet, Flag, Grade, Nutrients, Portion, Reason } from "@/lib/nutrition/types";
 
 export const VERDICT: Record<Grade, string> = {
   A: "Great choice",
@@ -56,3 +56,19 @@ export const DIET_CHIP: Record<Exclude<Diet, "none">, string> = {
   vegan: "Vegan",
   jain: "Jain",
 };
+
+/** Allergen and diet flags: their full sentences ("… Check the pack to confirm.") are shown and announced, not just the chips. */
+export function warningFlags(flags: Flag[]): Flag[] {
+  return flags.filter((f) => f.type === "allergen" || f.type === "diet");
+}
+
+/**
+ * The diet chip: "Not Veg" when the diet check raised a flag; a positive "Veg" only when the check read
+ * a real ingredient list (a name-only check can't vouch for the food); otherwise nothing.
+ */
+export function dietChip(diet: Diet, flags: Flag[], ingredientsKnown: boolean): { label: string; fits: boolean } | null {
+  const flag = flags.find((f) => f.type === "diet");
+  if (flag) return { label: `Not ${DIET_CHIP[flag.key as Exclude<Diet, "none">] ?? flag.key}`, fits: false };
+  if (diet === "none" || !ingredientsKnown) return null;
+  return { label: DIET_CHIP[diet], fits: true };
+}

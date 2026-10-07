@@ -210,11 +210,13 @@ export function ScanFlow({ meal, date, initialBarcode, initialMode }: {
   }
 
   function removePhoto(id: string) {
-    const rest = photos.filter((p) => p.id !== id);
-    const gone = photos.find((p) => p.id === id);
-    if (gone) URL.revokeObjectURL(gone.url);
-    setPhotos(rest);
-    if (selected === id) setSelected(rest.at(-1)?.id ?? null);
+    setPhotos((cur) => {
+      const gone = cur.find((p) => p.id === id);
+      if (gone) URL.revokeObjectURL(gone.url);
+      return cur.filter((p) => p.id !== id);
+    });
+    // The view falls back to the last remaining photo when the selected one is gone.
+    setSelected((cur) => (cur === id ? null : cur));
   }
 
   function startOver() {
