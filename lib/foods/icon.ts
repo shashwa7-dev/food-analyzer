@@ -10,10 +10,19 @@ const RULES: [FoodIconKey, RegExp][] = [
   ["bowl", /\b(dal|daal|rice|khichdi|curry|sabzi|sabji|rajma|chole|chana|sambar|rasam|biryani|pulao|poha|upma|idli|idly|pongal|soup|korma|makhani|kadhi|stew|bowl)\b/],
 ];
 
+const plain = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
+/** The name's keyword family (the icon its words alone would pick), whatever the source; null for none. */
+export function nameFamily(name: string): Exclude<FoodIconKey, "package" | "default"> | null {
+  const text = plain(name);
+  for (const [key, re] of RULES) if (re.test(text)) return key as Exclude<FoodIconKey, "package" | "default">;
+  return null;
+}
+
 export function foodIconKey(f: { name: string; source: string; barcode?: string | null; gradeCategory?: string | null; categories?: string[] | null }): FoodIconKey {
   if (f.source === "off" || f.barcode) return "package";
   if (f.gradeCategory === "beverage" || f.gradeCategory === "water") return "drink";
-  const text = [f.name, ...(f.categories ?? [])].join(" ").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const text = plain([f.name, ...(f.categories ?? [])].join(" "));
   for (const [key, re] of RULES) if (re.test(text)) return key;
   return "default";
 }

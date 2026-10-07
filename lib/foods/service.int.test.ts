@@ -194,9 +194,10 @@ describe("searchFoodRows (engine name matching)", () => {
 
 describe("findAlternatives", () => {
   beforeEach(resetDb);
+  const SALTY = ["en:snacks", "en:salty-snacks"];
 
   const off = (code: string, name: string, per100: { energyKcal: number; protein: number; carbs: number; fat: number; sugars?: number; satFat?: number; sodiumMg?: number; fibre?: number }, countries = ["IN"]) =>
-    toFoodDraft({ source: "off", sourceRef: code, barcode: code, name, basis: "per_100g", per100, portions: [], categories: ["en:snacks"], countries }, []);
+    toFoodDraft({ source: "off", sourceRef: code, barcode: code, name, basis: "per_100g", per100, portions: [], categories: SALTY, countries }, []);
 
   it("returns better-graded foods in the same category and country, excluding the food itself", async () => {
     await upsertFoods([
@@ -207,12 +208,34 @@ describe("findAlternatives", () => {
     const u = await createUser();
     const [chips] = await db.select().from(food).where(eq(food.sourceRef, "1"));
     expect(chips!.grade! > "B").toBe(true);
-    const alts = await findAlternatives(u, { categories: ["en:snacks"], country: "IN", grade: chips!.grade as "C" | "D" | "E", excludeId: chips!.id });
+    const alts = await findAlternatives(u, { name: "Fried chips", categories: SALTY, country: "IN", grade: chips!.grade as "C" | "D" | "E", excludeId: chips!.id });
     expect(alts.map((a) => a.name)).toEqual(["Roasted chana"]);
-    expect(await findAlternatives(u, { categories: ["en:snacks"], country: "IN", grade: null })).toEqual([]);
-    expect(await findAlternatives(u, { categories: [], country: "IN", grade: "E" })).toEqual([]);
+    expect(await findAlternatives(u, { name: "Fried chips", categories: SALTY, country: "IN", grade: null })).toEqual([]);
+    expect(await findAlternatives(u, { name: "Fried chips", categories: [], country: "IN", grade: "E" })).toEqual([]);
+    // Aisle-level tags alone say nothing about two foods being alike: no pick rather than any snack.
+    expect(await findAlternatives(u, { name: "Fried chips", categories: ["en:snacks"], country: "IN", grade: "E" })).toEqual([]);
     // foodDetail uses the same query.
     expect((await foodDetail(u, chips!.id))!.alternatives.map((a) => a.name)).toEqual(["Roasted chana"]);
+  });
+
+  it("offers Paneer another paneer, never milk (sharing only en:dairies) or curd", async () => {
+    const DAIRY = ["en:dairies", "en:fermented-foods", "en:fermented-milk-products"];
+    const draft = (code: string, name: string, categories: string[], per100: { energyKcal: number; protein: number; carbs: number; fat: number; satFat?: number; sugars?: number; sodiumMg?: number }) =>
+      toFoodDraft({ source: "off", sourceRef: code, barcode: code, name, basis: "per_100g", per100, portions: [], categories, countries: ["IN"] }, []);
+    await upsertFoods([
+      draft("10", "Paneer", [...DAIRY, "en:cheeses", "en:paneer"], { energyKcal: 289, protein: 14, carbs: 2, fat: 25, satFat: 15, sugars: 0, sodiumMg: 20 }),
+      draft("11", "Low fat paneer", [...DAIRY, "en:cheeses", "en:paneer"], { energyKcal: 180, protein: 20, carbs: 3, fat: 9, satFat: 5, sugars: 0, sodiumMg: 20 }),
+      draft("12", "Toned milk", ["en:dairies", "en:milks-liquid-and-powder", "en:milks"], { energyKcal: 58, protein: 3, carbs: 4.7, fat: 3, satFat: 1.9, sugars: 4.7, sodiumMg: 40 }),
+      draft("13", "Curd", [...DAIRY, "en:desserts", "en:yogurts", "en:curd"], { energyKcal: 60, protein: 3, carbs: 4, fat: 3, satFat: 2, sugars: 4, sodiumMg: 40 }),
+    ]);
+    const u = await createUser();
+    const rows = await db.select().from(food).where(eq(food.source, "off"));
+    const by = (n: string) => rows.find((r) => r.name === n)!;
+    const paneer = by("Paneer");
+    expect(by("Toned milk").grade! < paneer.grade!).toBe(true); // the old rule's pick
+    expect(by("Curd").grade! < paneer.grade!).toBe(true);
+    expect(by("Low fat paneer").grade! < paneer.grade!).toBe(true);
+    expect((await foodDetail(u, paneer.id))!.alternatives.map((a) => a.name)).toEqual(["Low fat paneer"]);
   });
 });
 
@@ -402,7 +425,7 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     expect(await getFoodForUser(u, bad.id)).toBeNull();
     expect(await foodDetail(u, bad.id)).toBeNull();
     expect(await findFoodByBarcode("8906000000002")).toBeNull();
-    expect(await findAlternatives(u, { categories: ["en:biscuits"], country: "IN", grade: "E" })).toHaveLength(1);
+    expect(await findAlternatives(u, { name: "Ghee biscuits", categories: ["en:biscuits"], country: "IN", grade: "E" })).toHaveLength(1);
 
     // A custom food is the owner's own entry: 1,200 kcal per 100 g is past the bounds but stays visible to them.
     // (New custom foods can't be saved like that any more, so this is one stored before the check.)
@@ -434,7 +457,7 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     const staleA = off("8906100000002", "Atta noodles", { energyKcal: 350, protein: 12, carbs: 60, fat: 5, satFat: 1, sugars: 2, sodiumMg: 100 });
     const stale = await upsertFood({ ...staleA, per100: { ...staleA.per100, sodiumMg: 1_259_300 }, grade: "A" });
     const real = await upsertFood(off("8906100000003", "Oats noodles", { energyKcal: 350, protein: 12, carbs: 60, fat: 5, satFat: 1, sugars: 2, sodiumMg: 100 }));
-    const alts = await findAlternatives(u, { categories: ["en:instant-noodles"], country: "IN", grade: subject.grade as never, excludeId: subject.id });
+    const alts = await findAlternatives(u, { name: "Masala noodles", categories: ["en:instant-noodles"], country: "IN", grade: subject.grade as never, excludeId: subject.id });
     expect(alts.map((a) => a.id)).toContain(real.id);
     expect(alts.map((a) => a.id)).not.toContain(stale.id);
   });

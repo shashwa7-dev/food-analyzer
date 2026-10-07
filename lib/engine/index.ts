@@ -14,9 +14,10 @@ import { dishScore } from "@/lib/nutrition/grade/dish";
 import { gradeUnavailableReason } from "@/lib/nutrition/grade-unavailable";
 import { dropImplausible } from "@/lib/nutrition/plausible";
 import { ensureBasePortion, nutrientsFor, scaleNutrients } from "@/lib/nutrition/portions";
-import { NUTRIENT_KEYS, type DailyTargets, type Diet, type Goal, type Grade, type GradeResult, type NutrientKey, type Nutrients, type Portion, type Provenance } from "@/lib/nutrition/types";
+import { NUTRIENT_KEYS, type DailyTargets, type Diet, type Goal, type Grade, type GradeCategory, type GradeResult, type NutrientKey, type Nutrients, type Portion, type Provenance } from "@/lib/nutrition/types";
 import { normalise } from "@/lib/foods/normalise";
 import { defaultPortionIndex, type SourceRecord } from "@/lib/foods/seed-map";
+import type { AlternativeQuery } from "@/lib/foods/alternatives";
 import type { FoodHit, FoodRow } from "@/lib/foods/types";
 import type { OffLookup } from "./off";
 
@@ -46,7 +47,7 @@ export interface EngineDeps {
   cacheOffFood(rec: SourceRecord): Promise<FoodLike>;
   /** Our DB only (never a runtime OFF search). */
   searchFoods(q: { name: string; brand?: string; country: string }): Promise<FoodLike[]>;
-  alternatives(f: { categories: string[]; country: string; grade: Grade | null; excludeId?: string }): Promise<FoodHit[]>;
+  alternatives(f: AlternativeQuery): Promise<FoodHit[]>;
   /** Same shape as lib/engine/model.ts `extract`, so it can be passed in directly. */
   extract(images: EngineImage[], opts: { model: "fast" | "strong"; signal: AbortSignal; deadline: number }): Promise<ExtractOutput>;
   now(): number;
@@ -181,10 +182,11 @@ const union = (...lists: string[][]): string[] => [...new Set(lists.flat())];
 // --- Shared result helpers ------------------------------------------------------------------------
 
 /** Alternatives (spec §7.4) for a packaged C–E result; a static category tip when none are found. */
-async function withAlternatives(result: ScanResult, categories: string[], excludeId: string | null, deps: EngineDeps, country: string): Promise<ScanResult> {
+async function withAlternatives(result: ScanResult, categories: string[], gradeCategory: GradeCategory, excludeId: string | null, deps: EngineDeps, country: string): Promise<ScanResult> {
   if (result.kind !== "packaged" || result.grade === null || result.grade === "A" || result.grade === "B") return result;
-  const alternatives =
-    categories.length > 0 ? await deps.alternatives({ categories, country, grade: result.grade, ...(excludeId && { excludeId }) }) : [];
+  const alternatives = categories.length > 0
+    ? await deps.alternatives({ name: result.name, categories, gradeCategory, basis: result.basis, country, grade: result.grade, ...(excludeId && { excludeId }) })
+    : [];
   return alternatives.length > 0 ? { ...result, alternatives } : { ...result, alternatives, tip: tipFor(categories) };
 }
 
@@ -208,7 +210,7 @@ async function resultFromFood(
     ingredients: f.ingredients, allergens: f.allergens, mayContain: f.mayContain, additives: f.additives, nova: f.nova,
     alternatives: [], hints, confidence, profile, precomputedGrade: storedGrade(f), gradeUnavailable: f.gradeUnavailable,
   });
-  return withAlternatives(result, f.categories, f.id, deps, profile.country);
+  return withAlternatives(result, f.categories, f.gradeCategory, f.id, deps, profile.country);
 }
 
 function packagedPortions(conv: { basis: "per_100g" | "per_100ml"; servingGrams: number | null; servingUnknown?: boolean }, packSize: { value: number } | undefined, extra: Portion[]): { portions: Portion[]; defaultPortion: number } {
@@ -394,7 +396,7 @@ async function labelScan(
     nova: db?.nova ?? null, alternatives: [], hints, confidence, profile, ...(servingUnknown && { servingUnknown }),
     gradeUnavailable: gradeUnavailableReason(merged.dropped, "label") ?? undefined,
   });
-  const result = await withAlternatives(built, categories, db?.id ?? null, deps, profile.country);
+  const result = await withAlternatives(built, categories, gradeCategory, db?.id ?? null, deps, profile.country);
 
   const crowdCandidate: CrowdCandidate | null =
     confidence === "high" && x.product?.name
@@ -430,7 +432,7 @@ async function frontScan(x: Extraction, profile: Profile, deps: EngineDeps): Pro
     gradeUnavailable: gradeUnavailableReason(dropped, "estimate") ?? undefined,
     ...(est.servingUnknown && { servingUnknown: true }),
   });
-  return { result: await withAlternatives(built, categories, null, deps, profile.country), crowdCandidate: null };
+  return { result: await withAlternatives(built, categories, gradeCategory, null, deps, profile.country), crowdCandidate: null };
 }
 
 // --- meal ------------------------------------------------------------------------------------------

@@ -110,7 +110,7 @@ describe("resolveBarcode", () => {
     expect(out.result.alternatives).toEqual([HIT]);
     expect(d.extract).not.toHaveBeenCalled();
     expect(d.lookupOffByBarcode).not.toHaveBeenCalled();
-    expect(d.alternatives).toHaveBeenCalledWith({ categories: ["en:snacks", "en:salty-snacks"], country: "IN", grade: "E", excludeId: "f-bhujia" });
+    expect(d.alternatives).toHaveBeenCalledWith({ name: "Aloo Bhujia", categories: ["en:snacks", "en:salty-snacks"], gradeCategory: "general", basis: "per_100g", country: "IN", grade: "E", excludeId: "f-bhujia" });
   });
 
   it("flags catalogue allergens (OFF tags) for an allergic profile", async () => {
@@ -271,7 +271,7 @@ describe("runAi — label", () => {
     expect(out.crowdCandidate?.categories).toEqual(["en:beverages", "en:sodas"]);
     expect(out.crowdCandidate?.additives).toEqual(["en:e150d", "en:e338", "en:e211"]);
     expect(["C", "D", "E"]).toContain(out.result.grade);
-    expect(d.alternatives).toHaveBeenCalledWith({ categories: ["en:beverages", "en:sodas"], country: "IN", grade: out.result.grade });
+    expect(d.alternatives).toHaveBeenCalledWith({ name: "Cola Soft Drink", categories: ["en:beverages", "en:sodas"], gradeCategory: "beverage", basis: "per_100ml", country: "IN", grade: out.result.grade });
     expect(out.result.alternatives).toEqual([HIT]);
   });
 

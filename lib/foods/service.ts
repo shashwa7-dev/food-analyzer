@@ -14,6 +14,7 @@ import { targetsFor } from "@/lib/nutrition/targets";
 import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients, type Portion, type Reason } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
+import { closeness, isRelevantAlternative, minSharedCategories, specificCategories, type AlternativeQuery } from "./alternatives";
 import { foodIconKey } from "./icon";
 import { customNutrientIssues } from "./custom-validate";
 import { plausibleCoreWhere, plausibleFood, type SaneFoodRow } from "./sane";
@@ -135,28 +136,39 @@ export async function findFoodByBarcode(barcode: string): Promise<SaneFoodRow | 
 }
 
 const GRADE_LETTERS: readonly string[] = ["A", "B", "C", "D", "E"];
-/** Extra candidates fetched so the read-time check below can still fill `limit`. */
-const ALTERNATIVE_HEADROOM = 3;
+/** Extra candidates fetched so the read-time checks below (relevance, effective grade) can still fill `limit`. */
+const ALTERNATIVE_HEADROOM = 6;
+
+const textArray = (xs: string[]) => sql`ARRAY[${sql.join(xs.map((x) => sql`${x}`), sql`, `)}]::text[]`;
 
 /**
- * Better-graded visible foods sharing a category with the given food, in the given country (spec §7.4).
- * Shared by the food detail page and the scan engine (EngineDeps.alternatives).
+ * Better-graded visible foods of the same kind as the given food, in the given country (spec §7.4):
+ * sharing a specific category and at least half of the food's categories, in the same form (drink,
+ * powder or food), as lib/foods/alternatives.ts defines; closest first, then best grade. None when
+ * nothing qualifies. Shared by the food detail page and the scan engine (EngineDeps.alternatives).
  *
  * The SQL filters on the stored grade; a row whose effective grade (lib/foods/sane.ts) differs is
  * checked again here: one with an unavailable grade ("?") is never a better pick, and a regraded one
  * must still beat `f.grade`.
  */
-export async function findAlternatives(
-  userId: string,
-  f: { categories: string[]; country: string; grade: Grade | null; excludeId?: string },
-  limit = 5,
-): Promise<FoodHit[]> {
-  if (!f.grade || f.categories.length === 0) return [];
+export async function findAlternatives(userId: string, f: AlternativeQuery, limit = 5): Promise<FoodHit[]> {
+  const specific = specificCategories(f.categories);
+  if (!f.grade || specific.length === 0) return [];
+  const sharedCount = sql<number>`cardinality(ARRAY(SELECT unnest(${food.categories}) INTERSECT SELECT unnest(${textArray(f.categories)})))`;
   const rows = await db.select(HIT_COLUMNS).from(food)
-    .where(and(visibleFoodWhere(userId), plausibleCoreWhere(), arrayOverlaps(food.categories, f.categories), sql`${f.country} = ANY(${food.countries})`,
-      sql`${food.grade} < ${f.grade}`, f.excludeId ? sql`${food.id} <> ${f.excludeId}` : undefined))
-    .orderBy(food.grade, desc(food.popularity), food.id).limit(limit * ALTERNATIVE_HEADROOM);
-  return rows.map(toHit).filter((h) => h.grade !== null && GRADE_LETTERS.includes(h.grade) && h.grade < f.grade!).slice(0, limit);
+    .where(and(visibleFoodWhere(userId), plausibleCoreWhere(), arrayOverlaps(food.categories, specific), sql`${f.country} = ANY(${food.countries})`,
+      sql`${food.grade} < ${f.grade}`, sql`${sharedCount} >= ${minSharedCategories(new Set(f.categories).size)}`,
+      f.excludeId ? sql`${food.id} <> ${f.excludeId}` : undefined))
+    .orderBy(desc(sharedCount), sql`(${food.gradeCategory}::text = ${f.gradeCategory ?? ""}) DESC`, sql`(${food.kind} = 'packaged') DESC`,
+      food.grade, desc(food.popularity), food.id)
+    .limit(limit * ALTERNATIVE_HEADROOM);
+  return rows
+    .filter((r) => isRelevantAlternative(f, r))
+    .map((r) => ({ r, close: closeness(f, r) }))
+    .sort((a, b) => b.close - a.close) // stable: the SQL order breaks ties
+    .map(({ r }) => toHit(r))
+    .filter((h) => h.grade !== null && GRADE_LETTERS.includes(h.grade) && h.grade < f.grade!)
+    .slice(0, limit);
 }
 
 export async function foodDetail(userId: string, id: string): Promise<{
@@ -178,7 +190,7 @@ export async function foodDetail(userId: string, id: string): Promise<{
   const flags = personalise({ name: f.name, allergens: f.allergens, mayContain: f.mayContain, ingredients: f.ingredients, perPortion, portionLabel: portion.label,
     profile: { allergies: prof.allergies, diet: prof.diet, goal: prof.goal, targets } });
   const alternatives = !gradeUnavailable && f.kind === "packaged" && f.grade && f.grade > "B" && f.categories.length
-    ? await findAlternatives(userId, { categories: f.categories, country: prof.country, grade: f.grade as Grade, excludeId: f.id })
+    ? await findAlternatives(userId, { name: f.name, categories: f.categories, gradeCategory: f.gradeCategory, basis: f.basis, country: prof.country, grade: f.grade as Grade, excludeId: f.id })
     : [];
   return { food: f, reasons, flags, alternatives, ingredientsKnown: f.ingredients.length > 0, gradeUnavailable };
 }
