@@ -8,6 +8,7 @@ import { MEAL_META } from "@/components/food/meal-meta";
 import { useLogEntry } from "@/components/food/use-log-entry";
 import { logEntryBody, MAX_QUANTITY, type LogTarget } from "@/lib/log/quantity";
 import { multiplierUnit, stepAmount, stepFor, unitChipLabel, unitWord } from "@/lib/log/stepper";
+import { parseAmount } from "@/lib/parse-amount";
 import type { Meal, Nutrients, Portion, PortionUnit } from "@/lib/nutrition/types";
 
 /** per100 null (+ perServing): a per-serving label with no serving weight — logged by servings only, never by grams. */
@@ -45,8 +46,8 @@ export function AddToMeal({ food, target, date, defaultMeal, onDone, notes }: {
 
   const isGrams = mode === GRAMS;
   const portion = isGrams ? null : food.portions[mode];
-  const typed = Number(gramsText);
-  const gramsValid = gramsText.trim() !== "" && Number.isFinite(typed) && typed >= 1 && typed <= MAX_GRAMS;
+  const typed = parseAmount(gramsText) ?? Number.NaN;
+  const gramsValid = Number.isFinite(typed) && typed >= 1 && typed <= MAX_GRAMS;
   const grams = isGrams ? (gramsValid ? typed : 0) : (portion?.grams ?? 0) * quantity;
   const n: Nutrients = food.per100
     ? { energyKcal: (food.per100.energyKcal * grams) / 100, protein: (food.per100.protein * grams) / 100, carbs: (food.per100.carbs * grams) / 100, fat: (food.per100.fat * grams) / 100 }

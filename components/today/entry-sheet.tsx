@@ -18,6 +18,7 @@ import { foodIconKey } from "@/lib/foods/icon";
 import { isFreeGramsPortion } from "@/lib/log/format";
 import { MAX_QUANTITY } from "@/lib/log/quantity";
 import { multiplierUnit, stepAmount, stepFor, unitWord } from "@/lib/log/stepper";
+import { parseAmount } from "@/lib/parse-amount";
 import { invalidateLogQueries } from "@/lib/log/invalidate";
 import { undoBody, undoNeedsPortions, undoTarget } from "@/lib/log/undo";
 import type { EntryRow } from "@/lib/log/service";
@@ -51,8 +52,8 @@ function EntrySheetBody({ entry, onClose }: { entry: EntryRow; onClose: () => vo
     retry: false,
   });
 
-  const typed = Number(gramsText);
-  const gramsValid = !freeGrams || (gramsText.trim() !== "" && Number.isFinite(typed) && typed >= 1 && typed <= MAX_GRAMS);
+  const typed = parseAmount(gramsText) ?? Number.NaN;
+  const gramsValid = !freeGrams || (Number.isFinite(typed) && typed >= 1 && typed <= MAX_GRAMS);
   const factor = freeGrams
     ? (gramsValid && entry.portion.grams ? typed / entry.portion.grams : 1)
     : (entry.portion.amount > 0 ? quantity / entry.portion.amount : 1);

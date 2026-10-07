@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MEAL_META } from "@/components/food/meal-meta";
 import { useLogEntry } from "@/components/food/use-log-entry";
 import type { Meal } from "@/lib/nutrition/types";
+import { DECIMAL_COMMA_MESSAGE, amountError, parseAmount } from "@/lib/parse-amount";
 
 const FIELDS = [
   { key: "energyKcal", label: "Calories (kcal)", placeholder: "350", max: 5000 },
@@ -39,7 +40,8 @@ export function QuickAddForm({ date, meal, onDone }: { date: string; meal: Meal;
     if (values.energyKcal!.trim() === "") return "Enter the calories.";
     for (const f of FIELDS) {
       const raw = values[f.key]!;
-      const v = raw === "" ? 0 : Number(raw);
+      if (amountError(raw) === DECIMAL_COMMA_MESSAGE) return `${f.label}: ${DECIMAL_COMMA_MESSAGE}.`;
+      const v = parseAmount(raw) ?? 0;
       if (!Number.isFinite(v) || v < 0 || v > f.max) return `${f.label} should be between 0 and ${f.max}.`;
     }
     return null;
@@ -48,10 +50,10 @@ export function QuickAddForm({ date, meal, onDone }: { date: string; meal: Meal;
   async function add() {
     const trimmed = name.trim();
     const nutrients = {
-      energyKcal: Number(values.energyKcal) || 0,
-      protein: Number(values.protein) || 0,
-      carbs: Number(values.carbs) || 0,
-      fat: Number(values.fat) || 0,
+      energyKcal: parseAmount(values.energyKcal!) || 0,
+      protein: parseAmount(values.protein!) || 0,
+      carbs: parseAmount(values.carbs!) || 0,
+      fat: parseAmount(values.fat!) || 0,
     };
     setPending(true);
     let body: Record<string, unknown> = { kind: "quick", date, meal, name: trimmed, nutrients };
