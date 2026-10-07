@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseHouseholdCsv, toFoodDraft } from "./seed-map";
+import { defaultPortionIndex, parseHouseholdCsv, saneDefaultPortion, toFoodDraft } from "./seed-map";
+import type { Portion } from "@/lib/nutrition/types";
 
 const rules = parseHouseholdCsv("keyword,label,grams\ndal|daal,1 katori,150\nroti|chapati,1 roti,40\n");
 
@@ -81,5 +82,40 @@ describe("toFoodDraft", () => {
       portions: [{ label: "1 gm", amount: 1, unit: "g", grams: 1 }, { label: "1 ml", amount: 1, unit: "ml", grams: 1 }],
       countries: ["IN"] }, rules);
     expect(d.portions.map((p) => p.label)).toEqual(["100 g"]);
+  });
+});
+
+const serving = (g: number): Portion => ({ label: "1 serving", amount: 1, unit: "serving", grams: g });
+const pack = (g: number): Portion => ({ label: "1 pack", amount: 1, unit: "pack", grams: g });
+const household = (label: string, g: number): Portion => ({ label, amount: 1, unit: "household", grams: g });
+const base: Portion = { label: "100 g", amount: 100, unit: "g", grams: 100 };
+
+describe("defaultPortionIndex", () => {
+  it("never defaults to a pack while a serving or the 100 g base exists (OFF toor dal: 1 kg pack)", () => {
+    expect(defaultPortionIndex([pack(1000), base])).toBe(1);
+    expect(defaultPortionIndex([pack(1000), serving(40), base])).toBe(1);
+    expect(defaultPortionIndex([pack(80), base])).toBe(1); // even a small pack loses to the base
+  });
+  it("prefers a serving, then a household measure, then the base", () => {
+    expect(defaultPortionIndex([household("1 katori", 150), serving(60), base])).toBe(1);
+    expect(defaultPortionIndex([household("1 leaf", 5), household("1 katori", 150), base])).toBe(1);
+    expect(defaultPortionIndex([household("1 pie", 900), base])).toBe(1);
+    expect(defaultPortionIndex([serving(700), base])).toBe(1); // a 700 g "serving" is not a helping
+  });
+  it("falls back to the first real portion when there is no base", () => {
+    expect(defaultPortionIndex([pack(1000)])).toBe(0);
+  });
+});
+
+describe("saneDefaultPortion", () => {
+  it("moves a stored pack or oversized default to the preferred portion", () => {
+    expect(saneDefaultPortion([pack(1000), base], 0)).toBe(1);
+    expect(saneDefaultPortion([pack(280), serving(140), base], 0)).toBe(1);
+    expect(saneDefaultPortion([household("1 pie", 900), base], 0)).toBe(1);
+  });
+  it("keeps any other stored default, and a pack when nothing better exists", () => {
+    expect(saneDefaultPortion([household("1 bowl", 180), household("1 katori", 150), base], 1)).toBe(1);
+    expect(saneDefaultPortion([base, serving(60)], 0)).toBe(0);
+    expect(saneDefaultPortion([pack(1000)], 0)).toBe(0);
   });
 });

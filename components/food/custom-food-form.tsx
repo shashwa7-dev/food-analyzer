@@ -10,6 +10,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { CARD, StickyActionBar } from "@/components/food/result-parts";
 import { cn } from "@/lib/utils";
+import { parseAmount } from "@/lib/parse-amount";
 import type { Nutrients } from "@/lib/nutrition/types";
 
 export interface CustomFoodFormInitial {
@@ -41,13 +42,6 @@ type FieldId = "name" | "servingGrams" | (typeof REQUIRED_FIELDS)[number]["key"]
 
 function toText(v: number | undefined): string {
   return v === undefined ? "" : String(v);
-}
-
-/** A typed amount: "1,200" and " 12 " read as numbers; "" is null; anything else is NaN. */
-function readNumber(raw: string): number | null {
-  const t = raw.replace(/[,\s]/g, "");
-  if (t === "") return null;
-  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : Number.NaN;
 }
 
 /** A ghost input (mock-c1 `.field` on --sunken): label above, the unit inside on the right, red when it's the one to fix. */
@@ -114,16 +108,16 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
   function validate(): { message: string; field: FieldId | null } | null {
     if (!name.trim()) return { message: "Give it a name.", field: "name" };
     if (unit === "serving") {
-      const g = readNumber(servingGrams);
+      const g = parseAmount(servingGrams);
       if (g === null || !(g >= 1 && g <= 2000)) return { message: "Serving size should be between 1 and 2000 g.", field: "servingGrams" };
     }
     for (const f of REQUIRED_FIELDS) {
-      const v = readNumber(values[f.key]!);
+      const v = parseAmount(values[f.key]!);
       if (v === null) return { message: `Enter the ${f.label.toLowerCase()}. Use 0 if there's none.`, field: f.key };
       if (!(v >= 0 && v <= f.max)) return { message: `${f.label} should be between 0 and ${f.max} ${f.unit}.`, field: f.key };
     }
     for (const f of OPTIONAL_FIELDS) {
-      const v = readNumber(values[f.key]!);
+      const v = parseAmount(values[f.key]!);
       if (v === null) continue;
       if (!(v >= 0 && v <= f.max)) return { message: `${f.label} should be between 0 and ${f.max} ${f.unit}.`, field: f.key };
     }
@@ -136,14 +130,14 @@ export function CustomFoodForm({ initial }: { initial: CustomFoodFormInitial | n
       const trimmedBrand = brand.trim();
       const nutrients: Record<string, number> = {};
       for (const f of [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS]) {
-        const v = readNumber(values[f.key]!);
+        const v = parseAmount(values[f.key]!);
         if (v !== null) nutrients[f.key] = v;
       }
       const body = {
         name: trimmed,
         ...(trimmedBrand ? { brand: trimmedBrand } : {}),
         per: unit === "serving" ? { amount: 1, unit: "serving" as const } : { amount: 100, unit },
-        ...(unit === "serving" ? { servingGrams: readNumber(servingGrams) } : {}),
+        ...(unit === "serving" ? { servingGrams: parseAmount(servingGrams) } : {}),
         nutrients,
       };
       return initial

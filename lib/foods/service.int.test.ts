@@ -385,4 +385,38 @@ describe("createCustomFoodFromScan (Task 9: save a scan to my foods)", () => {
     expect((await searchFoodRows(u, "dal makhani", "IN")).find((r) => r.id === stored.id)!.per100.sodiumMg).toBeUndefined();
     expect((await getFoodForUser(u, stored.id))!.per100.sodiumMg).toBeUndefined();
   });
+
+  it("leaves out stored rows whose energy or macros are impossible (search, food page, barcode, alternatives) but never a custom food", async () => {
+    const u = await createUser();
+    // An OFF unit error stored before the bounds existed: fat 3,227 g per 100 g. Required values can't be dropped, so the row is hidden.
+    const draft = toFoodDraft({ source: "off", sourceRef: "8906000000002", barcode: "8906000000002", name: "Ghee biscuits broken", basis: "per_100g",
+      per100: { energyKcal: 480, protein: 6, carbs: 60, fat: 22 }, portions: [], categories: ["en:biscuits"], countries: ["IN"] }, rules);
+    const bad = await upsertFood({ ...draft, per100: { ...draft.per100, fat: 3227 }, grade: "C" });
+    const good = await upsertFood({ ...toFoodDraft({ source: "off", sourceRef: "8906000000003", barcode: "8906000000003", name: "Ghee biscuits", basis: "per_100g",
+      per100: { energyKcal: 480, protein: 6, carbs: 60, fat: 22 }, portions: [], categories: ["en:biscuits"], countries: ["IN"] }, rules), grade: "A" });
+
+    expect((await searchFoods(u, "ghee biscuits", "IN")).map((h) => h.id)).toEqual([good.id]);
+    expect((await searchFoodRows(u, "ghee biscuits", "IN")).map((r) => r.id)).toEqual([good.id]);
+    expect(await getFoodForUser(u, bad.id)).toBeNull();
+    expect(await foodDetail(u, bad.id)).toBeNull();
+    expect(await findFoodByBarcode("8906000000002")).toBeNull();
+    expect(await findAlternatives(u, { categories: ["en:biscuits"], country: "IN", grade: "E" })).toHaveLength(1);
+
+    // A custom food is the owner's own entry: 1,200 kcal per 100 g is past the bounds but stays visible to them.
+    const mine = await createCustomFood(u, { name: "Ghee biscuits, home", per: { amount: 100, unit: "g" }, nutrients: { energyKcal: 1200, protein: 6, carbs: 60, fat: 70 } });
+    expect(await getFoodForUser(u, mine.id)).not.toBeNull();
+    expect((await searchFoods(u, "ghee biscuits", "IN")).map((h) => h.id)).toContain(mine.id);
+  });
+
+  it("corrects a stored pack default on read (OFF toor dal: 1 kg pack)", async () => {
+    const u = await createUser();
+    const draft = toFoodDraft({ source: "off", sourceRef: "8906000000004", name: "Toor Dal", brand: "Parry's", basis: "per_100g",
+      per100: { energyKcal: 322, protein: 22, carbs: 57, fat: 1.5 }, portions: [{ label: "1 pack", amount: 1, unit: "pack", grams: 1000 }], countries: ["IN"] }, rules);
+    expect(draft.portions[draft.defaultPortion ?? 0]!.label).toBe("100 g"); // new rows: never the pack
+    const stored = await upsertFood({ ...draft, defaultPortion: 0 }); // as seeded before the rule
+    const [hit] = await searchFoods(u, "toor dal", "IN");
+    expect(hit).toMatchObject({ id: stored.id, defaultPortion: { label: "100 g", grams: 100 } });
+    const f = (await getFoodForUser(u, stored.id))!;
+    expect(f.portions[f.defaultPortion]!.label).toBe("100 g");
+  });
 });

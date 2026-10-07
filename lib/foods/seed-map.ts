@@ -57,10 +57,37 @@ export function representativePortion(portions: Portion[]): number {
 }
 
 const MIN_DEFAULT_GRAMS = 30;
-/** Default (displayed) portion: the first real portion of at least 30 g, so hits don't default to "1 leaf". */
+/** Past this a portion is a pack or a family dish, not one person's helping ("1 pack = 3,220 kcal" for 1 kg of toor dal). */
+const MAX_DEFAULT_GRAMS = 500;
+const isEatingPortion = (p: Portion): boolean =>
+  !!p.grams && p.grams >= MIN_DEFAULT_GRAMS && p.grams <= MAX_DEFAULT_GRAMS && !NOT_A_PORTION.test(p.label);
+
+/**
+ * Default (displayed) portion, in order of preference: a serving of 30–500 g; then a household measure
+ * of 30–500 g (the first, so "1 leaf" loses to "1 katori"); then the 100 g/ml base. A pack is never the
+ * default while a serving or the base exists. With none of those, the first real portion.
+ */
 export function defaultPortionIndex(portions: Portion[]): number {
-  const i = portions.findIndex((p) => p.grams && p.grams >= MIN_DEFAULT_GRAMS && !NOT_A_PORTION.test(p.label));
-  return i >= 0 ? i : representativePortion(portions);
+  const serving = portions.findIndex((p) => p.unit === "serving" && isEatingPortion(p));
+  if (serving >= 0) return serving;
+  const household = portions.findIndex((p) => p.unit === "household" && isEatingPortion(p));
+  if (household >= 0) return household;
+  const base = portions.findIndex((p) => (p.unit === "g" || p.unit === "ml") && p.grams);
+  if (base >= 0) return base;
+  return representativePortion(portions);
+}
+
+/**
+ * Read-time check of a stored default (rows seeded before the rule above): a pack or anything over
+ * 500 g gives way to defaultPortionIndex's pick when that pick is something else; any other stored
+ * default is kept, so a household measure chosen at seed time stays put.
+ */
+export function saneDefaultPortion(portions: Portion[], stored: number): number {
+  const p = portions[stored];
+  if (p && p.unit !== "pack" && !(p.grams && p.grams > MAX_DEFAULT_GRAMS)) return stored;
+  const better = defaultPortionIndex(portions);
+  const q = portions[better];
+  return q && q.unit !== "pack" && !(q.grams && q.grams > MAX_DEFAULT_GRAMS) ? better : stored;
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

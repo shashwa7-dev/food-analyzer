@@ -51,7 +51,7 @@ export default async function FoodPage({ params }: { params: Promise<{ id: strin
 
       <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
         <div className="flex min-w-0 flex-col gap-3">
-          <GradeHero grade={grade} reason={oneLineReason(reasons)} />
+          <GradeHero grade={grade} reason={oneLineReason(reasons, grade)} />
           <CalorieRow kcal={food.per100.energyKcal} basis={`per 100 ${unit}`} portion={portionText} />
           <MacroRings n={food.per100} />
           <FlagChips flags={flags} sodiumMg={food.per100.sodiumMg} sodiumPer100={food.per100.sodiumMg} diet={profile.diet} ingredientsKnown={ingredientsKnown} />

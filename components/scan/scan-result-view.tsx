@@ -116,7 +116,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
 
       <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
         <div className="flex min-w-0 flex-col gap-3">
-          <GradeHero grade={r.grade} reason={oneLineReason(r.reasons)} />
+          <GradeHero grade={r.grade} reason={oneLineReason(r.reasons, r.grade)} />
           <CalorieRow kcal={shown.energyKcal} basis={basis} portion={portionText} />
           <MacroRings n={shown} />
           <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} diet={diet} ingredientsKnown={r.ingredients.length > 0} />

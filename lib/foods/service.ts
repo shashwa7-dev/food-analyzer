@@ -15,7 +15,7 @@ import { NUTRIENT_KEYS, type Flag, type Grade, type GradeResult, type Nutrients,
 import { getProfile } from "@/lib/profile/service";
 import { visibleScanWhere } from "@/lib/scans/service";
 import { foodIconKey } from "./icon";
-import { plausibleFood, type SaneFoodRow } from "./sane";
+import { plausibleCoreWhere, plausibleFood, type SaneFoodRow } from "./sane";
 import { buildSearchFields, canonicalQuery, normalise } from "./normalise";
 import type { FoodHit, FoodRow } from "./types";
 
@@ -44,7 +44,7 @@ const QUALIFIER = "(cooked|boiled|plain|nfs|raw)";
 const GENERIC_QUALIFIERS = `^(${QUALIFIER} )+|( ${QUALIFIER})+$`;
 
 function searchWhere(userId: string, raw: string, canon: string) {
-  return and(visibleFoodWhere(userId), sql`(${food.searchText} @@ websearch_to_tsquery('simple', ${raw})
+  return and(visibleFoodWhere(userId), plausibleCoreWhere(), sql`(${food.searchText} @@ websearch_to_tsquery('simple', ${raw})
       OR ${food.searchText} @@ websearch_to_tsquery('simple', ${canon})
       OR ${raw} <% ${food.searchName} OR ${canon} <% ${food.searchName})`);
 }
@@ -105,7 +105,7 @@ export async function searchFoodRows(userId: string, name: string, country: stri
 export async function recentFoods(userId: string, limit = 20): Promise<FoodHit[]> {
   const rows = await db.select(HIT_COLUMNS).from(userFoodStats)
     .innerJoin(food, eq(food.id, userFoodStats.foodId))
-    .where(and(eq(userFoodStats.userId, userId), visibleFoodWhere(userId)))
+    .where(and(eq(userFoodStats.userId, userId), visibleFoodWhere(userId), plausibleCoreWhere()))
     .orderBy(desc(userFoodStats.lastUsedAt), desc(userFoodStats.uses))
     .limit(limit);
   return rows.map(toHit);
@@ -120,7 +120,7 @@ export async function myFoods(userId: string): Promise<FoodHit[]> {
 
 export async function getFoodForUser(userId: string, id: string): Promise<SaneFoodRow | null> {
   if (!z.uuid().safeParse(id).success) return null;
-  const [row] = await db.select().from(food).where(and(eq(food.id, id), visibleFoodWhere(userId)));
+  const [row] = await db.select().from(food).where(and(eq(food.id, id), visibleFoodWhere(userId), plausibleCoreWhere()));
   return row ? plausibleFood(row) : null;
 }
 
@@ -129,7 +129,7 @@ export async function getFoodForUser(userId: string, id: string): Promise<SaneFo
 // come from one user's label photo, so they are never served as a free high-confidence barcode answer
 // (a barcode scan of one goes to Open Food Facts, then the charged AI path).
 export async function findFoodByBarcode(barcode: string): Promise<SaneFoodRow | null> {
-  const [row] = await db.select().from(food).where(and(eq(food.barcode, barcode), isNull(food.deletedAt), sql`${food.source} NOT IN ('custom', 'crowd')`));
+  const [row] = await db.select().from(food).where(and(eq(food.barcode, barcode), isNull(food.deletedAt), sql`${food.source} NOT IN ('custom', 'crowd')`, plausibleCoreWhere()));
   return row ? plausibleFood(row) : null;
 }
 
@@ -144,7 +144,7 @@ export async function findAlternatives(
 ): Promise<FoodHit[]> {
   if (!f.grade || f.categories.length === 0) return [];
   const rows = await db.select(HIT_COLUMNS).from(food)
-    .where(and(visibleFoodWhere(userId), arrayOverlaps(food.categories, f.categories), sql`${f.country} = ANY(${food.countries})`,
+    .where(and(visibleFoodWhere(userId), plausibleCoreWhere(), arrayOverlaps(food.categories, f.categories), sql`${f.country} = ANY(${food.countries})`,
       sql`${food.grade} < ${f.grade}`, f.excludeId ? sql`${food.id} <> ${f.excludeId}` : undefined))
     .orderBy(food.grade, desc(food.popularity), food.id).limit(limit);
   return rows.map(toHit);

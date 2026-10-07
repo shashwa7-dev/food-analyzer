@@ -14,9 +14,21 @@ export function verdict(grade: Grade | null): string {
   return grade ? VERDICT[grade] : "Not graded";
 }
 
-/** The hero's one line: the first bad reason (else the first one), without its " · …" aside. */
-export function oneLineReason(reasons: Reason[]): string | null {
-  const r = reasons.find((x) => x.tone === "bad") ?? reasons[0];
+/** The hero's line for an A/B or D/E with no reason of the matching tone: neutral, never contradicting the verdict. */
+export const NEUTRAL_REASON = { good: "Scores well on its overall nutrient balance.", bad: "Scores poorly on its overall nutrient balance." } as const;
+
+/**
+ * The hero's one line, next to the verdict, without its " · …" aside. It never argues with the
+ * verdict: an A/B shows its first good reason (else a neutral line, never a warning such as
+ * "Energy-dense" beside "Great choice"); a D/E its first bad, then warn, reason (else a neutral line,
+ * never praise); a C, or an ungraded food, the first bad, then warn, then any reason.
+ */
+export function oneLineReason(reasons: Reason[], grade: Grade | null): string | null {
+  const first = (...tones: Reason["tone"][]) => tones.map((t) => reasons.find((x) => x.tone === t)).find(Boolean);
+  let r: Reason | undefined;
+  if (grade === "A" || grade === "B") r = first("good") ?? { tone: "good", text: NEUTRAL_REASON.good };
+  else if (grade === "D" || grade === "E") r = first("bad", "warn") ?? { tone: "bad", text: NEUTRAL_REASON.bad };
+  else r = first("bad", "warn") ?? reasons[0];
   return r ? r.text.split(" · ")[0]! : null;
 }
 

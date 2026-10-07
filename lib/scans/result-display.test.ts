@@ -3,20 +3,33 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FlagNotes } from "@/components/food/sheet-parts";
 import type { Flag } from "@/lib/nutrition/types";
-import { dietChip, macroShare, oneLineReason, packSize, sodiumLevel, typicalPortion, verdict, warningFlags } from "./result-display";
+import { dietChip, macroShare, NEUTRAL_REASON, oneLineReason, packSize, sodiumLevel, typicalPortion, verdict, warningFlags } from "./result-display";
 
 describe("scan result display", () => {
   it("names a verdict per grade", () => {
     expect(verdict("D")).toBe("Eat now and then");
     expect(verdict(null)).toBe("Not graded");
   });
-  it("picks the first bad reason and drops its aside", () => {
-    expect(oneLineReason([
+  it("picks the first bad reason for a low grade and drops its aside", () => {
+    const reasons = [
       { tone: "warn", text: "Energy-dense: 541 kcal per 100 g" },
       { tone: "bad", text: "High salt: 560 mg sodium per 100 g · 1 serving is 8% of your daily limit" },
-    ])).toBe("High salt: 560 mg sodium per 100 g");
-    expect(oneLineReason([{ tone: "good", text: "Good protein" }])).toBe("Good protein");
-    expect(oneLineReason([])).toBeNull();
+    ] as const;
+    expect(oneLineReason([...reasons], "D")).toBe("High salt: 560 mg sodium per 100 g");
+    expect(oneLineReason([...reasons], "C")).toBe("High salt: 560 mg sodium per 100 g");
+    expect(oneLineReason([reasons[0]], "E")).toBe("Energy-dense: 541 kcal per 100 g");
+    expect(oneLineReason([], "C")).toBeNull();
+  });
+  it("never contradicts the verdict", () => {
+    const energyDense = { tone: "warn", text: "Energy-dense: 498 kcal per 100 g" } as const;
+    const fibre = { tone: "good", text: "Good fibre: 2.3 g per 100 g" } as const;
+    // "Great choice" next to a warning: the best positive reason instead, or a neutral line.
+    expect(oneLineReason([energyDense, fibre], "A")).toBe("Good fibre: 2.3 g per 100 g");
+    expect(oneLineReason([energyDense], "B")).toBe(NEUTRAL_REASON.good);
+    expect(oneLineReason([], "A")).toBe(NEUTRAL_REASON.good);
+    // "Best kept rare" next to praise: a neutral line.
+    expect(oneLineReason([fibre], "E")).toBe(NEUTRAL_REASON.bad);
+    expect(oneLineReason([fibre], null)).toBe("Good fibre: 2.3 g per 100 g");
   });
   it("splits calories by macro (the mock's peanuts: 16/13/71)", () => {
     expect(macroShare({ protein: 24, carbs: 18.5, fat: 47 })).toEqual({ protein: 16, carbs: 12, fat: 71 });

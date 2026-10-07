@@ -1,8 +1,10 @@
+import { sql, type SQL } from "drizzle-orm";
+import { food } from "@/lib/db/schema";
 import { classify } from "@/lib/nutrition/classify";
 import { gradeFood } from "@/lib/nutrition/grade";
-import { dropImplausible } from "@/lib/nutrition/plausible";
+import { CORE_KEYS, dropImplausible, PER100_MAX } from "@/lib/nutrition/plausible";
 import type { GradeResult, NutrientKey } from "@/lib/nutrition/types";
-import { wweiaOf } from "./seed-map";
+import { saneDefaultPortion, wweiaOf } from "./seed-map";
 import type { FoodRow } from "./types";
 
 /** A food row as read for display: implausible values removed, `dropped` naming them (lib/foods/sane.ts). */
@@ -27,10 +29,12 @@ export function gradeStoredFood(f: GradeInputs): GradeResult {
  * Nothing is written back: a re-seed (and `pnpm regrade`, which grades on these same values) cleans
  * the stored data.
  */
-export function plausibleFood<T extends GradeInputs & Pick<FoodRow, "grade"> & Partial<Pick<FoodRow, "provenance" | "gradeValue" | "gradeComponents" | "gradeFrozen">>>(f: T): T & { dropped?: NutrientKey[] } {
+export function plausibleFood<T extends GradeInputs & Pick<FoodRow, "grade"> & Partial<Pick<FoodRow, "provenance" | "gradeValue" | "gradeComponents" | "gradeFrozen" | "portions" | "defaultPortion">>>(f: T): T & { dropped?: NutrientKey[] } {
   const { per100, dropped } = dropImplausible(f.per100);
-  if (dropped.length === 0) return f;
-  const out: T & { dropped?: NutrientKey[] } = { ...f, per100, dropped };
+  // A default portion stored before the pack rule (lib/foods/seed-map.ts) is corrected on read too.
+  const defaultPortion = f.portions && f.defaultPortion !== undefined ? saneDefaultPortion(f.portions, f.defaultPortion) : f.defaultPortion;
+  if (dropped.length === 0) return defaultPortion === f.defaultPortion ? f : { ...f, defaultPortion };
+  const out: T & { dropped?: NutrientKey[] } = { ...f, per100, dropped, defaultPortion };
   if (f.provenance) {
     const provenance = { ...f.provenance };
     for (const k of dropped) delete provenance[k];
@@ -43,4 +47,16 @@ export function plausibleFood<T extends GradeInputs & Pick<FoodRow, "grade"> & P
     if ("gradeComponents" in f) out.gradeComponents = g.components;
   }
   return out;
+}
+
+/**
+ * SQL guard for reads that list or open foods (search, the food page, barcode lookup, alternatives):
+ * a stored row whose energy or a macro is implausible (an OFF unit error such as fat 3,227 g per 100 g)
+ * can't be shown honestly, because those values are required, so the row is left out as if it didn't
+ * exist. Same bounds as lib/nutrition/plausible.ts, checked on the per100 JSON in SQL so it costs a
+ * filter, not a fetch. Custom foods are the owner's own entry and are never hidden.
+ */
+export function plausibleCoreWhere(): SQL {
+  const checks = CORE_KEYS.map((k) => sql`COALESCE((${food.per100}->>${k})::float8, 0) BETWEEN 0 AND ${PER100_MAX[k]}`);
+  return sql`(${food.source} = 'custom' OR (${sql.join(checks, sql` AND `)}))`;
 }

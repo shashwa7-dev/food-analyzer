@@ -1,6 +1,6 @@
-/** A typed target as a number: "1,800" and " 1800 " both read 1800; "" is "use the preset"; anything else is NaN. */
+import { parseAmount } from "@/lib/parse-amount";
+
+/** A typed target as a number (see parseAmount: "1,800" is 1800, "1,5" is 1.5); "" is "use the preset"; anything else is NaN. */
 export function parseTarget(raw: string): number | null {
-  const t = raw.replace(/[,\s]/g, "");
-  if (t === "") return null;
-  return /^\d+(\.\d+)?$/.test(t) ? Number(t) : Number.NaN;
+  return parseAmount(raw);
 }
