@@ -1,10 +1,12 @@
 // Server-rendered parts of /scans/[id] (spec §6.11): the result, on the food page's layout with a
 // small image tile beside the title; and the failure card. Data comes from the page (getScan, balance); nothing here touches the database.
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { GradeBadge } from "@/components/grade-badge";
 import { Barcode, CheckCircle2, Info, RotateCcw, ScanLine, Sparkles, TriangleAlert } from "lucide-react";
 import type { ScanView } from "@/lib/scans/service";
 import { scanErrorAction } from "@/lib/scans/messages";
-import { oneLineReason, packSize, typicalPortion, warningFlags } from "@/lib/scans/result-display";
+import { dietChip, oneLineReason, packSize, typicalPortion, verdict, warningFlags } from "@/lib/scans/result-display";
 import { foodIconKey, type FoodIconKey } from "@/lib/foods/icon";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { moreNutrientRows, vitaminMineralRows } from "@/lib/nutrition/nutrient-display";
@@ -15,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { FoodIcon } from "@/components/food/food-icon";
 import {
-  BetterPick, BigCalories, CARD, CATEGORY, DietChip, fmt, FoodTitle, MacroCards, NutrientGrid, Tag, Tags, VerdictLine, vitaminsNote,
+  BetterPick, BigCalories, CARD, CATEGORY, DietChip, fmt, MacroCards, NutrientGrid, Tag, Tags, vitaminsNote,
 } from "@/components/food/result-parts";
 import { DetailTabs } from "@/components/food/detail-tabs";
 import { ReasonList } from "@/components/food/food-verdict";
@@ -87,12 +89,12 @@ function SourceLine({ view, credits }: { view: ScanView & { result: ScanResult }
 /**
  * A done scan's result (server-rendered), laid out like a food's page (/foods/[id]): a title row with
  * the image tile, the one-line verdict, calories, macros, nutrient cards and tabs on the left; the
- * add panel, source line and "Scan something else" in a sticky column from `md`. Phones stack, with
+ * add panel and source line in a sticky column from `md`. Phones stack, with
  * the sticky "Add to {Meal}" bar. The top bar and the actions are the client parts.
  */
-export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, hasAllergies, diet, sp }: {
+export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, hasAllergies, diet }: {
   view: ScanView & { result: ScanResult }; credits: number; fromIndb: boolean;
-  date: string; meal: Meal; isToday: boolean; hasAllergies: boolean; diet: Diet; sp: ScanParams;
+  date: string; meal: Meal; isToday: boolean; hasAllergies: boolean; diet: Diet;
 }) {
   const r = view.result;
   const unit = r.basis === "per_100ml" ? "ml" : "g";
@@ -121,13 +123,10 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   const food = { name: r.name, per100: r.per100, perServing: r.perServing, portions: r.portions, defaultPortion: r.defaultPortion, basis: r.basis };
   const canSave = !!r.per100;
   const better = <BetterPick alt={r.alternatives[0]} tip={r.tip} />;
+  const longName = r.name.length > 40;
+  const chip = dietChip(diet, r.flags, ingredientsKnown) !== null;
   const hasBetter = !!r.alternatives[0] || !!r.tip;
   const source = <SourceLine view={view} credits={credits} />;
-  const scanAgain = (
-    <Button render={<Link href={`/scan${scanQuery(sp)}`} />} nativeButton={false} variant="ghost-sunken" shape="pill" size="lg" className="self-center">
-      <ScanLine aria-hidden /> Scan something else
-    </Button>
-  );
 
   const why = (
     <div className="flex flex-col gap-3 text-[14px]">
@@ -164,16 +163,35 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] md:items-start md:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
-          <div data-scan-title className="flex items-center gap-3.5">
-            <ScanImageTile src={view.imageUrl} name={r.name} iconKey={iconKey} />
-            <div className="min-w-0 flex-1"><FoodTitle name={r.name} meta={meta} /></div>
-          </div>
-          <VerdictLine
-            grade={grade}
-            reason={oneLineReason(r.reasons, r.grade)}
-            unavailable={r.gradeUnavailable}
-            chip={<DietChip diet={diet} flags={r.flags} ingredientsKnown={ingredientsKnown} />}
-          />
+          {/* One plain block (no card): the image with the grade pinned to its corner, then the name, meta and one-line verdict; the diet chip sits top right. */}
+          <section data-scan-title aria-label="Result" className="relative flex items-start gap-5">
+            <div className="relative shrink-0">
+              <ScanImageTile src={view.imageUrl} name={r.name} iconKey={iconKey} />
+              {/* White ring in both themes: the badge sits on a photo or the tinted tile, like a sticker. */}
+              <span className="absolute -right-1.5 -bottom-1.5 rounded-[12px] ring-[3px] ring-on-media">
+                <GradeBadge grade={r.gradeUnavailable ? GRADE_UNAVAILABLE : grade} size="base" />
+              </span>
+            </div>
+            {/* The copy starts level with the image's top edge, with one even step between its three lines. */}
+            <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
+              <h1
+                title={longName ? r.name : undefined}
+                className={cn(
+                  "title m-0 line-clamp-3 leading-[1.1] font-[650] tracking-[-0.035em] break-words text-ink",
+                  longName ? "text-[22px] md:text-[24px]" : "text-[26px] md:text-[30px]",
+                  chip && "pr-[88px]", // room for the diet chip
+                )}
+              >
+                {r.name}
+              </h1>
+              <p className="m-0 line-clamp-2 text-[13px] leading-[1.4] text-subtle">{meta}</p>
+              <p className="m-0 text-[13.5px] leading-[1.4] text-subtle">
+                <b className="font-semibold text-ink">{r.gradeUnavailable ? "Grade unavailable" : verdict(grade)}</b>
+                {(r.gradeUnavailable ?? oneLineReason(r.reasons, r.grade)) && <> · {r.gradeUnavailable ?? oneLineReason(r.reasons, r.grade)}</>}
+              </p>
+            </div>
+            {chip && <span className="absolute top-0 right-0"><DietChip diet={diet} flags={r.flags} ingredientsKnown={ingredientsKnown} /></span>}
+          </section>
           <FlagNotes flags={warningFlags(r.flags)} />
           <IngredientsUnknownNote ingredientsKnown={ingredientsKnown} hasAllergies={hasAllergies} />
           <BigCalories kcal={shown.energyKcal} basis={basis} portion={portionText} />
@@ -183,7 +201,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
           <NutrientGrid title="Vitamins & minerals" basis={basis} rows={vitaminMineralRows(shown)} note={vitaminsNote(fromIndb, shown)} foldAfter={6} />
           <DetailTabs label="Details" tabs={tabs} />
           <p className="m-0 px-1 text-[13px] text-subtle">Information only, not medical advice. Check the pack for allergens.</p>
-          <div className="flex flex-col gap-4 md:hidden">{source}{scanAgain}</div>
+          <div className="md:hidden">{source}</div>
         </div>
 
         <aside className="hidden min-w-0 flex-col gap-3 md:sticky md:top-4 md:flex">
@@ -197,7 +215,6 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
             footer={better}
           />
           {source}
-          {scanAgain}
         </aside>
       </div>
 

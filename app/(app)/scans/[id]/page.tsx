@@ -34,7 +34,7 @@ export default async function ScanResultPage({ params, searchParams }: { params:
     <ScanResultView
       view={{ ...view, result: r }} credits={balance.credits} fromIndb={linked.some((f) => f?.source === "indb")}
       date={date} meal={(sp.meal as Meal | undefined) ?? defaultMealIn(profile.timezone)} isToday={date === today}
-      hasAllergies={profile.allergies.length > 0} diet={profile.diet} sp={sp}
+      hasAllergies={profile.allergies.length > 0} diet={profile.diet}
     />
   );
 }
