@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, History, LineChart, ScanLine, Search, Settings, User } from "lucide-react";
+import { CalendarDays, Dumbbell, History, LineChart, ScanLine, Search, Settings, User } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { SidebarCredits } from "@/components/nav/sidebar-credits";
 import { initialsOf } from "@/lib/initials";
@@ -12,14 +12,15 @@ type NavItem = { href: string; label: string; icon: NavIcon; primary?: boolean; 
 
 const PHONE_ITEMS: NavItem[] = [
   { href: "/today", label: "Today", icon: CalendarDays },
-  { href: "/progress", label: "Progress", icon: LineChart },
+  { href: "/workouts", label: "Workouts", icon: Dumbbell },
   { href: "/scan", label: "Scan", icon: ScanLine, primary: true },
-  { href: "/history", label: "History", icon: History },
+  { href: "/progress", label: "Progress", icon: LineChart },
   { href: "/me", label: "Me", icon: User },
 ];
 
 const DESKTOP_ITEMS: NavItem[] = [
   { href: "/today", label: "Today", icon: CalendarDays },
+  { href: "/workouts", label: "Workouts", icon: Dumbbell },
   { href: "/progress", label: "Progress", icon: LineChart },
   { href: "/foods", label: "Foods", icon: Search },
   { href: "/history", label: "History", icon: History, showCount: true },
@@ -43,7 +44,9 @@ export function AppNav({
   const path = usePathname();
   // Onboarding is a focused flow: its nav links would only bounce back to it.
   if (path.startsWith("/onboarding")) return null;
-  const active = (href: string) => path === href || path.startsWith(`${href}/`);
+  // /workouts is exact-only: /workouts/session (and /workouts/new, /workouts/:id) are their own focused
+  // sub-pages (mock-c1), not the hub, so they must not light up the nav item.
+  const active = (href: string) => (href === "/workouts" ? path === href : path === href || path.startsWith(`${href}/`));
   // Food search, a food's page, the custom food form, the scanner, a scan result and the workout
   // screens are focused sub-pages with their own Back (mock-c1): no phone bottom nav there. The
   // weight log keeps it, like Me → Credits: it's a browsing page, not a flow that can lose input.

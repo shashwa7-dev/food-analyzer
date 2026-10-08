@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarDays, Check, ChevronRight, Dumbbell, History, Plus } from "lucide-react";
 import { IconTile } from "@/components/ui/icon-tile";
 import { WorkoutRow, workoutMeta } from "@/components/fitness/workout-row";
-import { WeightCard } from "@/components/progress/fitness/weight-card";
+import { WeightCard } from "@/components/workouts/weight-card";
 import type { FitnessSummary, WeekDay, WeightHistory } from "@/lib/fitness/types";
 import { dayMonth } from "@/lib/progress/copy";
 import { addDays } from "@/lib/dates";
