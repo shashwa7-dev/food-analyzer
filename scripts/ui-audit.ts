@@ -106,6 +106,7 @@ async function openRow(page: Page, label: string) {
 
 const SCENARIOS: Scenario[] = [
   { name: "today", path: () => "/today", check: equalMealCards },
+  { name: "today-energy", path: () => "/today", check: expectAll("section[aria-label^='Energy balance']", "section[aria-labelledby] a[href='/workouts/new']") },
   { name: "today-system", path: () => "/today", looks: [SYSTEM_DARK, SYSTEM_LIGHT], check: equalMealCards },
   // A meal expanded: its entries open inside the card on phones, as a full-width row under the pair on desktop.
   { name: "today-meal-open", path: () => "/today", setup: expandFirstMeal, check: equalMealCards },
@@ -148,6 +149,10 @@ const SCENARIOS: Scenario[] = [
   { name: "scan-failed", path: (i) => `/scans/${i.scanFailed}` },
   { name: "progress", path: () => "/progress", setup: () => sleep(1200) },
   { name: "progress-month", path: () => "/progress?range=month", setup: () => sleep(1200) },
+  { name: "progress-fitness", path: () => "/progress?view=fitness", setup: () => sleep(1200), check: expectAll("nav[aria-label='Progress view'] a[aria-current=page]", "section[aria-label='Weekly goal']", "a[href='/weight']") },
+  { name: "weight", path: () => "/weight", setup: () => sleep(1200), check: expectAll("[aria-label^='Weight over the last 30 days']", "button[aria-label^='Delete ']") },
+  { name: "weight-log-sheet", path: () => "/weight", viewportShot: true, setup: async (p) => { await clickText(p, "button[aria-haspopup=dialog]", "Log weight"); await dialog(p); }, check: expectAll("[role=dialog] input[aria-label='Weight, kg']", "[role=dialog] input[type=date]") },
+  { name: "weight-delete-confirm", path: () => "/weight", viewportShot: true, setup: async (p) => { await p.click("button[aria-label^='Delete ']"); await dialog(p, "alertdialog"); } },
   { name: "workouts-new", path: () => "/workouts/new" },
   { name: "workouts-activity-sheet", path: () => "/workouts/new", viewportShot: true, setup: async (p) => { await p.click("button[aria-haspopup=dialog]"); await dialog(p); } },
   // A gym session in progress: a draft in localStorage (this run's context only) shows the resume banner.
@@ -177,6 +182,7 @@ const SCENARIOS: Scenario[] = [
   { name: "workouts-edit", path: (i) => `/workouts/${i.workout}/edit`, setup: async (p) => { await p.waitForSelector("input[aria-label='Duration, minutes']"); } },
   { name: "history", path: () => "/history" },
   { name: "me", path: () => "/me" },
+  { name: "me-fitness-sheet", path: () => "/me", viewportShot: true, setup: (p) => openRow(p, "Fitness"), check: expectAll("[role=dialog] input[aria-label^='Goal weight']") },
   { name: "me-credits", path: () => "/me/credits", setup: () => sleep(800) },
   { name: "me-export-sheet", path: () => "/me", gates: "open", viewportShot: true, setup: (p) => openRow(p, "Export data") },
   { name: "onboarding", path: () => "/onboarding?redo=1" },
