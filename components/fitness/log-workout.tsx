@@ -76,7 +76,7 @@ export function LogWorkout({ userId, timezone }: { userId: string; timezone: str
               }}
               className={`grid min-h-11 min-w-0 justify-items-center gap-1 px-0.5 py-2.5 text-[11.5px] font-semibold text-ink transition-colors hover:bg-sunken ${CARD} rounded-[14px]`}
             >
-              <Icon className="size-[22px] text-protein" aria-hidden />
+              <IconTile tone="brand"><Icon /></IconTile>
               <span className="block max-w-full truncate whitespace-nowrap">{ACTIVITIES[key].title}</span>
             </button>
           );
