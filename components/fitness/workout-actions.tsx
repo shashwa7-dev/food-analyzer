@@ -34,7 +34,7 @@ export function WorkoutTopBar({ workout }: { workout: WorkoutDetail }) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["fitness"] });
       toast.success("Workout deleted");
-      router.replace("/workouts/new");
+      router.replace("/progress?view=fitness");
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn’t delete that. Try again."),
   });

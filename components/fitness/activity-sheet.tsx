@@ -89,7 +89,7 @@ function ActivitySheetBody({ activity, timezone }: { activity: Activity; timezon
     onSuccess: ({ workout: w }) => {
       toast.success(`${title} logged · ${w.kcalEstimated ? "~" : ""}${w.kcalBurned} kcal`);
       void qc.invalidateQueries({ queryKey: ["fitness"] });
-      router.push("/today");
+      router.replace("/today");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn’t log that. Try again."),
   });

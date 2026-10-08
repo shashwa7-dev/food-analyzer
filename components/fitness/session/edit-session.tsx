@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { readInAppNav } from "@/lib/nav/back";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +32,13 @@ export function EditSession({ workoutId, initial, durationMin }: { workoutId: st
   const minutes = /^\d{1,3}$/.test(minutesText) ? Number(minutesText) : NaN;
   const minutesValid = Number.isInteger(minutes) && minutes >= 0 && minutes <= MAX;
   const dirty = draft !== initial || minutesText !== String(durationMin);
+  // Edits live only in memory: warn before a reload or tab close drops them.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   const summary = `/workouts/${workoutId}`;
 
   const dispatch = (a: DraftAction) => {
@@ -68,7 +76,9 @@ export function EditSession({ workoutId, initial, durationMin }: { workoutId: st
     save.mutate(body);
   };
 
-  const cancel = () => (dirty ? setConfirmCancel(true) : router.replace(summary));
+  // Leaving without saving goes back to the summary that opened the editor, so it isn't stacked twice.
+  const leave = () => (readInAppNav() ? router.back() : router.replace(summary));
+  const cancel = () => (dirty ? setConfirmCancel(true) : leave());
 
   return (
     <div data-no-phone-nav className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
@@ -108,7 +118,7 @@ export function EditSession({ workoutId, initial, durationMin }: { workoutId: st
         confirmLabel="Discard"
         onConfirm={() => {
           setConfirmCancel(false);
-          router.replace(summary);
+          leave();
         }}
       />
     </div>

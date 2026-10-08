@@ -2,10 +2,13 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dumbbell, Plus, Trash2 } from "lucide-react";
+import { Check, Dumbbell, Plus, Timer, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ResponsiveSheet, SheetTitle } from "@/components/ui/responsive-sheet";
+import { IconTile } from "@/components/ui/icon-tile";
+import { AmountStepper } from "@/components/food/amount-stepper";
 import { DRAFT_EVENT } from "@/components/fitness/resume-banner";
 import { SessionHeader } from "@/components/fitness/session/session-header";
 import { ExerciseCard } from "@/components/fitness/session/exercise-card";
@@ -13,8 +16,11 @@ import { AddExerciseSheet } from "@/components/fitness/session/add-exercise-shee
 import { api } from "@/lib/api-client";
 import { todayIn } from "@/lib/dates";
 import { customExerciseKey } from "@/lib/fitness/catalogue";
-import { draftKey, draftReducer, restoreDraft, startDraft, toCreateBody, type Draft, type DraftAction, type DraftExercise } from "@/lib/fitness/draft";
+import { draftKey, draftReducer, elapsedMinutes, restoreDraft, startDraft, toCreateBody, type Draft, type DraftAction, type DraftExercise } from "@/lib/fitness/draft";
 import type { Preset, PreviousSets, WorkoutDetail } from "@/lib/fitness/types";
+
+/** Past this many minutes, Finish asks for the real duration instead of using the elapsed time. */
+const STALE_MIN = 240;
 
 function readStored(key: string): string | null {
   try {
@@ -144,13 +150,24 @@ function Session({ userId, timezone, requested }: Props) {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn’t save the workout. Try again."),
   });
 
+  // A session left open for hours (forgotten, then resumed later) would otherwise save as a 10-hour
+  // workout: past STALE_MIN, Finish asks how long the training actually took.
+  const [askMinutes, setAskMinutes] = useState<number | null>(null);
   const finish = () => {
     const body = toCreateBody(draft);
     if (body.exercises.length === 0) {
       setError("Log at least one set");
       return;
     }
+    if (elapsedMinutes(draft) > STALE_MIN) {
+      setAskMinutes(60);
+      return;
+    }
     save.mutate(body);
+  };
+  const finishWith = (minutes: number) => {
+    setAskMinutes(null);
+    save.mutate({ ...toCreateBody(draft), durationMin: minutes });
   };
 
   const discard = () => {
@@ -178,6 +195,26 @@ function Session({ userId, timezone, requested }: Props) {
 
       <SessionExercises draft={draft} previous={previous.data?.previous} dispatch={dispatch} />
 
+      <ResponsiveSheet open={askMinutes !== null} onOpenChange={(open) => { if (!open) setAskMinutes(null); }}>
+        <div className="flex items-center gap-3">
+          <IconTile tone="protein" size="lg"><Timer /></IconTile>
+          <div className="min-w-0 flex-1 leading-tight">
+            <SheetTitle className="block truncate text-[18px] font-semibold tracking-[-0.02em] text-ink">How long did you train?</SheetTitle>
+            <span className="block truncate text-[13px] text-subtle">This session was open for {Math.floor(elapsedMinutes(draft) / 60)} h</span>
+          </div>
+        </div>
+        <AmountStepper
+          amount={askMinutes ?? 60}
+          sub="minutes"
+          onStep={(dir) => setAskMinutes((m) => Math.min(600, Math.max(5, (m ?? 60) + dir * 5)))}
+          canDecrease={(askMinutes ?? 60) > 5}
+          canIncrease={(askMinutes ?? 60) < 600}
+        />
+        <Button type="button" shape="pill" size="xl" className="h-[54px] w-full" onClick={() => finishWith(askMinutes ?? 60)}>
+          <Check aria-hidden />
+          Save workout
+        </Button>
+      </ResponsiveSheet>
       <ConfirmDialog
         open={confirmDiscard}
         onOpenChange={setConfirmDiscard}
