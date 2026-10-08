@@ -95,7 +95,7 @@ export async function deleteAccount(userId: string, now: Date = new Date(), opts
     await tx.execute(sql`SELECT 1 FROM profile WHERE user_id = ${userId} FOR UPDATE`);
     // Keep this period's AI-scan usage and today's count (keyed by an email HMAC) so signing up again can't reset them.
     await recordTombstone(tx, userId, now);
-    await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods
+    await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods, workouts (and their exercises and sets), body_weight
   });
   // Second photo sweep, after the commit and best-effort: an upload that finished between the first
   // sweep and the commit could otherwise leave objects behind (attachScanPhotos also cleans up after

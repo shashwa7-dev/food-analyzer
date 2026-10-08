@@ -44,8 +44,9 @@ export function AppNav({
   // Onboarding is a focused flow: its nav links would only bounce back to it.
   if (path.startsWith("/onboarding")) return null;
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
-  // Food search, a food's page, the custom food form, the scanner and a scan result are focused
-  // sub-pages with their own Back (mock-c1): no phone bottom nav there.
+  // Food search, a food's page, the custom food form, the scanner, a scan result and the workout
+  // screens are focused sub-pages with their own Back (mock-c1): no phone bottom nav there. The
+  // weight log keeps it, like Me → Credits: it's a browsing page, not a flow that can lose input.
   const phoneNav = path !== "/foods" && !path.startsWith("/foods/") && !path.startsWith("/workouts/") && path !== "/scan" && !path.startsWith("/scans/");
 
   return (

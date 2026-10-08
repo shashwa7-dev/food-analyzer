@@ -31,7 +31,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   // Month is Pro-only once PRO_GATES_ENFORCED is on: a locked month shows the week with a Pro chip on the toggle.
   const monthLocked = !allows(profile.plan, "progressMonth");
   const range: Range = params.range === "month" && !monthLocked ? "month" : "week";
-  const period = range === "week" ? "This week" : "This month";
+  const period = range === "week" ? "Last 7 days" : "This month"; // Food is a rolling window; Fitness is Monday–Sunday ("This week")
 
   // Food | Fitness (spec §C screen 6), kept in ?view=. Fitness is week-only, so it has no range toggle.
   if (params.view === "fitness") {

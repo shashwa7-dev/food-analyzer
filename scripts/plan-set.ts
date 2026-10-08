@@ -12,7 +12,7 @@ import { assertLocalDb } from "./lib/local-guard";
 async function main() {
   assertLocalDb("plan:set");
   const [email, plan] = process.argv.slice(2);
-  if (!email || !plan || !(plan in PLANS)) throw new Error("Usage: pnpm plan:set <email> pro|basic");
+  if (!email || !plan || !Object.hasOwn(PLANS, plan)) throw new Error("Usage: pnpm plan:set <email> pro|basic");
   const [u] = await db.select({ id: user.id }).from(user).where(eq(user.email, email));
   if (!u) throw new Error(`No account with the email ${email}.`);
   const updated = await db.update(profile).set({ plan: plan as PlanKey, updatedAt: new Date() }).where(eq(profile.userId, u.id)).returning({ plan: profile.plan });
