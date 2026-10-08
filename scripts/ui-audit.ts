@@ -151,7 +151,7 @@ const SCENARIOS: Scenario[] = [
   { name: "scan-failed", path: (i) => `/scans/${i.scanFailed}` },
   { name: "progress", path: () => "/progress", setup: () => sleep(1200) },
   { name: "progress-month", path: () => "/progress?range=month", setup: () => sleep(1200) },
-  { name: "progress-fitness", path: () => "/progress?view=fitness", setup: () => sleep(1200), check: expectAll("nav[aria-label='Progress view'] a[aria-current=page]", "section[aria-label='Weekly goal']", "a[href='/weight']") },
+  { name: "workouts", path: () => "/workouts", setup: () => sleep(1200), check: expectAll("section[aria-label='Weekly goal']", "a[href='/weight']") },
   { name: "weight", path: () => "/weight", setup: () => sleep(1200), check: expectAll("[aria-label^='Weight over the last 30 days']", "button[aria-label^='Delete ']") },
   { name: "weight-log-sheet", path: () => "/weight", viewportShot: true, setup: async (p) => { await clickText(p, "button[aria-haspopup=dialog]", "Log weight"); await dialog(p); }, check: expectAll("[role=dialog] input[aria-label='Weight, kg']", "[role=dialog] input[type=date]") },
   { name: "weight-delete-confirm", path: () => "/weight", viewportShot: true, setup: async (p) => { await p.click("button[aria-label^='Delete ']"); await dialog(p, "alertdialog"); } },
