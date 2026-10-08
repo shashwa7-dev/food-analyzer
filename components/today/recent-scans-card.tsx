@@ -56,8 +56,8 @@ export function RecentScansCard({ scans }: { scans: ScanListItem[] }) {
                   href={`/scans/${s.id}`}
                   className="-mx-2 flex min-h-[54px] items-center gap-2.5 rounded-[14px] px-2 py-1.5 transition-colors hover:bg-sunken/60"
                 >
-                  {s.thumbnailUrl
-                    ? <ScanThumb src={s.thumbnailUrl} size="sm" fallback={<IconTile size="sm"><Icon /></IconTile>} />
+                  {s.imageUrl
+                    ? <ScanThumb src={s.imageUrl} size="sm" fallback={<IconTile size="sm"><Icon /></IconTile>} />
                     : <IconTile size="sm"><Icon /></IconTile>}
                   <span className="min-w-0 flex-1 leading-tight">
                     <span className="block truncate text-sm font-semibold text-ink">{scanTitle(s)}</span>

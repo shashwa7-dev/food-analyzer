@@ -55,9 +55,9 @@ function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
           <IconTile size="md"><Loader2 className="animate-spin motion-reduce:animate-none" /></IconTile>
         ) : failed ? (
           <IconTile size="md" tone="bad"><AlertCircle /></IconTile>
-        ) : s.thumbnailUrl ? (
+        ) : s.imageUrl ? (
           // A lapsed thumbnail falls back to the plain kind tile: the grade badge is already on the right.
-          <ScanThumb src={s.thumbnailUrl} size="md" fallback={<KindTile kind={s.inputKind} />} />
+          <ScanThumb src={s.imageUrl} size="md" fallback={<KindTile kind={s.inputKind} />} />
         ) : (
           <GradeBadge grade={s.grade} size="md" />
         )}
@@ -68,7 +68,7 @@ function ScanRow({ s, tz, now }: { s: ScanListItem; tz: string; now: Date }) {
           </span>
           {meta.length > 0 && <span className="mt-0.5 block truncate text-[12.5px] text-subtle">{meta.join(" · ")}</span>}
         </span>
-        {s.thumbnailUrl && !running && !failed && <GradeBadge grade={s.grade} size="base" />}
+        {s.imageUrl && !running && !failed && <GradeBadge grade={s.grade} size="base" />}
         <ChevronRight className="size-[18px] shrink-0 text-subtle" aria-hidden />
       </Link>
     </li>

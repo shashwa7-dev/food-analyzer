@@ -124,12 +124,8 @@ export const scan = pgTable("scan", {
   errorCode: text("error_code"),
   /** The engine's own user-safe sentence when more specific than the code's fixed message (lib/scans/messages.ts). */
   errorMessage: text("error_message"),
-  /** R2 key of the 320 px thumbnail (lib/storage/keys.ts); kept until the scan is deleted. */
+  /** R2 key of the scan's one stored image (480 px WebP, lib/storage/keys.ts); kept until the scan is deleted. */
   thumbnailKey: text("thumbnail_key"),
-  /** Display copies stored on R2 (display/u/{userId}/{scanId}/{1..n}.webp); 0 when none were stored. */
-  photoCount: integer("photo_count").notNull().default(0),
-  /** When the display copies expire (the bucket's 30-day `display/` lifecycle rule); null when none. */
-  photosExpireAt: timestamp("photos_expire_at", { withTimezone: true }),
   engineVersion: text("engine_version").notNull(),
   modelId: text("model_id"),
   tokensIn: integer("tokens_in"),

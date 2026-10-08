@@ -16,14 +16,13 @@ import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { FOOD_ICON, FoodIcon } from "@/components/food/food-icon";
 import {
-  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroCards, NutrientGrid, ResultTitle, Tag, Tags, VerdictLine, vitaminsNote, WhyGrade,
+  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroCards, NutrientGrid, ResultTitle, Tag, Tags, vitaminsNote, WhyGrade,
 } from "@/components/food/result-parts";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
 import { FullNutritionTable } from "@/components/food/nutrition-table";
 import { cn } from "@/lib/utils";
 import { MODE_META } from "./mode-meta";
-import { PhotoHero } from "./photo-hero";
 import { ResultActions, ResultTopBar } from "./scan-result";
 
 /** Validated ?meal=&date= carried from /scan, passed on to "Scan again" links. */
@@ -84,10 +83,8 @@ function SourceLine({ view, credits }: { view: ScanView & { result: ScanResult }
 }
 
 /**
- * A done scan's result (server-rendered); the top bar and the actions are the client parts. With stored
- * photos (photoUrls) it opens on the photo hero (mock-c1 "Food details (stored photo)"): the top bar on
- * the photo, the content on a sheet over its bottom edge (phone), left-aligned, and the one-line grade
- * in place of the grade card. Without photos, the grade-card layout.
+ * A done scan's result (server-rendered); the top bar and the actions are the client parts. The stored
+ * image is not shown here yet (the page is rebuilt separately): this is the grade-card layout.
  */
 export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, hasAllergies, diet, sp }: {
   view: ScanView & { result: ScanResult }; credits: number; fromIndb: boolean;
@@ -112,8 +109,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   const pack = packSize(r.portions, unit);
   const mode = MODE_META[r.inputKind];
   const goalFlags = r.flags.filter((f) => f.type === "goal");
-  const hasPhotos = view.photoUrls.length > 0;
-  const align = hasPhotos ? "start" : "center";
+  const align = "center";
   const reason = oneLineReason(r.reasons, r.grade);
 
   const content = (
@@ -127,9 +123,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
 
       <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
         <div className="flex min-w-0 flex-col gap-3">
-          {hasPhotos
-            ? <VerdictLine grade={r.grade} reason={reason} unavailable={r.gradeUnavailable} />
-            : <GradeHero grade={r.grade} reason={reason} unavailable={r.gradeUnavailable} />}
+          <GradeHero grade={r.grade} reason={reason} unavailable={r.gradeUnavailable} />
           <CalorieRow kcal={shown.energyKcal} basis={basis} portion={portionText} />
           <MacroCards n={shown} />
           <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} basis={r.basis} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
@@ -166,21 +160,8 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
 
   return (
     <div data-no-phone-nav className="mx-auto flex w-full max-w-[1000px] flex-col gap-3">
-      {hasPhotos ? (
-        <PhotoHero
-          urls={view.photoUrls}
-          name={r.name}
-          mediaBar={<ResultTopBar scanId={view.id} title="Scan result" onMedia />}
-          plainBar={<ResultTopBar scanId={view.id} title="Scan result" />}
-        >
-          {content}
-        </PhotoHero>
-      ) : (
-        <>
-          <ResultTopBar scanId={view.id} title="Scan result" />
-          {content}
-        </>
-      )}
+      <ResultTopBar scanId={view.id} title="Scan result" />
+      {content}
 
       <ResultActions
         scanId={view.id}

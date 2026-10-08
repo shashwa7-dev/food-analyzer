@@ -78,11 +78,11 @@ export async function dismissNotice(userId: string, key: NoticeKey) {
 }
 
 /**
- * Deletes the account. Scan photos first (spec §A Deletion): both R2 prefixes go before the user row
+ * Deletes the account. Scan photos first (spec §A Deletion): the user's R2 prefix goes before the user row
  * does, and a failure throws with the account intact, so trying again finishes the job. Pass
  * `photosDeleted` when the caller already did that step (deleteAccountAction does it before signing the
  * user out, so a storage error never happens after sign-out). After the commit a best-effort second
- * sweep catches a thumbnail an in-flight scan job put in the meantime.
+ * sweep catches an image an in-flight scan job put in the meantime.
  */
 export async function deleteAccount(userId: string, now: Date = new Date(), opts: { photosDeleted?: boolean } = {}) {
   if (!opts.photosDeleted) await deleteUserPhotos(userId);
@@ -98,7 +98,7 @@ export async function deleteAccount(userId: string, now: Date = new Date(), opts
     await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods, workouts (and their exercises and sets), body_weight
   });
   // Second photo sweep, after the commit and best-effort: an upload that finished between the first
-  // sweep and the commit could otherwise leave objects behind (attachScanPhotos also cleans up after
+  // sweep and the commit could otherwise leave objects behind (storeScanImage also cleans up after
   // itself when its scan is gone, but only for its own keys and only if it gets that far).
   try {
     await deleteUserPhotos(userId);

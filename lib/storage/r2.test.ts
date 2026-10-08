@@ -45,8 +45,8 @@ describe("getPhotoStore", () => {
 
 describe("S3 XML", () => {
   it("reads a ListObjectsV2 page", () => {
-    const xml = `<ListBucketResult><IsTruncated>true</IsTruncated><Contents><Key>display/u/u1/a&amp;b/1.webp</Key></Contents><Contents><Key>thumb/u/u1/s.webp</Key></Contents><NextContinuationToken>t1</NextContinuationToken></ListBucketResult>`;
-    expect(parseListPage(xml)).toEqual({ keys: ["display/u/u1/a&b/1.webp", "thumb/u/u1/s.webp"], next: "t1" });
+    const xml = `<ListBucketResult><IsTruncated>true</IsTruncated><Contents><Key>thumb/u/u1/a&amp;b/1.webp</Key></Contents><Contents><Key>thumb/u/u1/s.webp</Key></Contents><NextContinuationToken>t1</NextContinuationToken></ListBucketResult>`;
+    expect(parseListPage(xml)).toEqual({ keys: ["thumb/u/u1/a&b/1.webp", "thumb/u/u1/s.webp"], next: "t1" });
     expect(parseListPage("<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>")).toEqual({ keys: [], next: null });
   });
   it("escapes keys in a DeleteObjects body", () => {
@@ -88,9 +88,9 @@ describe("R2 store against a fake fetch", () => {
   });
 
   it("deletes every key under a prefix, page by page", async () => {
-    const keys = Array.from({ length: 2500 }, (_, i) => `display/u/u1/s${i}/1.webp`);
+    const keys = Array.from({ length: 2500 }, (_, i) => `thumb/u/u1/s${i}/1.webp`);
     const r2 = fakeR2([...keys, "display/u/u2/s/1.webp"]);
-    await createR2Store(cfg).deletePrefix("display/u/u1/");
+    await createR2Store(cfg).deletePrefix("thumb/u/u1/");
     expect([...r2.objects]).toEqual(["display/u/u2/s/1.webp"]);
     expect(r2.calls.delete).toBe(3);
   });
@@ -101,9 +101,9 @@ describe("R2 store against a fake fetch", () => {
   });
 
   it("deletePrefix stops on partial failures instead of re-listing forever", async () => {
-    const keys = Array.from({ length: 1500 }, (_, i) => `display/u/u1/s${i}/1.webp`);
+    const keys = Array.from({ length: 1500 }, (_, i) => `thumb/u/u1/s${i}/1.webp`);
     const r2 = fakeR2(keys, new Set(keys.slice(0, 1000)));
-    await expect(createR2Store(cfg).deletePrefix("display/u/u1/")).rejects.toThrow(/DeleteObjects failed for \d+ key/);
+    await expect(createR2Store(cfg).deletePrefix("thumb/u/u1/")).rejects.toThrow(/DeleteObjects failed for \d+ key/);
     expect(r2.calls.list).toBe(1);
   });
 
@@ -114,11 +114,11 @@ describe("R2 store against a fake fetch", () => {
       const url = new URL(req.url);
       if (url.searchParams.get("list-type") === "2") {
         n++;
-        return new Response(`<ListBucketResult><IsTruncated>true</IsTruncated>${Array.from({ length: 1000 }, (_, i) => `<Contents><Key>display/u/u1/${n}-${i}</Key></Contents>`).join("")}<NextContinuationToken>t</NextContinuationToken></ListBucketResult>`);
+        return new Response(`<ListBucketResult><IsTruncated>true</IsTruncated>${Array.from({ length: 1000 }, (_, i) => `<Contents><Key>thumb/u/u1/${n}-${i}</Key></Contents>`).join("")}<NextContinuationToken>t</NextContinuationToken></ListBucketResult>`);
       }
       return new Response("<DeleteResult></DeleteResult>");
     }));
-    await expect(createR2Store(cfg).deletePrefix("display/u/u1/")).rejects.toThrow(`after ${MAX_PREFIX_ROUNDS} rounds`);
+    await expect(createR2Store(cfg).deletePrefix("thumb/u/u1/")).rejects.toThrow(`after ${MAX_PREFIX_ROUNDS} rounds`);
     expect(n).toBe(MAX_PREFIX_ROUNDS);
   });
 });

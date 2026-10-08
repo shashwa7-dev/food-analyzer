@@ -50,7 +50,7 @@ export function deleteObjectsBody(keys: string[]): string {
 
 const md5 = (body: string) => createHash("md5").update(body).digest("base64");
 
-/** An R2 S3-API client for one bucket. Exported for scripts/r2-lifecycle.ts. */
+/** An R2 S3-API client for one bucket. Exported for the store below. */
 export function r2Client(cfg: R2Config) {
   const aws = new AwsClient({ accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey, service: "s3", region: "auto" });
   const base = `https://${cfg.accountId}.r2.cloudflarestorage.com/${encodeURIComponent(cfg.bucket)}`;
@@ -60,7 +60,7 @@ export function r2Client(cfg: R2Config) {
     if (!res.ok) throw new Error(`R2 ${what} failed: ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`);
     return res;
   }
-  /** A bucket-level XML request (DeleteObjects, lifecycle) with the Content-MD5 S3 requires for them. */
+  /** A bucket-level XML request (DeleteObjects) with the Content-MD5 S3 requires for them. */
   const bucketXml = (query: string, method: "POST" | "PUT", xml: string, what: string) =>
     send(`${base}?${query}`, { method, body: xml, headers: { "content-type": "application/xml", "content-md5": md5(xml) } }, what);
   return { aws, base, objectUrl, send, bucketXml };
