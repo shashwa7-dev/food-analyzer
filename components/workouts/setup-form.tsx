@@ -90,7 +90,7 @@ export function SetupForm({ defaults }: { defaults: Defaults }) {
 
       <section className={CARD}>
         <span id="setup-days" className="px-1 text-[12px] font-semibold tracking-[0.06em] text-subtle uppercase">Workout days a week</span>
-        <div role="group" aria-labelledby="setup-days" className="flex flex-wrap gap-1.5">
+        <div role="group" aria-labelledby="setup-days" className="grid grid-cols-4 gap-1.5">
           {DAYS.map((n) => (
             <button
               key={n}
@@ -98,7 +98,7 @@ export function SetupForm({ defaults }: { defaults: Defaults }) {
               aria-pressed={days === n}
               onClick={() => setDays(n)}
               className={cn(
-                "flex min-h-11 min-w-11 flex-1 basis-[12%] items-center justify-center rounded-[12px] text-[14px] font-semibold whitespace-nowrap transition-colors",
+                "flex min-h-11 min-w-11 items-center justify-center rounded-[12px] text-[14px] font-semibold whitespace-nowrap transition-colors",
                 days === n ? "bg-brand text-brand-ink" : "bg-sunken text-ink hover:bg-line",
               )}
             >

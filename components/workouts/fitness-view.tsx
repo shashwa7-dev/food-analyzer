@@ -49,11 +49,13 @@ export function UpNextCard({ next, className }: { next: FitnessSummary["upNext"]
   return (
     <section aria-labelledby="fo-next" className={cn(CARD, "flex min-w-0 flex-wrap items-center gap-3 px-3.5 py-3", className)}>
       <h2 id="fo-next" className="sr-only">Up next</h2>
-      <IconTile tone="brand" size="md"><Dumbbell /></IconTile>
-      <span className="min-w-0 flex-1 leading-tight">
-        <b className="block truncate text-[15px] font-semibold whitespace-nowrap">Up next · {next.title}</b>
-        <span className="block truncate text-[13px] whitespace-nowrap text-subtle">{next.muscles} · {next.exerciseCount} exercises</span>
-      </span>
+      <div className="flex min-w-[200px] flex-1 items-center gap-3">
+        <IconTile tone="brand" size="md"><Dumbbell /></IconTile>
+        <span className="min-w-0 flex-1 leading-tight">
+          <b className="block truncate text-[15px] font-semibold whitespace-nowrap">Up next · {next.title}</b>
+          <span className="block truncate text-[13px] whitespace-nowrap text-subtle">{next.muscles} · {next.exerciseCount} exercises</span>
+        </span>
+      </div>
       <div className="flex shrink-0 items-center gap-2">
         <Link href="/workouts/new" className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-sunken px-4 text-[13.5px] font-semibold whitespace-nowrap text-ink hover:bg-line">
           Other activity
