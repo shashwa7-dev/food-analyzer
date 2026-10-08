@@ -54,7 +54,6 @@ The app runs at `http://localhost:3000`.
 | `pnpm seed:demo` | Dev only: create/refresh the demo account and write its session cookie (see [Demo data and screenshots](#demo-data-and-screenshots-dev-only)) |
 | `pnpm shot <path>` | Dev only: screenshot one page as the demo user |
 | `pnpm ui:audit` | Dev only: the UI audit (no-wrap, lime-as-text, contrast, tap targets) over every screen; see [UI](#ui) |
-| `pnpm r2:lifecycle` | Set the photo bucket's 30-day expiry rule for `display/` (idempotent; see [Scan photos on Cloudflare R2](#scan-photos-on-cloudflare-r2)). `--print` shows the rule only |
 | `pnpm eval [--models=fast,strong]` | Scanning eval harness against a local fixture suite (needs `GOOGLE_GENERATIVE_AI_API_KEY` and fixtures — see [`eval/README.md`](eval/README.md)) |
 
 ## Environment variables
@@ -95,9 +94,9 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 
 ### Scan photos on Cloudflare R2
 
-AI scans keep their photos (spec §A): a 1080 px WebP display copy of each photo for 30 days, and a 320 px thumbnail of the first until the scan is deleted. Originals are never stored; the copies are rotated upright and carry no metadata (no EXIF, no GPS). Processing (`sharp`, `lib/scans/photos.ts`) and the upload (`lib/scans/photo-storage.ts`) run in the scan's post-charge background job and can never fail, change or delay the scan or its charge. URLs are presigned for 10 minutes. Deleting a scan deletes its objects (best effort, after the response); deleting the account deletes both of the user's prefixes first. Barcode scans have no photos.
+Each successful AI photo scan keeps **one** image: a 480 px (long edge) WebP made from the first photo, about 40–50 KB, rotated upright with no metadata (no EXIF, no GPS). It is kept until the scan is deleted. Originals and the other photos are never stored. Nothing is uploaded for a failed scan: the upload happens only after the scan has succeeded (`storeScanImage` in `lib/scans/photo-storage.ts`, processing in `lib/scans/photos.ts` with `sharp`), in the scan's background job, and can never fail, change or delay the scan or its charge. URLs are presigned for 10 minutes. Deleting a scan deletes its image (best effort, after the response); deleting the account deletes the user's whole `thumb/u/{userId}/` prefix first. Barcode scans have no image. There is no lifecycle or expiry rule.
 
-Storage is **off unless all four vars are set**; off, the app behaves exactly as without it (no uploads, `photoUrls: []`, `thumbnailUrl: null`).
+Storage is **off unless all four vars are set**; off, the app behaves exactly as without it (no uploads, `imageUrl: null`).
 
 | Var | Required | Source |
 |---|---|---|
@@ -105,13 +104,12 @@ Storage is **off unless all four vars are set**; off, the app behaves exactly as
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | for photo storage | R2 → Manage API tokens → Create API token: **Object Read & Write**, applied to **this bucket only**. Shown once. |
 | `R2_BUCKET` | for photo storage | The bucket's name, e.g. `eatri8-photos` |
 
-Keys: `display/u/{userId}/{scanId}/{n}.webp` and `thumb/u/{userId}/{scanId}.webp` (`lib/storage/keys.ts`). The bucket stays private (no public access, no custom domain): the app only hands out presigned GET URLs.
+Key: `thumb/u/{userId}/{scanId}.webp` (`lib/storage/keys.ts`). The bucket stays private (no public access, no custom domain): the app only hands out presigned GET URLs.
 
-Set up once per bucket: create the bucket (R2 → Create bucket, location Automatic, Standard storage class), create the token above, put the four vars in `.env.local` (and the deployment's env), then run `pnpm r2:lifecycle`, which sets the rule expiring `display/` after 30 days and reads it back. It's idempotent and keeps any other rules on the bucket. If R2 refuses it (401/403: the bucket-scoped token can't change bucket settings), run it once with an Admin Read & Write token and revoke that token afterwards, or add the same rule in the dashboard (the bucket → Settings → Object lifecycle rules: prefix `display/`, delete objects after 30 days).
+Set up once per bucket, in three steps: (1) create the bucket (R2 → Create bucket, location Automatic, Standard storage class); (2) create the bucket-scoped **Object Read & Write** token above; (3) put the four env vars in `.env.local` (and the deployment's env).
 
 ### Before launch
 
-- Apply `pnpm r2:lifecycle` (or the dashboard rule) before enabling R2 in production. Without it, display copies are never deleted, which breaks the privacy promise.
 - Rotate the old Gemini key: `NEXT_PUBLIC_GEMINI_API_KEY` is still in `master` history (added in `3afd1c4`, removed in `4d2b34c`). Revoke it in Google AI Studio and make sure `GOOGLE_GENERATIVE_AI_API_KEY` is a different, server-only key.
 
 ### Scanning eval harness
@@ -124,7 +122,7 @@ Set up once per bucket: create the bucket (R2 → Create bucket, location Automa
 
 ### No image storage
 
-Scan photos are held in memory only for the single model call and then discarded — they are never written to disk or any bucket (`lib/engine/schema.ts`). R2/thumbnail storage is not part of M2.
+Scan photos are held in memory for the model call. The photos are never written to disk. Since Phase 2, a successful AI scan also keeps one small optimised image of its first photo in a private R2 bucket (see [Scan photos on Cloudflare R2](#scan-photos-on-cloudflare-r2)); without R2 configured, nothing is stored.
 
 ### Barcode decoding on /scan
 

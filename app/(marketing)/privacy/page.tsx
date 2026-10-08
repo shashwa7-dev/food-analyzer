@@ -19,7 +19,7 @@ export default function PrivacyPage() {
           <li>Your food diary: what you log, when, and the nutrition figures for it.</li>
           <li>Any custom foods you create.</li>
           <li>Workouts you log (sessions, exercises, sets, duration and estimated calories burned) and the body weights you log, including a goal weight and, if you add it, your height.</li>
-          <li>Photos from AI scans are kept for 30 days so you can see them in your history; a small thumbnail stays until you delete the scan.</li>
+          <li>One small, optimised copy of the first photo from each successful AI scan is kept so you can recognise it in your history. It is deleted when you delete the scan or your account. Photos from failed scans are not kept.</li>
           <li>Your goal, diet, allergies and targets, so we can personalise grades and flags.</li>
         </ul>
       </ProseSection>

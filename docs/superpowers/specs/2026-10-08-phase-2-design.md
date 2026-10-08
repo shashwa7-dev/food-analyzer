@@ -11,6 +11,8 @@
 
 ## A. Scan photos on Cloudflare R2
 
+> **Superseded 2026-10-08:** single 480 px image, see README.
+
 The user's choice is a display copy kept for 30 days plus a thumbnail kept with the scan.
 
 ### Storage
