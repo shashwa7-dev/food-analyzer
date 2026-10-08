@@ -90,6 +90,7 @@ describe("scan image: upload", () => {
     expect(store.objects.get(`thumb/u/${u}/${id}.webp`)!.contentType).toBe("image/webp");
     expect(await rowOf(id)).toMatchObject({ status: "done", charged: true, thumbnailKey: `thumb/u/${u}/${id}.webp` });
     expect(await credits(u)).toBe(19);
+    expect(await debits(u)).toHaveLength(1);
   });
 
   it("a failed upload leaves the scan done and charged, with no image", async () => {
@@ -99,6 +100,8 @@ describe("scan image: upload", () => {
     expect(store.keys()).toEqual([]);
     expect(await rowOf(id)).toMatchObject({ status: "done", charged: true, thumbnailKey: null });
     expect(await credits(u)).toBe(19);
+    expect(await debits(u)).toHaveLength(1);
+    expect(await getScan(u, id, clock)).toMatchObject({ status: "done", refunded: false, imageUrl: null });
   });
 
   it("an undecodable first photo stores nothing, without touching the scan", async () => {
@@ -151,7 +154,7 @@ describe("scan image: upload", () => {
     expect(await rowOf(idOf(r))).toMatchObject({ thumbnailKey: null });
   });
 
-  it("a scan deleted while its job runs leaves nothing in the store", async () => {
+  it("a scan deleted before its job runs leaves nothing in the store", async () => {
     const u = await createUser();
     const j = jobs();
     const r = await createScan(u, aiInput(), deps(u), j.schedule);
@@ -268,7 +271,6 @@ describe("scan image: storage off", () => {
     setPhotoStoreForTests(null);
     const u = await createUser();
     const id = await scanWithPhotos(u);
-    expect(store.keys()).toEqual([]);
     expect(await rowOf(id)).toMatchObject({ status: "done", charged: true, thumbnailKey: null });
     expect(await getScan(u, id, clock)).toMatchObject({ imageUrl: null });
     expect((await listScans(u, {}, clock)).scans[0]!.imageUrl).toBeNull();

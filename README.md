@@ -108,6 +108,8 @@ Key: `thumb/u/{userId}/{scanId}.webp` (`lib/storage/keys.ts`). The bucket stays 
 
 Set up once per bucket, in three steps: (1) create the bucket (R2 → Create bucket, location Automatic, Standard storage class); (2) create the bucket-scoped **Object Read & Write** token above; (3) put the four env vars in `.env.local` (and the deployment's env).
 
+A bucket used with an earlier build of this branch may hold old objects under `display/`. Delete that prefix once (Cloudflare dashboard → the bucket → select the `display/` folder → Delete), and remove the `eatri8-display-30d` lifecycle rule if it was applied. No released version ever wrote there.
+
 ### Before launch
 
 - Rotate the old Gemini key: `NEXT_PUBLIC_GEMINI_API_KEY` is still in `master` history (added in `3afd1c4`, removed in `4d2b34c`). Revoke it in Google AI Studio and make sure `GOOGLE_GENERATIVE_AI_API_KEY` is a different, server-only key.
@@ -120,7 +122,7 @@ Set up once per bucket, in three steps: (1) create the bucket (R2 → Create buc
 
 `pnpm scan:try <image...>` runs one real extraction against 1–3 image files and prints the result, usage and cost — a quick way to check a single label/photo without the eval harness.
 
-### No image storage
+### Scan photos and what is stored
 
 Scan photos are held in memory for the model call. The photos are never written to disk. Since Phase 2, a successful AI scan also keeps one small optimised image of its first photo in a private R2 bucket (see [Scan photos on Cloudflare R2](#scan-photos-on-cloudflare-r2)); without R2 configured, nothing is stored.
 

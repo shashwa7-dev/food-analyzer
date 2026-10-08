@@ -89,9 +89,9 @@ describe("R2 store against a fake fetch", () => {
 
   it("deletes every key under a prefix, page by page", async () => {
     const keys = Array.from({ length: 2500 }, (_, i) => `thumb/u/u1/s${i}/1.webp`);
-    const r2 = fakeR2([...keys, "display/u/u2/s/1.webp"]);
+    const r2 = fakeR2([...keys, "thumb/u/u2/s/1.webp"]);
     await createR2Store(cfg).deletePrefix("thumb/u/u1/");
-    expect([...r2.objects]).toEqual(["display/u/u2/s/1.webp"]);
+    expect([...r2.objects]).toEqual(["thumb/u/u2/s/1.webp"]);
     expect(r2.calls.delete).toBe(3);
   });
 

@@ -61,10 +61,13 @@ export function r2Client(cfg: R2Config) {
     return res;
   }
   /** A bucket-level XML request (DeleteObjects) with the Content-MD5 S3 requires for them. */
-  const bucketXml = (query: string, method: "POST" | "PUT", xml: string, what: string) =>
+  const bucketXml = (query: string, method: "POST", xml: string, what: string) =>
     send(`${base}?${query}`, { method, body: xml, headers: { "content-type": "application/xml", "content-md5": md5(xml) } }, what);
   return { aws, base, objectUrl, send, bucketXml };
 }
+
+/** The upload runs after a model call that can use most of the route's 60 s, so it gets a short leash. */
+const PUT_TIMEOUT_MS = 8_000;
 
 export function createR2Store(cfg: R2Config): PhotoStore {
   const c = r2Client(cfg);
@@ -80,7 +83,7 @@ export function createR2Store(cfg: R2Config): PhotoStore {
   };
   return {
     async put(key, bytes, contentType) {
-      await c.send(c.objectUrl(key), { method: "PUT", body: bytes as BodyInit, headers: { "content-type": contentType } }, "PutObject");
+      await c.send(c.objectUrl(key), { method: "PUT", body: bytes as BodyInit, headers: { "content-type": contentType }, signal: AbortSignal.timeout(PUT_TIMEOUT_MS) }, "PutObject");
     },
     async signedGetUrl(key, ttlSeconds) {
       const url = new URL(c.objectUrl(key));

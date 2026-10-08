@@ -413,7 +413,7 @@ export interface ScanListItem {
   brand: string | null;
   grade: string | null;
   kind: string | null;
-  /** Signed (10 min) URL of the scan's thumbnail, or null (storage off, or no photo stored). */
+  /** Signed (10 min) URL of the scan's stored image, or null (storage off, or none stored). */
   imageUrl: string | null;
   createdAt: string;
 }
