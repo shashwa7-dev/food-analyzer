@@ -5,8 +5,14 @@ import { db } from "@/lib/db/client";
 import { bodyWeight, profile } from "@/lib/db/schema";
 import { addDays, todayIn } from "@/lib/dates";
 import { deleteWeight, getWeightHistory, logWeight } from "./weight";
+import { createWorkout, getWorkout } from "./service";
 
 const today = () => todayIn("Asia/Kolkata");
+
+/** A gym session on `date` through the service, no exercises, for burn recompute tests. */
+function gym(userId: string, date: string, durationMin = 60) {
+  return createWorkout(userId, { kind: "gym", date, durationMin, exercises: [] });
+}
 
 describe("body weight", () => {
   let me = "";
@@ -52,5 +58,65 @@ describe("body weight", () => {
     expect(await deleteWeight(me, today())).toBe(true);
     expect(await deleteWeight(me, today())).toBe(false);
     expect(await db.select().from(bodyWeight)).toHaveLength(1);
+  });
+
+  it("recomputes a workout logged before any weigh-in once one is logged for that day", async () => {
+    const w = await gym(me, today(), 60);
+    expect(w).toMatchObject({ kcalBurned: 350, kcalBasis: { weightKg: 70, estimated: true } });
+    await logWeight(me, { date: today(), kg: 92 });
+    const after = await getWorkout(me, w.id);
+    expect(after).toMatchObject({ kcalBurned: 460, kcalBasis: { weightKg: 92, estimated: false, minutes: 60 } });
+  });
+
+  it("re-logging an earlier weight recomputes only the workouts before the next weigh-in", async () => {
+    const day1 = addDays(today(), -10);
+    const day3 = addDays(today(), -8);
+    const day5 = addDays(today(), -6);
+    const day6 = addDays(today(), -5);
+    await logWeight(me, { date: day1, kg: 80 });
+    await logWeight(me, { date: day5, kg: 90 });
+    const w3 = await gym(me, day3, 60);
+    const w6 = await gym(me, day6, 60);
+    expect(w3).toMatchObject({ kcalBurned: 400, kcalBasis: { weightKg: 80 } });
+    expect(w6).toMatchObject({ kcalBurned: 450, kcalBasis: { weightKg: 90 } });
+
+    await logWeight(me, { date: day1, kg: 70 });
+
+    const w3After = await getWorkout(me, w3.id);
+    const w6After = await getWorkout(me, w6.id);
+    expect(w3After).toMatchObject({ kcalBurned: 350, kcalBasis: { weightKg: 70 } });
+    expect(w6After).toMatchObject({ kcalBurned: 450, kcalBasis: { weightKg: 90 } }); // unchanged: day5's weight still applies
+  });
+
+  it("deleting a weigh-in falls later workouts back to the previous one", async () => {
+    const day1 = addDays(today(), -10);
+    const day3 = addDays(today(), -8);
+    const day5 = addDays(today(), -6);
+    const day6 = addDays(today(), -5);
+    await logWeight(me, { date: day1, kg: 80 });
+    await logWeight(me, { date: day5, kg: 90 });
+    const w3 = await gym(me, day3, 60);
+    const w6 = await gym(me, day6, 60);
+
+    await deleteWeight(me, day5);
+
+    const w3After = await getWorkout(me, w3.id);
+    const w6After = await getWorkout(me, w6.id);
+    expect(w3After).toMatchObject({ kcalBurned: 400, kcalBasis: { weightKg: 80 } }); // unaffected
+    expect(w6After).toMatchObject({ kcalBurned: 400, kcalBasis: { weightKg: 80, estimated: false } }); // falls back to day1
+  });
+
+  it("only recomputes the acting user's workouts", async () => {
+    const day = addDays(today(), -5);
+    const otherW = await gym(other, day, 60);
+    const mineW = await gym(me, day, 60);
+    expect(otherW).toMatchObject({ kcalBurned: 350, kcalBasis: { weightKg: 70, estimated: true } });
+
+    await logWeight(me, { date: day, kg: 92 });
+
+    const otherAfter = await getWorkout(other, otherW.id);
+    const mineAfter = await getWorkout(me, mineW.id);
+    expect(otherAfter).toMatchObject({ kcalBurned: 350, kcalBasis: { weightKg: 70, estimated: true } });
+    expect(mineAfter).toMatchObject({ kcalBurned: 460, kcalBasis: { weightKg: 92, estimated: false } });
   });
 });

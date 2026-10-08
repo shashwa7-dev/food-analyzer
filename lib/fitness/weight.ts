@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { bodyWeight } from "@/lib/db/schema";
 import { addDays, DateSchema, todayIn } from "@/lib/dates";
-import { PlainDateSchema } from "@/lib/fitness/service";
+import { PlainDateSchema, recomputeBurnFrom } from "@/lib/fitness/service";
 import { weightChange } from "@/lib/fitness/stats";
 import type { WeightEntry, WeightHistory } from "@/lib/fitness/types";
 import { getProfile } from "@/lib/profile/service";
@@ -14,20 +14,27 @@ export const WeightQuerySchema = z.object({ days: z.coerce.number().int().min(7)
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Logs `kg` for `date`, replacing that day's earlier value. */
+/** Logs `kg` for `date`, replacing that day's earlier value, and recomputes affected workouts' kcal. */
 export async function logWeight(userId: string, raw: z.input<typeof LogWeightSchema>): Promise<WeightEntry> {
   const input = LogWeightSchema.parse(raw);
   const kg = round2(input.kg);
-  const [row] = await db.insert(bodyWeight).values({ userId, date: input.date, kg })
-    .onConflictDoUpdate({ target: [bodyWeight.userId, bodyWeight.date], set: { kg, createdAt: new Date() } })
-    .returning({ date: bodyWeight.date, kg: bodyWeight.kg });
-  return row!;
+  return db.transaction(async (tx) => {
+    const [row] = await tx.insert(bodyWeight).values({ userId, date: input.date, kg })
+      .onConflictDoUpdate({ target: [bodyWeight.userId, bodyWeight.date], set: { kg, createdAt: new Date() } })
+      .returning({ date: bodyWeight.date, kg: bodyWeight.kg });
+    await recomputeBurnFrom(tx, userId, input.date);
+    return row!;
+  });
 }
 
+/** Deletes the weight on `date`, if any, and recomputes the now-affected workouts' kcal. */
 export async function deleteWeight(userId: string, date: string): Promise<boolean> {
   if (!PlainDateSchema.safeParse(date).success) return false;
-  const rows = await db.delete(bodyWeight).where(and(eq(bodyWeight.userId, userId), eq(bodyWeight.date, date))).returning({ date: bodyWeight.date });
-  return rows.length === 1;
+  return db.transaction(async (tx) => {
+    const rows = await tx.delete(bodyWeight).where(and(eq(bodyWeight.userId, userId), eq(bodyWeight.date, date))).returning({ date: bodyWeight.date });
+    if (rows.length === 1) await recomputeBurnFrom(tx, userId, date);
+    return rows.length === 1;
+  });
 }
 
 /**

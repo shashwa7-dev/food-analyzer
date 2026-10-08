@@ -1,6 +1,6 @@
 // Workouts (spec §C "API"): owner-scoped, zod-validated, transactional writes, soft delete. kcal_burned
 // is always computed here, from the latest body weight on or before the workout's date.
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, gte, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, gte, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Db, type Tx } from "@/lib/db/client";
 import { bodyWeight, profile, workout, workoutExercise, workoutSet } from "@/lib/db/schema";
@@ -80,6 +80,22 @@ async function burnFor(q: Q, userId: string, w: { kind: "gym" | "activity"; acti
   const b = kcalBurned({ kind: w.kind === "gym" ? "gym" : w.activity!, intensity: w.intensity, minutes: w.durationMin, weightKg: await weightOn(q, userId, w.date) });
   const basis: KcalBasis = { met: b.met, weightKg: b.weightKg, estimated: b.estimated, minutes: w.durationMin };
   return { kcalBurned: b.kcal, kcalBasis: basis };
+}
+
+/**
+ * Recomputes kcal_burned/kcal_basis for this user's non-deleted workouts on or after `fromDate`,
+ * stopping before the next later weigh-in (those workouts' effective weight is unchanged). Call this
+ * right after logging, correcting or deleting a weight dated `fromDate`, in the same transaction.
+ */
+export async function recomputeBurnFrom(q: Q, userId: string, fromDate: string): Promise<void> {
+  const [next] = await q.select({ date: bodyWeight.date }).from(bodyWeight)
+    .where(and(eq(bodyWeight.userId, userId), gt(bodyWeight.date, fromDate))).orderBy(asc(bodyWeight.date)).limit(1);
+  const rows = await q.select().from(workout)
+    .where(and(visibleWorkoutWhere(userId), gte(workout.date, fromDate), next ? lt(workout.date, next.date) : undefined));
+  for (const w of rows) {
+    const burn = await burnFor(q, userId, w);
+    await q.update(workout).set({ ...burn, updatedAt: new Date() }).where(eq(workout.id, w.id));
+  }
 }
 
 type ExerciseIn = z.infer<typeof ExerciseInput>;
