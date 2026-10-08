@@ -147,6 +147,18 @@ const SCENARIOS: Scenario[] = [
   { name: "scan-failed", path: (i) => `/scans/${i.scanFailed}` },
   { name: "progress", path: () => "/progress", setup: () => sleep(1200) },
   { name: "progress-month", path: () => "/progress?range=month", setup: () => sleep(1200) },
+  { name: "workouts-new", path: () => "/workouts/new" },
+  { name: "workouts-activity-sheet", path: () => "/workouts/new", viewportShot: true, setup: async (p) => { await p.click("button[aria-haspopup=dialog]"); await dialog(p); } },
+  // A gym session in progress: a draft in localStorage (this run's context only) shows the resume banner.
+  { name: "workouts-resume", path: () => "/workouts/new", setup: async (p) => {
+    await p.evaluate(async () => {
+      const s = (await (await fetch("/api/auth/get-session")).json()) as { user: { id: string } };
+      const startedAt = new Date(Date.now() - 23 * 60_000).toISOString();
+      localStorage.setItem(`eatri8-workout-draft:${s.user.id}`, JSON.stringify({ version: 1, preset: "push", title: "Push day", startedAt, date: startedAt.slice(0, 10), intensity: "moderate", exercises: [] }));
+    });
+    await p.reload();
+    await p.waitForSelector("section[aria-label='Session in progress']");
+  } },
   { name: "history", path: () => "/history" },
   { name: "me", path: () => "/me" },
   { name: "me-credits", path: () => "/me/credits", setup: () => sleep(800) },

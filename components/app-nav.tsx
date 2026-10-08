@@ -46,7 +46,7 @@ export function AppNav({
   const active = (href: string) => path === href || path.startsWith(`${href}/`);
   // Food search, a food's page, the custom food form, the scanner and a scan result are focused
   // sub-pages with their own Back (mock-c1): no phone bottom nav there.
-  const phoneNav = path !== "/foods" && !path.startsWith("/foods/") && path !== "/scan" && !path.startsWith("/scans/");
+  const phoneNav = path !== "/foods" && !path.startsWith("/foods/") && !path.startsWith("/workouts/") && path !== "/scan" && !path.startsWith("/scans/");
 
   return (
     <>
