@@ -7,13 +7,13 @@
 // offender. Read-only, except for a fixture: it posts two gym workouts for the demo user (a baseline
 // and a session that beats it, so the summary shows a PR) before the runs and deletes both after.
 //   pnpm ui:audit [--only name,name] [--w 390|1280] [--theme dark|light|system] [--no-shots]
-// Needs pnpm dev running and pnpm seed:demo's cookie.
+// Needs pnpm dev running and pnpm seed:demo's cookies (the demo user, plus Fresh and Starter for the workouts states).
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Browser, Page } from "puppeteer-core";
 import type { Theme } from "../lib/theme";
 import { probe, type Finding, type ProbeResult } from "./lib/audit-probe";
-import { FAKE_CAMERA_FLAGS, assertDev, baseUrl, demoCookie, goto, launch, newPage, setCookies, sleep } from "./lib/browser";
+import { type DemoUser, FAKE_CAMERA_FLAGS, assertDev, baseUrl, demoCookie, goto, launch, newPage, setCookies, sleep } from "./lib/browser";
 
 const OUT = resolve("docs/design/qa");
 const WIDTHS = [390, 1280] as const;
@@ -24,6 +24,8 @@ type Scenario = {
   name: string;
   path: (ids: Ids) => string;
   signedIn?: boolean;
+  /** Whose session to send (default "demo"): "fresh" has no fitness setup, "starter" has no workouts. */
+  user?: DemoUser;
   /** Puts the page in the state to audit (opens a sheet, types a query…). Must not change data. */
   setup?: (page: Page) => Promise<void>;
   /** Shoot the viewport (overlays) rather than the full page. */
@@ -75,6 +77,12 @@ async function openEntry(page: Page) {
   await dialog(page);
 }
 
+/** Click after centring: scrolled only just into view, a control sits under the phone's fixed bottom nav, which takes the click. */
+async function centreClick(page: Page, selector: string) {
+  await page.$eval(selector, (b) => b.scrollIntoView({ block: "center" }));
+  await page.click(selector);
+}
+
 /** Today's four meal cards ([data-meal-card]) must all be one height (±1 px), whatever they hold. */
 async function equalMealCards(page: Page): Promise<Finding[]> {
   const cards = await page.$$eval("[data-meal-card]", (els) => els.map((e) => ({ meal: e.getAttribute("data-meal-card")!, h: e.getBoundingClientRect().height })));
@@ -98,6 +106,41 @@ const expectAll = (...selectors: string[]) => async (page: Page): Promise<Findin
   for (const sel of selectors) if (!(await page.$(sel))) out.push({ rule: "missing", selector: sel, text: "", detail: "expected on this page while the Pro gates are on" });
   return out;
 };
+/** /workouts for a user who hasn't set up training: the setup form, every input labelled. */
+async function workoutsSetup(page: Page): Promise<Finding[]> {
+  return page.evaluate((): Finding[] => {
+    const out: Finding[] = [];
+    const h1 = document.querySelector("h1")?.textContent?.trim();
+    if (h1 !== "Set up your training") out.push({ rule: "missing", selector: "h1", text: h1 ?? "", detail: 'expected "Set up your training"' });
+    for (const i of document.querySelectorAll<HTMLInputElement>("input:not([type=hidden])")) {
+      const named = i.getAttribute("aria-label") || i.getAttribute("aria-labelledby") || i.labels?.length;
+      if (!named) out.push({ rule: "label", selector: `input${i.name ? `[name=${i.name}]` : ""}`, text: i.placeholder, detail: "input has no label" });
+    }
+    return out;
+  });
+}
+/** /workouts for a user with no workouts yet: the empty hub (no History), six preset links. */
+async function workoutsEmpty(page: Page): Promise<Finding[]> {
+  return page.evaluate((): Finding[] => {
+    const out: Finding[] = [];
+    // Inside <main>: the app's own nav also has a History link.
+    const history = [...document.querySelectorAll("main *")].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent?.trim() === "History"));
+    if (history.length) out.push({ rule: "unexpected", selector: history[0]!.tagName.toLowerCase(), text: "History", detail: "the empty hub shouldn't show History" });
+    const presets = document.querySelectorAll("a[href^='/workouts/session?preset='], a[href='/workouts/session']").length;
+    if (presets !== 6) out.push({ rule: "missing", selector: "a[href^='/workouts/session']", text: `${presets} links`, detail: "expected 6 preset links" });
+    return out;
+  });
+}
+/** /workouts with the Pro gates on: one blurred preview with "See Pro"; no live tablist outside an aria-hidden subtree. */
+async function workoutsLocked(page: Page): Promise<Finding[]> {
+  return page.evaluate((): Finding[] => {
+    const out: Finding[] = [];
+    if (![...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "See Pro")) out.push({ rule: "missing", selector: "button", text: "See Pro", detail: "expected the preview's See Pro button" });
+    const live = [...document.querySelectorAll("[role=tablist]")].filter((t) => !t.closest("[aria-hidden]"));
+    if (live.length) out.push({ rule: "unexpected", selector: "[role=tablist]", text: "", detail: "a live tablist is reachable while Trends is locked" });
+    return out;
+  });
+}
 const MONTH_LOCK = "button[aria-label='Month, a Pro feature']";
 const EXPORT_LOCK = "button[aria-label='Export data, a Pro feature']";
 const NOTICE = "section[aria-label='Targets notice']";
@@ -152,6 +195,11 @@ const SCENARIOS: Scenario[] = [
   { name: "progress", path: () => "/progress", setup: () => sleep(1200) },
   { name: "progress-month", path: () => "/progress?range=month", setup: () => sleep(1200) },
   { name: "workouts", path: () => "/workouts", setup: () => sleep(1200), check: expectAll("section[aria-label='Weekly goal']", "a[href='/weight']") },
+  { name: "workouts-setup", user: "fresh", path: () => "/workouts", check: workoutsSetup },
+  { name: "workouts-empty", user: "starter", path: () => "/workouts", check: workoutsEmpty },
+  { name: "workouts-month", gates: "open", path: () => "/workouts?range=month", setup: () => sleep(1200), check: expectAll("[role=tablist]", "[role=list][aria-label=Calendar]") },
+  { name: "workouts-volume", gates: "open", path: () => "/workouts", viewportShot: false, setup: async (p) => { await clickText(p, "[role=tab]", "Volume"); await p.waitForSelector("svg[role=img]", { visible: true, timeout: 5_000 }); await sleep(600); }, check: expectAll("svg[role=img]") },
+  { name: "workouts-locked", gates: "locked", path: () => "/workouts", setup: () => sleep(1200), check: workoutsLocked },
   { name: "weight", path: () => "/weight", setup: () => sleep(1200), check: expectAll("[aria-label^='Weight over the last 30 days']", "button[aria-label^='Delete ']") },
   { name: "weight-log-sheet", path: () => "/weight", viewportShot: true, setup: async (p) => { await clickText(p, "button[aria-haspopup=dialog]", "Log weight"); await dialog(p); }, check: expectAll("[role=dialog] input[aria-label='Weight, kg']", "[role=dialog] input[type=date]") },
   { name: "weight-delete-confirm", path: () => "/weight", viewportShot: true, setup: async (p) => { await p.click("button[aria-label^='Delete ']"); await dialog(p, "alertdialog"); } },
@@ -194,7 +242,7 @@ const SCENARIOS: Scenario[] = [
   { name: "progress-upgrade-sheet", path: () => "/progress", gates: "locked", viewportShot: true, setup: async (p) => { await p.click(MONTH_LOCK); await dialog(p); } },
   { name: "me-locked", path: () => "/me", gates: "locked", check: expectAll(NOTICE, EXPORT_LOCK) },
   { name: "me-goal-locked", path: () => "/me", gates: "locked", viewportShot: true, setup: (p) => openRow(p, "Goal"), check: expectAll("[role=dialog] button[aria-label='Custom targets: part of Pro. See plans']") },
-  { name: "me-export-upgrade", path: () => "/me", gates: "locked", viewportShot: true, setup: async (p) => { await p.click(EXPORT_LOCK); await dialog(p); } },
+  { name: "me-export-upgrade", path: () => "/me", gates: "locked", viewportShot: true, setup: async (p) => { await centreClick(p, EXPORT_LOCK); await dialog(p); } },
   { name: "me-scans-upsell", path: () => "/me", gates: "locked", viewportShot: true, setup: (p) => openRow(p, "AI scans a month") },
   { name: "home", path: () => "/", signedIn: false },
   { name: "privacy", path: () => "/privacy", signedIn: false },
@@ -293,7 +341,7 @@ async function audit(browser: Browser, run: Run, ids: Ids, shots: boolean): Prom
   const { scenario, width, look } = run;
   const context = await browser.createBrowserContext();
   try {
-    await setCookies(context, { theme: look.theme, signedIn: scenario.signedIn !== false });
+    await setCookies(context, { theme: look.theme, signedIn: scenario.signedIn !== false, user: scenario.user });
     const page = await newPage(context, { width, scheme: look.scheme });
     // tsx/esbuild wraps named functions in __name(); give the page a no-op so probe() serialises cleanly.
     await page.evaluateOnNewDocument("globalThis.__name = (f) => f;");

@@ -8,7 +8,7 @@
 //   target   — an interactive element smaller than 44×44 px with no ::before/::after or parent hit area.
 //   height   — (ui-audit.ts, not this probe) Today's meal cards differ in height.
 
-export type Finding = { rule: "wrap" | "lime" | "contrast" | "target" | "height" | "missing"; selector: string; text: string; detail: string };
+export type Finding = { rule: "wrap" | "lime" | "contrast" | "target" | "height" | "missing" | "unexpected" | "label"; selector: string; text: string; detail: string };
 export type ProbeResult = { findings: Finding[]; checked: { text: number; contrastSkipped: number; controls: number; targets: number } };
 
 export function probe(): ProbeResult {
