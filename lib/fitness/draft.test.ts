@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { doneSetCount, draftReducer, elapsedMinutes, restoreDraft, startDraft, toCreateBody, type Draft } from "./draft";
+import { doneSetCount, draftFromWorkout, draftReducer, elapsedMinutes, restoreDraft, startDraft, toCreateBody, toUpdateBody, type Draft } from "./draft";
 
 const start = () => startDraft({ preset: "push", startedAt: "2026-10-08T12:00:00.000Z", date: "2026-10-08" });
 
@@ -74,5 +74,39 @@ describe("restoreDraft", () => {
     expect(restoreDraft("{")).toBeNull();
     expect(restoreDraft(JSON.stringify({ ...start(), version: 2 }))).toBeNull();
     expect(restoreDraft(JSON.stringify({ ...start(), startedAt: "nope" } as unknown as Draft))).toBeNull();
+  });
+});
+
+describe("draftFromWorkout and toUpdateBody", () => {
+  const w = {
+    id: "w1", date: "2026-10-08", kind: "gym", preset: "push", activity: null, title: "Push day", intensity: "hard",
+    startedAt: "2026-10-08T12:40:00.000Z", durationMin: 48, kcalBurned: 310, kcalEstimated: true, exerciseCount: 2, setCount: 2, volumeKg: 900,
+    notes: null, kcalBasis: { met: 5, weightKg: 70, estimated: true, minutes: 48 }, prCount: 0, createdAt: "", updatedAt: "",
+    exercises: [
+      { position: 1, exerciseKey: "custom:cable-fly", name: "Cable fly", best: null, pr: false, sets: [{ position: 0, weightKg: 15, reps: 12, done: false }] },
+      { position: 0, exerciseKey: "bench_press", name: "Bench press", best: null, pr: false, sets: [
+        { position: 1, weightKg: 62.5, reps: 7, done: true }, { position: 0, weightKg: 62.5, reps: 8, done: true },
+      ] },
+    ],
+  } as const;
+
+  it("rebuilds the exercises and sets in order, custom ones by name", () => {
+    const d = draftFromWorkout(w as unknown as Parameters<typeof draftFromWorkout>[0]);
+    expect(d).toMatchObject({ version: 1, preset: "push", title: "Push day", startedAt: w.startedAt, date: "2026-10-08", intensity: "hard" });
+    expect(d.exercises.map((e) => [e.exerciseKey, e.name])).toEqual([["bench_press", "Bench press"], [null, "Cable fly"]]);
+    expect(d.exercises[0]!.sets.map((s) => s.reps)).toEqual([8, 7]);
+    expect(new Set(d.exercises.flatMap((e) => [e.id, ...e.sets.map((s) => s.id)])).size).toBe(5);
+  });
+  it("turns an edited draft into the PATCH body with the given minutes", () => {
+    const d = draftFromWorkout(w as unknown as Parameters<typeof draftFromWorkout>[0]);
+    const body = toUpdateBody({ ...d, title: "  " }, 52.4);
+    expect(body).toEqual({
+      title: "Workout", durationMin: 52, intensity: "hard",
+      exercises: [
+        { exerciseKey: "bench_press", name: "Bench press", sets: [{ weightKg: 62.5, reps: 8, done: true }, { weightKg: 62.5, reps: 7, done: true }] },
+        { name: "Cable fly", sets: [{ weightKg: 15, reps: 12, done: false }] },
+      ],
+    });
+    expect(toUpdateBody(d, 900).durationMin).toBe(600);
   });
 });

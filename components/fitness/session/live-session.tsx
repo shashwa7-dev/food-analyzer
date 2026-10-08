@@ -42,6 +42,45 @@ function removeStored(key: string) {
 /** The key a draft exercise's history is stored under (custom ones by their name's slug). */
 export const historyKey = (e: DraftExercise) => e.exerciseKey ?? customExerciseKey(e.name);
 
+/**
+ * The session's exercise cards, "Add exercise" and its sheet; shared by the live session and the
+ * edit screen. `previous` is each history key's sets from the last workout (omitted when editing).
+ */
+export function SessionExercises({ draft, previous, dispatch }: { draft: Draft; previous?: PreviousSets; dispatch: (a: DraftAction) => void }) {
+  const [adding, setAdding] = useState(false);
+  return (
+    <>
+      {draft.exercises.map((e, i) => (
+        <ExerciseCard
+          key={e.id}
+          exercise={e}
+          previous={previous?.[historyKey(e)]}
+          isFirst={i === 0}
+          isLast={i === draft.exercises.length - 1}
+          dispatch={dispatch}
+        />
+      ))}
+      {draft.exercises.length === 0 && (
+        <p className="m-0 px-1 py-6 text-center text-[14px] text-subtle">No exercises yet. Add one to start logging sets.</p>
+      )}
+
+      <Button type="button" variant="ghost-sunken" shape="pill" size="lg" className="w-full" onClick={() => setAdding(true)}>
+        <Plus aria-hidden />
+        Add exercise
+      </Button>
+
+      <AddExerciseSheet
+        open={adding}
+        onOpenChange={setAdding}
+        onPick={(exerciseKey, name) => {
+          dispatch({ type: "addExercise", exerciseKey, name });
+          setAdding(false);
+        }}
+      />
+    </>
+  );
+}
+
 const noopSubscribe = () => () => {};
 
 type Props = { userId: string; timezone: string; requested: Preset | null | undefined };
@@ -71,7 +110,6 @@ function Session({ userId, timezone, requested }: Props) {
   const [draft, setDraft] = useState<Draft>(init.draft);
   const [conflict, setConflict] = useState(init.conflict);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set once the draft is saved or discarded, so the persist effect doesn't write it back.
   const closed = useRef(false);
@@ -138,33 +176,7 @@ function Session({ userId, timezone, requested }: Props) {
         </p>
       )}
 
-      {draft.exercises.map((e, i) => (
-        <ExerciseCard
-          key={e.id}
-          exercise={e}
-          previous={previous.data?.previous[historyKey(e)]}
-          isFirst={i === 0}
-          isLast={i === draft.exercises.length - 1}
-          dispatch={dispatch}
-        />
-      ))}
-      {draft.exercises.length === 0 && (
-        <p className="m-0 px-1 py-6 text-center text-[14px] text-subtle">No exercises yet. Add one to start logging sets.</p>
-      )}
-
-      <Button type="button" variant="ghost-sunken" shape="pill" size="lg" className="w-full" onClick={() => setAdding(true)}>
-        <Plus aria-hidden />
-        Add exercise
-      </Button>
-
-      <AddExerciseSheet
-        open={adding}
-        onOpenChange={setAdding}
-        onPick={(exerciseKey, name) => {
-          dispatch({ type: "addExercise", exerciseKey, name });
-          setAdding(false);
-        }}
-      />
+      <SessionExercises draft={draft} previous={previous.data?.previous} dispatch={dispatch} />
 
       <ConfirmDialog
         open={confirmDiscard}

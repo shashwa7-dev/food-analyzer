@@ -2,7 +2,7 @@
 // localStorage under `eatri8-workout-draft:{userId}` so a reload or app switch never loses it, and
 // turns it into the POST /api/v1/workouts body on Finish.
 import { PRESETS, exerciseByKey } from "@/lib/fitness/catalogue";
-import type { Intensity, Preset } from "@/lib/fitness/types";
+import type { Intensity, Preset, WorkoutDetail } from "@/lib/fitness/types";
 
 export type DraftSet = { id: string; weightKg: number | null; reps: number | null; done: boolean };
 export type DraftExercise = { id: string; exerciseKey: string | null; name: string; sets: DraftSet[] };
@@ -91,9 +91,9 @@ export function elapsedMinutes(d: Draft, now: Date = new Date()): number {
   return Number.isFinite(ms) && ms > 0 ? Math.floor(ms / 60_000) : 0;
 }
 
-/** The POST /api/v1/workouts body. Only exercises with at least one set that has a weight or reps are sent. */
-export function toCreateBody(d: Draft, now: Date = new Date()) {
-  const exercises = d.exercises
+/** The exercises of a create or update body: only those with at least one set that has a weight or reps. */
+function bodyExercises(d: Draft) {
+  return d.exercises
     .map((e) => ({ e, sets: e.sets.filter((s) => s.weightKg !== null || s.reps !== null) }))
     .filter(({ sets }) => sets.length > 0)
     .map(({ e, sets }) => ({
@@ -101,6 +101,11 @@ export function toCreateBody(d: Draft, now: Date = new Date()) {
       name: e.name,
       sets: sets.map((s) => ({ weightKg: s.weightKg, reps: s.reps, done: s.done })),
     }));
+}
+
+/** The POST /api/v1/workouts body. Only exercises with at least one set that has a weight or reps are sent. */
+export function toCreateBody(d: Draft, now: Date = new Date()) {
+  const exercises = bodyExercises(d);
   return {
     kind: "gym" as const,
     date: d.date,
@@ -110,6 +115,38 @@ export function toCreateBody(d: Draft, now: Date = new Date()) {
     startedAt: d.startedAt,
     durationMin: Math.min(600, elapsedMinutes(d, now)),
     exercises,
+  };
+}
+
+/**
+ * A saved gym workout as a draft, for editing it in the session screen (`/workouts/{id}/edit`). Custom
+ * exercises (`custom:<slug>`) go back to a null key with their name, as when they were added.
+ */
+export function draftFromWorkout(w: WorkoutDetail): Draft {
+  return {
+    version: 1,
+    preset: w.preset,
+    title: w.title,
+    startedAt: w.startedAt,
+    date: w.date,
+    intensity: w.intensity,
+    exercises: [...w.exercises].sort((a, b) => a.position - b.position).map((e) => ({
+      id: `e${e.position}`,
+      exerciseKey: e.exerciseKey.startsWith("custom:") ? null : e.exerciseKey,
+      name: e.name,
+      sets: [...e.sets].sort((a, b) => a.position - b.position)
+        .map((s) => ({ id: `e${e.position}s${s.position}`, weightKg: s.weightKg, reps: s.reps, done: s.done })),
+    })),
+  };
+}
+
+/** The PATCH /api/v1/workouts/{id} body from an edited draft: title, minutes, intensity and the whole exercise list. */
+export function toUpdateBody(d: Draft, durationMin: number) {
+  return {
+    title: d.title.trim() || "Workout",
+    durationMin: Math.min(600, Math.max(0, Math.round(durationMin))),
+    intensity: d.intensity,
+    exercises: bodyExercises(d),
   };
 }
 
