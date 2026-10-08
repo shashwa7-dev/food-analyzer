@@ -57,7 +57,7 @@ function Row({ rank, ex }: { rank: number; ex: TopExercise }) {
       {ex.e1rm !== null && (
         <span className="shrink-0 text-right text-[12.5px] leading-tight">
           <b className="block whitespace-nowrap text-brand-deep">e1RM {ex.e1rm} kg</b>
-          {ex.e1rmDelta !== null && <span className="block whitespace-nowrap text-subtle">{signedKg(ex.e1rmDelta)}</span>}
+          {ex.e1rmDelta !== null && ex.e1rmDelta !== 0 && <span className="block whitespace-nowrap text-subtle">{signedKg(ex.e1rmDelta)}</span>}
         </span>
       )}
     </div>

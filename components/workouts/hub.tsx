@@ -10,7 +10,7 @@ import { HistoryList } from "@/components/workouts/history-list";
 
 /**
  * The full Workouts hub (workouts-full-v3.html, spec "The /workouts page"): one DOM, reordered by
- * breakpoint with `order-*`/`md:col-start-*` rather than duplicated markup.
+ * breakpoint (`order-*` on phones, two wrapper columns from md) rather than duplicated markup.
  *
  * Phone (single column): goal, this week, up next, proSlot, tiles, proAside, weight, history.
  * Desktop (`md:grid-cols-[minmax(0,1fr)_300px]`), two independent stacks:
@@ -18,7 +18,7 @@ import { HistoryList } from "@/components/workouts/history-list";
  *   right — goal, this week, tiles, proAside, weight.
  *
  * `proSlot` and `proAside` are Task 5's Trends/Top-exercises and How-often cards; `null` here renders
- * nothing (no empty grid cell left behind).
+ * nothing (no empty cell left behind).
  */
 export function Hub({ stats, summary, weight, history, locked, proSlot, proAside }: {
   stats: FitnessStats; summary: FitnessSummary; weight: WeightHistory; history: HistoryPage;

@@ -16,8 +16,8 @@ export function MonthCalendar({ calendar, className }: { calendar: MonthCalendar
   const types = DAY_TYPES.filter((t) => calendar.days.some((d) => d.type === t));
   return (
     <div className={cn("grid grid-cols-[minmax(0,1fr)] min-w-0 gap-2.5", className)}>
-      <p className="m-0 text-[12.5px] whitespace-nowrap text-subtle">{calendar.workoutDays} workout days</p>
-      <div role="grid" aria-label="Calendar" className="grid grid-cols-7 gap-1.5">
+      <p className="m-0 text-[12.5px] whitespace-nowrap text-subtle">{calendar.workoutDays} workout {calendar.workoutDays === 1 ? "day" : "days"}</p>
+      <div role="list" aria-label="Calendar" className="grid grid-cols-7 gap-1.5">
         {WEEKDAY_HEADERS.map((h, i) => (
           <span key={i} aria-hidden className="text-center text-[10.5px] font-semibold text-subtle">
             {h}
@@ -31,7 +31,7 @@ export function MonthCalendar({ calendar, className }: { calendar: MonthCalendar
           return (
             <div
               key={d.date}
-              role="gridcell"
+              role="listitem"
               aria-label={`${weekdayShort(d.date)} ${dayMonth(d.date)}, ${meta ? `${meta.label} day` : "rest"}`}
               className={cn(
                 "h-[30px] rounded-[7px] md:h-[34px]",

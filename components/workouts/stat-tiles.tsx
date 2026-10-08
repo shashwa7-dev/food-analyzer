@@ -32,10 +32,10 @@ function Tile({ label, value, sub, positive }: { label: string; value: string; s
  */
 export function StatTiles({ stats, goalMet, className }: { stats: FitnessStats; goalMet: boolean; className?: string }) {
   const { tiles, goalStreak, range, period } = stats;
-  const vs = range === "week" ? "vs last week" : `vs ${SHORT_MONTHS[Number(period.prevStart.slice(5, 7)) - 1]}`;
+  const vs = range === "week" ? "vs last wk" : `vs ${SHORT_MONTHS[Number(period.prevStart.slice(5, 7)) - 1]}`;
   const sub = (delta: number, fmt: (x: number) => string) => `${signed(delta, fmt)} ${vs}`;
   const count = (n: number) => String(n);
-  const kcal = (n: number) => `${Math.round(n).toLocaleString("en-IN")} kcal`;
+  const kcal = (n: number) => Math.round(n).toLocaleString("en-IN");
 
   return (
     <div className={cn("grid grid-cols-2 gap-3 md:gap-3.5", className)}>

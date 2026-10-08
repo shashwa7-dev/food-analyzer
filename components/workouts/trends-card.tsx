@@ -80,11 +80,12 @@ export function TrendsCard({ calendar, volume, className }: { calendar: MonthCal
                 role="tab"
                 id={`${base}-${t.id}-tab`}
                 aria-selected={on}
+                aria-controls={`${base}-panel`}
                 tabIndex={on ? 0 : -1}
                 onClick={() => pick(t.id)}
                 onKeyDown={(e) => onKey(e, i)}
                 className={cn(
-                  "min-h-11 shrink-0 rounded-full px-3.5 text-[12.5px] font-semibold whitespace-nowrap transition-colors",
+                  "relative h-7 shrink-0 rounded-full px-3.5 text-[12.5px] font-semibold whitespace-nowrap transition-colors after:absolute after:inset-x-0 after:-inset-y-2 after:content-['']",
                   on ? "bg-action text-action-ink" : "text-subtle hover:text-ink",
                 )}
               >
@@ -94,7 +95,9 @@ export function TrendsCard({ calendar, volume, className }: { calendar: MonthCal
           })}
         </div>
       </div>
-      {tab === "calendar" ? <MonthCalendar calendar={calendar} /> : <VolumeChart volume={volume} />}
+      <div role="tabpanel" id={`${base}-panel`} aria-labelledby={`${base}-${tab}-tab`} className="min-w-0">
+        {tab === "calendar" ? <MonthCalendar calendar={calendar} /> : <VolumeChart volume={volume} />}
+      </div>
     </section>
   );
 }
