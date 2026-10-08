@@ -31,8 +31,8 @@ export const PlainDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((d
 }, { message: "Use a date as YYYY-MM-DD." });
 
 const SetInput = z.object({
-  weightKg: z.number().min(0).max(1000).nullable(),
-  reps: z.number().int().min(0).max(1000).nullable(),
+  weightKg: z.number().min(0).max(500).nullable(),
+  reps: z.number().int().min(0).max(100).nullable(),
   done: z.boolean(),
 });
 /** A catalogue exercise by key, or a custom one by name (stored under `custom:<slug>`). */
