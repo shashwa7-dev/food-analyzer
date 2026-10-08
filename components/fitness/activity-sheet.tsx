@@ -32,11 +32,11 @@ function ActivitySheetBody({ activity, timezone }: { activity: Activity; timezon
 
   const log = useMutation({
     mutationFn: () =>
-      api<WorkoutDetail>("/api/v1/workouts", {
+      api<{ workout: WorkoutDetail }>("/api/v1/workouts", {
         method: "POST",
         body: JSON.stringify({ kind: "activity", date: todayIn(timezone), activity, intensity, durationMin: minutes }),
       }),
-    onSuccess: (w) => {
+    onSuccess: ({ workout: w }) => {
       toast.success(`${title} logged · ${w.kcalEstimated ? "~" : ""}${w.kcalBurned} kcal`);
       void qc.invalidateQueries({ queryKey: ["fitness"] });
       router.push("/today");

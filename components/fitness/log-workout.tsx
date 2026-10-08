@@ -34,7 +34,7 @@ export function LogWorkout({ userId, timezone }: { userId: string; timezone: str
       <div className="flex items-center justify-between gap-2 px-0.5 pt-1">
         <h2 className="m-0 truncate text-[15px] font-semibold text-ink">Gym session</h2>
         <Link
-          href="/workouts/session"
+          href="/workouts/session?preset=empty"
           className="-mr-2 inline-flex min-h-11 shrink-0 items-center gap-[3px] rounded-full px-2 text-[13px] font-semibold whitespace-nowrap text-brand-deep [&_svg]:size-[15px]"
         >
           <Plus aria-hidden />
