@@ -72,6 +72,7 @@ function useWidth(fallback = 320) {
  */
 export function VolumeChart({ volume, className }: { volume: VolumeWeeks; className?: string }) {
   const [measureRef, width] = useWidth();
+  const tone = (n: number) => (n > 0 ? "text-brand-deep" : "text-subtle");
   const gid = useId();
   const { weeks, current, deltaVsLast, best, avg, trendPct, axis } = volume;
 
@@ -95,7 +96,7 @@ export function VolumeChart({ volume, className }: { volume: VolumeWeeks; classN
     <div className={cn("grid grid-cols-[minmax(0,1fr)] min-w-0 gap-2", className)}>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <b className="num text-[22px] leading-none font-[650] tracking-[-0.03em] whitespace-nowrap text-ink">{fmtTonnes(current)}</b>
-        <span className="text-[12.5px] font-semibold whitespace-nowrap text-brand-deep">{signedTonnes(deltaVsLast)} vs last week</span>
+        <span className={cn("text-[12.5px] font-semibold whitespace-nowrap", tone(deltaVsLast))}>{signedTonnes(deltaVsLast)} vs last wk</span>
       </div>
       <div ref={measureRef} className="w-full">
         {weeks.length > 0 && last && firstWeek && (
@@ -154,7 +155,7 @@ export function VolumeChart({ volume, className }: { volume: VolumeWeeks; classN
           Avg <b className="text-ink">{fmtTonnes(avg)}</b>
         </span>
         <span className="min-w-0 flex-1 truncate rounded-[10px] bg-sunken px-2 py-1.5">
-          Trend <b className="text-brand-deep">{trendPct === null ? "–" : signedPct(trendPct)}</b>
+          Trend <b className={trendPct === null ? "text-ink" : tone(trendPct)}>{trendPct === null ? "–" : signedPct(trendPct)}</b>
         </span>
       </div>
     </div>

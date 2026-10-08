@@ -43,7 +43,7 @@ export const SAMPLE_VOLUME: VolumeWeeks = {
   deltaVsLast: 1800,
   best: 12400,
   avg: 10000,
-  trendPct: 53,
+  trendPct: 31,
   axis: { min: 6000, max: 14000, ticks: [6000, 10000, 14000] },
 };
 

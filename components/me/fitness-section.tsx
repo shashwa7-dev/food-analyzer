@@ -94,7 +94,7 @@ export function FitnessSection({ fitness, onDone }: { fitness: FitnessSettings; 
           <span className="shrink-0 text-[14px] text-subtle">cm</span>
         </span>
         <span className="min-h-[18px] truncate px-1 text-[12.5px] text-subtle">
-          {heightError ? <span className="text-bad">{heightError}</span> : "Used to make calorie burn accurate."}
+          {heightError ? <span className="text-bad">{heightError}</span> : "Optional. Stored with your profile; not used in any calculation yet."}
         </span>
       </label>
       <SheetActions pending={save.isPending} dirty={dirty && !error && !heightError} onCancel={onDone} onSave={() => save.mutate()} />

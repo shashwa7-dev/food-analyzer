@@ -106,10 +106,13 @@ export function volumeWeeks(workouts: InsightWorkout[], today: string, count = 8
   const kgs = weeks.map((x) => x.kg);
   const current = kgs.at(-1) ?? 0;
   const first = kgs[0] ?? 0;
+  const lastCompleted = kgs.at(-2) ?? 0;
+  // Same span as the Volume tile: last Monday through the same weekday last week.
+  const lastSoFar = round2(workouts.filter((w) => within(w.date, addDays(monday, -7), addDays(today, -7))).reduce((t, w) => t + w.volumeKg, 0));
   return {
-    weeks, current, deltaVsLast: round2(current - (kgs.at(-2) ?? 0)), best: Math.max(0, ...kgs),
+    weeks, current, deltaVsLast: round2(current - lastSoFar), best: Math.max(0, ...kgs),
     avg: round2(kgs.reduce((t, k) => t + k, 0) / Math.max(1, kgs.length)),
-    trendPct: first > 0 ? Math.round(((current - first) / first) * 100) : null,
+    trendPct: first > 0 ? Math.round(((lastCompleted - first) / first) * 100) : null,
     axis: niceBounds(kgs),
   };
 }

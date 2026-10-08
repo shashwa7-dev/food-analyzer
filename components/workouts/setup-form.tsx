@@ -83,8 +83,8 @@ export function SetupForm({ defaults }: { defaults: Defaults }) {
       </div>
 
       <section className={CARD}>
-        <NumberField label="Height" ariaLabel="Height, cm" value={heightText} onChange={setHeightText} unit="cm" placeholder="e.g. 170" error={heightError} />
-        <NumberField label="Current weight" ariaLabel="Current weight, kg" value={weightText} onChange={setWeightText} unit="kg" placeholder="e.g. 70" error={weightError} />
+        <NumberField label="Height" optional ariaLabel="Height, cm (optional)" value={heightText} onChange={setHeightText} unit="cm" placeholder="e.g. 170" error={heightError} />
+        <NumberField label="Current weight" optional ariaLabel="Current weight, kg (optional)" value={weightText} onChange={setWeightText} unit="kg" placeholder="e.g. 70" error={weightError} />
         <NumberField label="Goal weight" optional ariaLabel="Goal weight, kg (optional)" value={goalText} onChange={setGoalText} unit="kg" placeholder="e.g. 65" error={goalError} />
       </section>
 

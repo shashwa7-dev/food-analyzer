@@ -49,7 +49,7 @@ export function StatTiles({ stats, goalMet, className }: { stats: FitnessStats; 
       />
       <Tile label="Volume" value={fmtVolume(tiles.volumeKg.value)} sub={sub(tiles.volumeKg.delta, fmtVolume)} positive={tiles.volumeKg.delta > 0} />
       <Tile label="New PRs" value={count(tiles.prs.value)} sub={sub(tiles.prs.delta, count)} positive={tiles.prs.delta > 0} />
-      <Tile label="Goal streak" value={`${goalStreak} wks`} sub={goalMet ? "goal hit" : "in a row"} positive={goalMet} />
+      <Tile label="Goal streak" value={`${goalStreak} ${goalStreak === 1 ? "wk" : "wks"}`} sub={goalMet ? "goal hit" : "in a row"} positive={goalMet} />
     </div>
   );
 }

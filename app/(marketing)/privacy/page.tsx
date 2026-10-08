@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           <li>Basic profile info from your Google sign-in: name, email, profile photo.</li>
           <li>Your food diary: what you log, when, and the nutrition figures for it.</li>
           <li>Any custom foods you create.</li>
-          <li>Workouts you log (sessions, exercises, sets, duration and estimated calories burned) and the body weights you log, including a goal weight.</li>
+          <li>Workouts you log (sessions, exercises, sets, duration and estimated calories burned) and the body weights you log, including a goal weight and, if you add it, your height.</li>
           <li>Photos from AI scans are kept for 30 days so you can see them in your history; a small thumbnail stays until you delete the scan.</li>
           <li>Your goal, diet, allergies and targets, so we can personalise grades and flags.</li>
         </ul>

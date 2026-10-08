@@ -66,7 +66,16 @@ describe("volumeWeeks", () => {
     const v = volumeWeeks(ws, "2026-10-08");
     expect(v.weeks.map((x) => x.start)).toEqual(["2026-08-17", "2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"]);
     expect(v.weeks.map((x) => x.kg)).toEqual([2500, 0, 0, 0, 0, 0, 4000, 5000]);
-    expect(v).toMatchObject({ current: 5000, deltaVsLast: 1000, best: 5000, avg: 1437.5, trendPct: 100 });
+    expect(v).toMatchObject({ current: 5000, deltaVsLast: 1000, best: 5000, avg: 1437.5, trendPct: 60 });
+  });
+  it("compares this week so far with last week up to the same weekday only", () => {
+    const ws = [w("2026-10-06", { volumeKg: 3000 }), w("2026-09-29", { volumeKg: 1000 }), w("2026-10-02", { volumeKg: 7000 })];
+    expect(volumeWeeks(ws, "2026-10-08").deltaVsLast).toBe(2000); // the Friday 2 Oct workout is after last Thursday
+  });
+  it("on a Monday with nothing logged yet is not -100%", () => {
+    const v = volumeWeeks([w("2026-09-30", { volumeKg: 4000 })], "2026-10-05");
+    expect(v.current).toBe(0);
+    expect(v.deltaVsLast).toBe(0); // last Monday had nothing; Wednesday's workout is later in the week
   });
   it("has no trend when the first week is empty", () => {
     expect(volumeWeeks([w("2026-10-06")], "2026-10-08").trendPct).toBeNull();
