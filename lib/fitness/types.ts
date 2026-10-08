@@ -1,5 +1,6 @@
 // Fitness tracker types (spec §C): the shared vocabulary and every API response shape. Type-only and
 // dependency-free, so client components can import from here without pulling in the database.
+import type { DayType } from "@/lib/fitness/insights";
 
 export const PRESET_KEYS = ["push", "pull", "legs", "back", "shoulders"] as const;
 export type Preset = (typeof PRESET_KEYS)[number];
@@ -76,6 +77,8 @@ export type WeekDay = {
   isToday: boolean;
   /** done = trained; otherwise today, future, or rest (a past day with no workout). */
   state: DayState;
+  /** This day's workout type (spec "Day-type colours"), by its first gym session else activity; null for a rest or future day. */
+  type: DayType | null;
 };
 
 export type WeekSummary = {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bestSet, e1rm, isPr, previousSets, upNext, volume, weekBounds, weekSummary, weightChange } from "./stats";
+import type { Preset, WorkoutKind } from "./types";
 describe("stats", () => {
   it("volume counts only done sets with weight and reps", () => {
     expect(volume([{ weightKg: 60, reps: 8, done: true }, { weightKg: 60, reps: 8, done: false }, { weightKg: null, reps: 10, done: true }])).toBe(480);
@@ -56,9 +57,13 @@ describe("previousSets", () => {
 });
 
 describe("weekSummary", () => {
-  const w = (date: string, durationMin = 40, kcalBurned = 200, kcalEstimated = false) => ({ date, durationMin, kcalBurned, kcalEstimated });
+  const w = (date: string, durationMin = 40, kcalBurned = 200, kcalEstimated = false, kind: WorkoutKind = "gym", preset: Preset | null = "push") =>
+    ({ date, durationMin, kcalBurned, kcalEstimated, kind, preset, startedAt: `${date}T08:00:00Z` });
   it("builds the strip, totals and goal for the week only", () => {
-    const s = weekSummary([w("2026-10-04"), w("2026-10-05"), w("2026-10-05", 20, 100), w("2026-10-07", 30, 150, true), w("2026-10-12")], "2026-10-05", "2026-10-08", 3);
+    const s = weekSummary(
+      [w("2026-10-04"), w("2026-10-05"), w("2026-10-05", 20, 100, false, "activity", null), w("2026-10-07", 30, 150, true), w("2026-10-12")],
+      "2026-10-05", "2026-10-08", 3,
+    );
     expect(s.start).toBe("2026-10-05");
     expect(s.end).toBe("2026-10-11");
     expect(s.days.map((d) => d.state)).toEqual(["done", "rest", "done", "today", "future", "future", "future"]);
@@ -66,10 +71,12 @@ describe("weekSummary", () => {
     expect(s.days[0]).toMatchObject({ sessions: 2, trained: true, isToday: false });
     expect(s.days[3]).toMatchObject({ isToday: true, trained: false });
     expect(s).toMatchObject({ sessions: 3, minutes: 90, kcal: 450, kcalEstimated: true, goal: { target: 3, done: 2, met: false } });
+    // A mixed day (a gym session plus an activity) colours by the gym session; rest, today and future days carry no type.
+    expect(s.days.map((d) => d.type)).toEqual(["push", null, "push", null, null, null, null]);
   });
   it("marks today done when trained, and the goal met at the target", () => {
     const s = weekSummary([w("2026-10-05"), w("2026-10-06"), w("2026-10-08")], "2026-10-05", "2026-10-08", 3);
-    expect(s.days[3]).toMatchObject({ state: "done", isToday: true });
+    expect(s.days[3]).toMatchObject({ state: "done", isToday: true, type: "push" });
     expect(s.goal).toEqual({ target: 3, done: 3, met: true });
     expect(s.kcalEstimated).toBe(false);
   });

@@ -1,7 +1,8 @@
 // Pure derived values for the fitness tracker (spec §C "Derived values"). Only sets marked done count
 // toward volume, best sets and PRs.
 import { addDays } from "@/lib/dates";
-import type { BestSet, Preset, SetLike, WeekDay, WeekSummary, WeightEntry } from "@/lib/fitness/types";
+import { dayType } from "@/lib/fitness/insights";
+import type { BestSet, Preset, SetLike, WeekDay, WeekSummary, WeightEntry, WorkoutKind } from "@/lib/fitness/types";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -75,7 +76,7 @@ const LABELS = ["M", "T", "W", "T", "F", "S", "S"];
  * weeks; only those dated inside this one count. The goal counts days trained, not sessions.
  */
 export function weekSummary(
-  workouts: { date: string; durationMin: number; kcalBurned: number; kcalEstimated?: boolean }[],
+  workouts: { date: string; durationMin: number; kcalBurned: number; kcalEstimated?: boolean; kind: WorkoutKind; preset: Preset | null; startedAt: string }[],
   weekStart: string,
   todayLocal: string,
   goal: number,
@@ -84,11 +85,13 @@ export function weekSummary(
   const inWeek = workouts.filter((w) => w.date >= weekStart && w.date <= end);
   const days: WeekDay[] = LABELS.map((label, i) => {
     const date = addDays(weekStart, i);
-    const sessions = inWeek.filter((w) => w.date === date).length;
+    const onDay = inWeek.filter((w) => w.date === date);
+    const sessions = onDay.length;
     const trained = sessions > 0;
     const isToday = date === todayLocal;
     const state = trained ? "done" : isToday ? "today" : date > todayLocal ? "future" : "rest";
-    return { date, label, sessions, trained, isToday, state };
+    const type = dayType(onDay.map((w) => ({ kind: w.kind, preset: w.preset, startedAt: w.startedAt })));
+    return { date, label, sessions, trained, isToday, state, type };
   });
   const done = days.filter((d) => d.trained).length;
   return {
