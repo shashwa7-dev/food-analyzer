@@ -4,7 +4,8 @@
 // buttons never wrap, lime is never text, text contrast meets WCAG AA, tap targets are ≥ 44 px; and on
 // /today, every meal card is the same height (±1 px), filled or empty, collapsed or with one expanded.
 // Saves a screenshot of each to docs/design/qa/{page}-{w}-{theme}.png (git-ignored) and exits 1 on any
-// offender. Read-only: it never saves, deletes or completes onboarding.
+// offender. Read-only, except for a fixture: it posts two gym workouts for the demo user (a baseline
+// and a session that beats it, so the summary shows a PR) before the runs and deletes both after.
 //   pnpm ui:audit [--only name,name] [--w 390|1280] [--theme dark|light|system] [--no-shots]
 // Needs pnpm dev running and pnpm seed:demo's cookie.
 import { mkdirSync } from "node:fs";
@@ -18,7 +19,7 @@ const OUT = resolve("docs/design/qa");
 const WIDTHS = [390, 1280] as const;
 const CONCURRENCY = 3;
 
-type Ids = { aptamil: string; dal: string; paneer: string; spinach: string; milk: string; scanLabel: string; scanBarcode: string; scanMeal: string; scanFailed: string };
+type Ids = { aptamil: string; dal: string; paneer: string; spinach: string; milk: string; scanLabel: string; scanBarcode: string; scanMeal: string; scanFailed: string; workout: string };
 type Scenario = {
   name: string;
   path: (ids: Ids) => string;
@@ -171,6 +172,9 @@ const SCENARIOS: Scenario[] = [
     await p.waitForSelector("button[aria-label='Set 1 done'][aria-pressed=true]");
     await sleep(200);
   } },
+  // A saved gym session with a PR and a set left undone (the fixture below), and its editor.
+  { name: "workouts-summary", path: (i) => `/workouts/${i.workout}` },
+  { name: "workouts-edit", path: (i) => `/workouts/${i.workout}/edit`, setup: async (p) => { await p.waitForSelector("input[aria-label='Duration, minutes']"); } },
   { name: "history", path: () => "/history" },
   { name: "me", path: () => "/me" },
   { name: "me-credits", path: () => "/me/credits", setup: () => sleep(800) },
@@ -211,7 +215,42 @@ async function api<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function resolveIds(): Promise<Ids> {
+/** POST/DELETE as the demo user (the workout fixture only). */
+async function send<T>(method: "POST" | "DELETE", path: string, body?: unknown): Promise<T> {
+  const [name, value] = demoCookie();
+  const res = await fetch(new URL(path, baseUrl()), { method, headers: { cookie: `${name}=${value}`, "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (!res.ok && !(method === "DELETE" && res.status === 404)) throw new Error(`${method} ${path} → ${res.status}`);
+  return (res.status === 204 ? null : await res.json()) as T;
+}
+
+/**
+ * The workout fixture: a baseline bench session yesterday, then today's push day that beats it (a PR),
+ * with a custom exercise and an exercise whose only set wasn't done. Returns every id created, the
+ * summary's last; the caller deletes them all.
+ */
+async function createWorkoutFixture(created: string[]): Promise<string> {
+  const s = (weightKg: number | null, reps: number | null, done = true) => ({ weightKg, reps, done });
+  const now = Date.now();
+  const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+  type Res = { workout: { id: string } };
+  const post = async (body: unknown) => {
+    const { workout } = await send<Res>("POST", "/api/v1/workouts", body);
+    created.push(workout.id);
+    return workout.id;
+  };
+  await post({ kind: "gym", date: day(now - 86_400_000), preset: "push", durationMin: 40, startedAt: new Date(now - 86_400_000).toISOString(), exercises: [{ exerciseKey: "bench_press", sets: [s(60, 8)] }] });
+  return post({
+    kind: "gym", date: day(now), preset: "push", durationMin: 48, startedAt: new Date(now - 60 * 60_000).toISOString(),
+    exercises: [
+      { exerciseKey: "bench_press", sets: [s(62.5, 8), s(62.5, 7), s(62.5, 6)] },
+      { exerciseKey: "overhead_press", sets: [s(35, 8), s(35, 8), s(35, 7)] },
+      { exerciseKey: "lateral_raise", sets: [s(8, 12, false)] },
+      { name: "Cable fly", sets: [s(15, 12), s(15, 12)] },
+    ],
+  });
+}
+
+async function resolveIds(): Promise<Omit<Ids, "workout">> {
   type Hit = { id: string; name: string };
   const foods = async (q: string) => (await api<{ results: Hit[] }>(`/api/v1/foods?q=${encodeURIComponent(q)}`)).results;
   const aptamil = (await foods("Aptamil")).find((f) => f.name.startsWith("Aptamil Gold Stage 3")) ?? (await foods("Aptamil"))[0];
@@ -227,7 +266,7 @@ async function resolveIds(): Promise<Ids> {
   const ids = { aptamil: aptamil?.id, dal: dal?.id, paneer: paneer?.id, spinach: spinach?.id, milk: milk?.id, scanLabel: done("label"), scanBarcode: done("barcode"), scanMeal: done("meal"), scanFailed: failed };
   const missing = Object.entries(ids).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) throw new Error(`Demo data missing ${missing.join(", ")}: run pnpm seed:demo`);
-  return ids as Ids;
+  return ids as Omit<Ids, "workout">;
 }
 
 /** "locked" when the server enforces the Pro gates for the (Basic) demo user. */
@@ -287,9 +326,19 @@ async function main() {
   assertDev("ui:audit");
   const args = parseArgs(process.argv.slice(2));
   mkdirSync(OUT, { recursive: true });
-  const ids = await resolveIds();
   const gates = await gatesMode();
   const scenarios = SCENARIOS.filter((s) => (!s.gates || s.gates === gates) && (!args.only.length || args.only.includes(s.name)));
+  const created: string[] = [];
+  try {
+    const needsWorkout = scenarios.some((s) => s.name.startsWith("workouts-summary") || s.name.startsWith("workouts-edit"));
+    const ids: Ids = { ...(await resolveIds()), workout: needsWorkout ? await createWorkoutFixture(created) : "" };
+    await run(args, scenarios, ids, gates);
+  } finally {
+    for (const id of created.reverse()) await send("DELETE", `/api/v1/workouts/${id}`).catch((e: unknown) => console.error(`Couldn't delete fixture workout ${id}:`, e));
+  }
+}
+
+async function run(args: ReturnType<typeof parseArgs>, scenarios: Scenario[], ids: Ids, gates: "locked" | "open") {
   const runs: Run[] = [];
   for (const scenario of scenarios) {
     for (const width of args.widths) {

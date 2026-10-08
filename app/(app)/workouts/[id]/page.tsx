@@ -64,18 +64,17 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
         </section>
       )}
 
-      <p className="m-0 flex flex-wrap items-center gap-x-1 px-1 text-[12.5px] leading-snug text-subtle [&_svg]:size-3.5">
-        <span>
-          <Flame className="mr-1 inline-block align-[-2px] text-grade-d" aria-hidden />
-          Calories burned is an estimate from duration and your weight ({w.kcalBasis.weightKg} kg).
-        </span>
+      <p className="m-0 px-1 text-[12.5px] leading-[1.5] text-subtle">
+        <Flame className="mr-1 inline-block size-3.5 align-[-2px] text-grade-d" aria-hidden />
+        Calories burned is an estimate from duration and your weight ({w.kcalBasis.weightKg} kg).
         {w.kcalBasis.estimated && (
-          <span className="inline-flex items-center gap-1">
-            <span aria-hidden>·</span>
-            <Link href="/weight" className="inline-flex min-h-11 items-center font-semibold whitespace-nowrap text-ink underline underline-offset-3">
+          <>
+            {" · "}
+            {/* Inline so the sentence wraps naturally; the padding gives it a 44 px tap height without moving the lines. */}
+            <Link href="/weight" className="py-[15px] font-semibold text-ink underline underline-offset-3">
               Log your weight for a better estimate
             </Link>
-          </span>
+          </>
         )}
       </p>
     </div>
