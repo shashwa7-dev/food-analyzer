@@ -46,7 +46,7 @@ function useProfileSave(onDone: () => void) {
 }
 
 /** Cancel and Save, the sheet's one main action (mock-c1 sheet footer). */
-function SheetActions({ pending, dirty, onCancel, onSave }: { pending: boolean; dirty: boolean; onCancel: () => void; onSave: () => void }) {
+export function SheetActions({ pending, dirty, onCancel, onSave }: { pending: boolean; dirty: boolean; onCancel: () => void; onSave: () => void }) {
   return (
     <div className="grid shrink-0 grid-cols-[1fr_1.3fr] gap-2.5 pt-1">
       <Button type="button" variant="ghost-sunken" shape="pill" size="xl" className="h-[54px] min-w-0 px-4" disabled={pending} onClick={onCancel}>

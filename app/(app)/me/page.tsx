@@ -14,7 +14,7 @@ import { effectiveOverrides, showTargetsNotice } from "@/lib/profile/effective-t
 const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
 
 /**
- * Me (spec §6.13, mock "Me (simplified)"): who you are, scans left, five settings, Export data, sign out. One
+ * Me (spec §6.13, mock "Me (simplified)"): who you are, scans left, six settings, Export data, sign out. One
  * column, centred at 560 px on desktop.
  */
 export default async function MePage() {
@@ -39,7 +39,7 @@ export default async function MePage() {
       {showTargetsNotice(profile) && <TargetsNotice />}
       {/* A locked plan's sheet shows the goal's presets (effective targets); stored overrides stay untouched. */}
       <SettingsList
-        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: effectiveOverrides(profile), country: profile.country, customTargets: allows(profile.plan, "customTargets") }}
+        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: effectiveOverrides(profile), country: profile.country, customTargets: allows(profile.plan, "customTargets"), fitness: { weeklyWorkoutGoal: profile.weeklyWorkoutGoal, goalWeightKg: profile.goalWeightKg } }}
       />
       <ExportRow />
       <AccountFooter />
