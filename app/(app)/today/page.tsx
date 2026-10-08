@@ -16,6 +16,11 @@ import { WeekCard } from "@/components/today/week-card";
 import { RecentScansCard } from "@/components/today/recent-scans-card";
 import { TargetsNotice } from "@/components/today/targets-notice";
 import { showTargetsNotice } from "@/lib/profile/effective-targets";
+import { listWorkouts } from "@/lib/fitness/service";
+import { burnedSuffix, energyLine } from "@/lib/today/energy";
+import { EnergyStrip } from "@/components/today/energy-strip";
+import { WorkoutsCard } from "@/components/today/workouts-card";
+import { ResumeBanner } from "@/components/fitness/resume-banner";
 
 // Meal cards follow the day: snacks sit between lunch and dinner (mock-c1).
 const DAY_ORDER = ["breakfast", "lunch", "snack", "dinner"] as const satisfies Meal[];
@@ -27,12 +32,20 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const date = requested && DateSchema.safeParse(requested).success ? requested : today;
   // The rail's week and scans don't follow the picked date: they are always the last 7 days and the
   // latest scans. Read on phones too (the server can't know the width); the rail is hidden there.
-  const [day, week, recent] = await Promise.all([getDay(userId, date), getProgress(userId, "week"), listScans(userId, {}, undefined, 3)]);
+  const [day, week, recent, workouts] = await Promise.all([
+    getDay(userId, date),
+    getProgress(userId, "week"),
+    listScans(userId, {}, undefined, 3),
+    listWorkouts(userId, { from: date, to: date }),
+  ]);
   const labels = dayLabels(date);
   const fullName = name?.trim() || "there";
   const firstName = fullName.split(/\s+/)[0];
   const kcal = day.progress.find((p) => p.key === "energyKcal")!;
   const headline = headlineFor({ eaten: kcal.total, target: kcal.target, isToday: date === today, dateLabel: labels.short });
+  // Workouts are shown beside the food, never subtracted from the target (spec §C: no eat-back).
+  const burned = workouts.reduce((sum, w) => sum + w.kcalBurned, 0);
+  const energy = workouts.length ? energyLine(kcal.total, burned, kcal.target) : null;
 
   return (
     // Day + insights rail (mock-c1 "Today on desktop", option A). One column on phones. From 900 px the
@@ -54,9 +67,13 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           <h1 className="mt-0.5 text-[28px] font-[650] leading-[1.08] tracking-[-0.04em] text-balance text-ink md:text-[40px]">
             {headline.lead && <>{headline.lead} </>}
             <em className={cn("num whitespace-nowrap not-italic", toneFor(kcal.total, kcal.target) === "over" ? "text-bad" : "text-brand-deep")}>{headline.value}</em> {headline.tail}
+            {energy && <span className="num text-[0.6em] font-semibold tracking-[-0.02em] whitespace-nowrap text-subtle"> {burnedSuffix(energy.burned)}</span>}
           </h1>
+          <ResumeBanner userId={userId} />
           {showTargetsNotice(profile) && <TargetsNotice />}
           <DaySummary progress={day.progress} />
+          {energy && <EnergyStrip line={energy} />}
+          <WorkoutsCard workouts={workouts} isToday={date === today} className="md:hidden" />
           <div className="flex flex-col gap-3 md:grid md:grid-cols-2 md:gap-4">
             {DAY_ORDER.map((m, i) => (
               <MealSection key={m} meal={m} index={i as 0 | 1 | 2 | 3} date={date} entries={day.entries.filter((e) => e.meal === m)} kcal={day.byMeal[m].energyKcal} />
@@ -67,7 +84,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           <DailyLimitsCard progress={day.progress} />
           <WeekCard week={week} goal={profile.goal} />
           <RecentScansCard scans={recent.scans} />
-          {/* Future: the Workouts card goes here, as one more rail card under Recent scans. */}
+          <WorkoutsCard workouts={workouts} isToday={date === today} />
         </aside>
       </div>
     </div>
