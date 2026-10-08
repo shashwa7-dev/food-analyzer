@@ -141,6 +141,44 @@ async function workoutsLocked(page: Page): Promise<Finding[]> {
     return out;
   });
 }
+/**
+ * A done scan's result: one h1 (the name) in a title row that holds the image tile (an img or the icon);
+ * from md the add panel sits in an aside, and the phone bar is hidden. Phones have the sticky bar and no visible aside.
+ */
+async function scanResult(page: Page): Promise<Finding[]> {
+  return page.evaluate((): Finding[] => {
+    const out: Finding[] = [];
+    const miss = (selector: string, detail: string) => out.push({ rule: "missing", selector, text: "", detail });
+    const visible = (el: Element | null) => !!el && (el as HTMLElement).getClientRects().length > 0;
+    const h1s = document.querySelectorAll("h1").length;
+    if (h1s !== 1) miss("h1", `expected one h1, found ${h1s}`);
+    const title = document.querySelector("[data-scan-title]");
+    const tile = title?.querySelector("[data-scan-image]");
+    if (!title || !tile || !title.contains(document.querySelector("h1"))) miss("[data-scan-title] [data-scan-image]", "the title row needs the image tile beside the name");
+    else if (tile.tagName === "IMG" ? !(tile as HTMLImageElement).alt.endsWith(", scan photo") : tile.getAttribute("aria-hidden") !== "true") miss("[data-scan-image]", "an image tile needs alt text; the icon tile must be aria-hidden");
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    const aside = document.querySelector("aside");
+    const bar = document.querySelector("[data-sticky-actions]");
+    if (desktop) {
+      if (!aside || !visible(aside)) miss("aside", "expected the add panel in an aside on desktop");
+      else if (![...aside.querySelectorAll("button")].some((b) => /^Add to /.test(b.textContent?.trim() ?? ""))) miss("aside button", "the aside needs an Add to {meal} button");
+      if (visible(bar)) out.push({ rule: "unexpected", selector: "[data-sticky-actions]", text: "", detail: "no floating bar on desktop" });
+    } else {
+      if (visible(aside)) out.push({ rule: "unexpected", selector: "aside", text: "", detail: "the add panel is desktop only" });
+      if (!visible(bar)) miss("[data-sticky-actions]", "expected the phone add bar");
+    }
+    return out;
+  });
+}
+/** A failed scan: the card with its one recovery action; none of the result layout (no tile, no aside, no add bar). */
+async function scanFailed(page: Page): Promise<Finding[]> {
+  return page.evaluate((): Finding[] => {
+    const out: Finding[] = [];
+    if (!document.querySelector("[role=alert]")) out.push({ rule: "missing", selector: "[role=alert]", text: "", detail: "expected the failure message" });
+    for (const sel of ["aside", "[data-scan-image]", "[data-sticky-actions]"]) if (document.querySelector(sel)) out.push({ rule: "unexpected", selector: sel, text: "", detail: "a failed scan has no result layout" });
+    return out;
+  });
+}
 const MONTH_LOCK = "button[aria-label='Month, a Pro feature']";
 const EXPORT_LOCK = "button[aria-label='Export data, a Pro feature']";
 const NOTICE = "section[aria-label='Targets notice']";
@@ -188,10 +226,10 @@ const SCENARIOS: Scenario[] = [
     name: "scan", path: () => "/scan", viewportShot: true,
     setup: async (p) => { await p.waitForFunction(() => { const v = document.querySelector("video"); return !!v && v.videoWidth > 0; }, { timeout: 20_000 }); await sleep(600); },
   },
-  { name: "scan-label", path: (i) => `/scans/${i.scanLabel}` },
-  { name: "scan-barcode", path: (i) => `/scans/${i.scanBarcode}` },
-  { name: "scan-meal", path: (i) => `/scans/${i.scanMeal}` },
-  { name: "scan-failed", path: (i) => `/scans/${i.scanFailed}` },
+  { name: "scan-label", path: (i) => `/scans/${i.scanLabel}`, check: scanResult },
+  { name: "scan-barcode", path: (i) => `/scans/${i.scanBarcode}`, check: scanResult },
+  { name: "scan-meal", path: (i) => `/scans/${i.scanMeal}`, check: scanResult },
+  { name: "scan-failed", path: (i) => `/scans/${i.scanFailed}`, check: scanFailed },
   { name: "progress", path: () => "/progress", setup: () => sleep(1200) },
   { name: "progress-month", path: () => "/progress?range=month", setup: () => sleep(1200) },
   { name: "workouts", path: () => "/workouts", setup: () => sleep(1200), check: expectAll("section[aria-label='Weekly goal']", "a[href='/weight']") },

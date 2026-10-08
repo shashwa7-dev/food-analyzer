@@ -55,7 +55,7 @@ export function FoodTitle({ name, meta }: { name: string; meta: string }) {
       >
         {name}
       </h1>
-      <p className="m-0 mt-1 truncate text-[13px] text-subtle">{meta}</p>
+      <p className="m-0 mt-1 line-clamp-2 text-[13px] text-subtle">{meta}</p>
     </header>
   );
 }
