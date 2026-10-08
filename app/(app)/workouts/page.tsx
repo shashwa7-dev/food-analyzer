@@ -5,6 +5,10 @@ import { getWeightHistory } from "@/lib/fitness/weight";
 import { SetupForm } from "@/components/workouts/setup-form";
 import { EmptyHub } from "@/components/workouts/empty-hub";
 import { Hub } from "@/components/workouts/hub";
+import { TrendsCard } from "@/components/workouts/trends-card";
+import { TopExercises } from "@/components/workouts/top-exercises";
+import { HowOften } from "@/components/workouts/how-often";
+import { ProPreview } from "@/components/workouts/pro-preview";
 
 /**
  * Workouts hub (spec §C "The /workouts page"): first-visit setup, then the empty state until there's a
@@ -23,5 +27,14 @@ export default async function WorkoutsPage({ searchParams }: { searchParams: Pro
     getFitnessStats(userId, range), getFitnessSummary(userId), getWeightHistory(userId, { days: 30 }), historyPage(userId, null),
   ]);
   if (!stats.hasWorkouts) return <EmptyHub summary={summary} weight={weight} />;
-  return <Hub stats={stats} summary={summary} weight={weight} history={history} locked={locked} proSlot={null} proAside={null} />;
+  const proSlot = locked ? (
+    <ProPreview />
+  ) : (
+    <>
+      <TrendsCard calendar={stats.calendar!} volume={stats.volume!} />
+      <TopExercises items={stats.topExercises!} range={stats.range} />
+    </>
+  );
+  const proAside = locked ? null : <HowOften items={stats.byType!} range={stats.range} />;
+  return <Hub stats={stats} summary={summary} weight={weight} history={history} locked={locked} proSlot={proSlot} proAside={proAside} />;
 }

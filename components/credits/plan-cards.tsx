@@ -1,7 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-import { Barcode, CalendarRange, Check, Download, RotateCcw, Sparkles, Target, type LucideIcon } from "lucide-react";
+import { Barcode, CalendarRange, Check, Download, RotateCcw, Sparkles, Target, TrendingUp, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PLANS } from "@/lib/credits/plan-features";
@@ -76,6 +76,7 @@ export function PlanCards({ stacked = false }: { stacked?: boolean }) {
             <Perk icon={CalendarRange} tone="brand">Month view on Progress</Perk>
             <Perk icon={Download} tone="brand">Export your data (CSV)</Perk>
             <Perk icon={Target} tone="brand">Custom daily targets</Perk>
+            <Perk icon={TrendingUp} tone="brand">Workout insights</Perk>
           </ul>
         </div>
         {plan !== "pro" && (onWaitlist ? (
