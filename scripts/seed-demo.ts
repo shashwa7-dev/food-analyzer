@@ -12,7 +12,10 @@ import { refundScan, debitForScan, getBalance } from "@/lib/credits/ledger";
 import { addDays, todayIn } from "@/lib/dates";
 import { db } from "@/lib/db/client";
 import { session, user } from "@/lib/db/auth-schema";
-import { creditTxn, food, foodLog, profile, scan, userFoodStats } from "@/lib/db/schema";
+import { bodyWeight, creditTxn, food, foodLog, profile, scan, userFoodStats, workout } from "@/lib/db/schema";
+import { createWorkout } from "@/lib/fitness/service";
+import { logWeight } from "@/lib/fitness/weight";
+import { weekBounds } from "@/lib/fitness/stats";
 import { ENGINE_VERSION } from "@/lib/engine";
 import { buildResult, type ScanResult } from "@/lib/engine/result";
 import { searchFoodRows, type FoodRow } from "@/lib/foods/service";
@@ -29,7 +32,7 @@ const TZ = "Asia/Kolkata";
 const COOKIE_FILE = resolve(".superpowers/demo-cookie.txt");
 const SESSION_DAYS = 30;
 const DEMO_TARGETS = { protein: 75 };
-const PROFILE = { timezone: TZ, goal: "weight_loss", diet: "vegetarian", allergies: ["peanut"], country: "IN" } as const;
+const PROFILE = { timezone: TZ, goal: "weight_loss", diet: "vegetarian", allergies: ["peanut"], country: "IN", weeklyWorkoutGoal: 5, goalWeightKg: 70 } as const;
 
 const guard = () => assertLocalDb("seed:demo");
 
@@ -252,6 +255,66 @@ async function seedScans(userId: string) {
   });
 }
 
+// --- fitness --------------------------------------------------------------------------------------
+
+/** 30 days of weight ending today, 73.4 → 72.0 kg with a small deterministic wobble. */
+async function seedWeight(userId: string, today: string) {
+  await db.delete(bodyWeight).where(eq(bodyWeight.userId, userId));
+  const DAYS = 30, FROM = 73.4, TO = 72.0;
+  const WOBBLE = [0, 0.2, -0.1, 0.1, -0.2, 0.1, 0];
+  for (let i = 0; i < DAYS; i++) {
+    const t = i / (DAYS - 1);
+    const edge = i === 0 || i === DAYS - 1;
+    const kg = Math.round((FROM + (TO - FROM) * t + (edge ? 0 : WOBBLE[i % WOBBLE.length]!)) * 10) / 10;
+    await logWeight(userId, { date: addDays(today, -(DAYS - 1 - i)), kg });
+  }
+}
+
+/** The ISO instant of hh:mm IST on `date`, never later than two hours ago (a seed run early in the day). */
+function istAt(date: string, hh: number, mm = 0): string {
+  const at = new Date(`${date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+05:30`);
+  return new Date(Math.min(at.getTime(), Date.now() - 2 * 3_600_000)).toISOString();
+}
+
+/**
+ * This week (Monday to today, IST): Push, Pull and Legs plus two walks, spread over the days so far
+ * (today always has Legs and a walk, so Today shows the energy strip), and last week's lighter Push so
+ * this week's bench is a PR. Replaces every demo workout.
+ */
+async function seedWorkouts(userId: string, today: string): Promise<number> {
+  await db.delete(workout).where(eq(workout.userId, userId));
+  const { start } = weekBounds(today);
+  const days: string[] = [];
+  for (let d = start; d <= today; d = addDays(d, 1)) days.push(d);
+  const on = (i: number) => days[Math.min(i, days.length - 1)]!;
+  const set = (weightKg: number, reps: number) => ({ weightKg, reps, done: true });
+  const ex = (exerciseKey: string, ...sets: ReturnType<typeof set>[]) => ({ exerciseKey, sets });
+  const gym = (date: string, preset: "push" | "pull" | "legs", hh: number, durationMin: number, exercises: ReturnType<typeof ex>[]) =>
+    createWorkout(userId, { kind: "gym", date, preset, intensity: "moderate", durationMin, startedAt: istAt(date, hh), exercises });
+  const walk = (date: string, hh: number, durationMin: number) =>
+    createWorkout(userId, { kind: "activity", date, activity: "walk", intensity: "moderate", durationMin, startedAt: istAt(date, hh) });
+
+  const lastWeek = addDays(start, -4);
+  const made = [
+    await gym(lastWeek, "push", 18, 45, [ex("bench_press", set(57.5, 8), set(57.5, 8), set(57.5, 7)), ex("overhead_press", set(32.5, 8), set(32.5, 7))]),
+    await gym(on(0), "push", 18, 48, [
+      ex("bench_press", set(60, 8), set(62.5, 8), set(62.5, 6)), ex("overhead_press", set(35, 8), set(35, 8), set(35, 7)),
+      ex("incline_db_press", set(20, 10), set(20, 9)), ex("lateral_raise", set(8, 12), set(8, 12)), ex("triceps_pushdown", set(25, 12), set(25, 11)),
+    ]),
+    await walk(on(1), 7, 35),
+    await gym(on(2), "pull", 18, 52, [
+      ex("deadlift", set(90, 5), set(90, 5), set(95, 4)), ex("barbell_row", set(50, 8), set(50, 8)), ex("seated_cable_row", set(45, 10), set(45, 10)),
+      ex("face_pull", set(20, 15), set(20, 15)), ex("biceps_curl", set(12, 10), set(12, 9)),
+    ]),
+    await walk(on(3), 7, 30),
+    await gym(on(3), "legs", 18, 55, [
+      ex("squat", set(70, 8), set(75, 6), set(75, 6)), ex("romanian_deadlift", set(60, 8), set(60, 8)), ex("leg_press", set(120, 10), set(120, 10)),
+      ex("leg_curl", set(35, 12), set(35, 11)), ex("calf_raise", set(40, 15), set(40, 15)),
+    ]),
+  ];
+  return made.length;
+}
+
 // --- verify -----------------------------------------------------------------------------------------
 
 async function verify(cookie: string): Promise<string> {
@@ -280,6 +343,8 @@ async function main() {
   const foods = await resolveFoods(userId);
   await seedDiary(userId, foods, today);
   const scans = await seedScans(userId);
+  await seedWeight(userId, today);
+  const workouts = await seedWorkouts(userId, today);
 
   console.log(`Demo user   ${userId} (${EMAIL})`);
   console.log(`Cookie file ${COOKIE_FILE} (valid ${SESSION_DAYS} days)`);
@@ -290,6 +355,7 @@ async function main() {
     console.log(`  ${d.date}  ${String(d.entries.length).padStart(2)} entries  ${Math.round(kcal.total)}/${kcal.target} kcal  sodium ${Math.round(na.total)}/${na.target} mg`);
   }
   console.log(`Scans       label ${scans.peanuts} (${scans.grades.peanuts}), barcode ${scans.milk} (${scans.grades.milk}), meal ${scans.thali} (${scans.grades.thali}), failed ${scans.failed}`);
+  console.log(`Fitness     ${workouts} workouts (this week + last week's push), 30 days of weight, goal 70 kg, 5 days a week`);
   const bal = await getBalance(userId);
   const txns = await db.select({ type: creditTxn.type, amount: creditTxn.amount }).from(creditTxn).where(eq(creditTxn.userId, userId));
   console.log(`Credits     ${bal.credits} of ${bal.allowance} (ledger: ${txns.map((t) => `${t.type} ${t.amount > 0 ? "+" : ""}${t.amount}`).join(", ")})`);
