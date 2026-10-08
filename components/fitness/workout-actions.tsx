@@ -34,7 +34,7 @@ export function WorkoutTopBar({ workout }: { workout: WorkoutDetail }) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["fitness"] });
       toast.success("Workout deleted");
-      router.replace("/progress?view=fitness");
+      router.replace("/workouts");
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : "Couldn’t delete that. Try again."),
   });
@@ -45,7 +45,7 @@ export function WorkoutTopBar({ workout }: { workout: WorkoutDetail }) {
 
   return (
     <div className="flex items-center justify-between gap-2.5">
-      <BackButton fallback="/today" />
+      <BackButton fallback="/workouts" />
       <p className="m-0 min-w-0 truncate text-[17px] font-semibold whitespace-nowrap text-ink">Workout</p>
       <OverflowMenu items={[edit, { label: "Delete", icon: <Trash2 />, tone: "danger", onSelect: () => setConfirm(true) }]} />
       <ConfirmDialog

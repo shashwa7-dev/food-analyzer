@@ -24,7 +24,7 @@ export function LogWorkout({ userId, timezone }: { userId: string; timezone: str
   return (
     <div data-no-phone-nav className="mx-auto flex w-full max-w-[720px] flex-col gap-3">
       <div className="flex items-center justify-between gap-2.5">
-        <BackButton fallback="/today" />
+        <BackButton fallback="/workouts" />
         <h1 className="m-0 min-w-0 truncate text-[17px] font-semibold whitespace-nowrap text-ink">Log workout</h1>
         <span className="size-11 shrink-0" aria-hidden />
       </div>
@@ -47,7 +47,7 @@ export function LogWorkout({ userId, timezone }: { userId: string; timezone: str
           return (
             <li key={key} className="border-line not-first:border-t">
               <Link href={`/workouts/session?preset=${key}`} className="flex min-h-[60px] items-center gap-3 px-3.5 py-2 text-ink">
-                <IconTile tone="protein"><Dumbbell /></IconTile>
+                <IconTile tone="brand"><Dumbbell /></IconTile>
                 <span className="min-w-0 flex-1 leading-tight">
                   <b className="block truncate text-[15px] font-semibold">{p.title}</b>
                   <span className="block truncate text-[13px] text-subtle">{p.muscles}</span>

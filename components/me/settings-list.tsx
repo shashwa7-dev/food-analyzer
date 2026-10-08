@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
-import { AlertTriangle, ChevronRight, Dumbbell, Globe, Leaf, Target, type LucideIcon } from "lucide-react";
+import { Fragment, useState } from "react";
+import Link from "next/link";
+import { AlertTriangle, ChevronRight, Dumbbell, Globe, History, Leaf, Target, type LucideIcon } from "lucide-react";
 import { FitnessSection, fitnessValue } from "@/components/me/fitness-section";
 import type { FitnessSettings } from "@/lib/fitness/types";
 import { targetsFor } from "@/lib/nutrition/targets";
@@ -41,7 +42,7 @@ const META: Record<Section, { icon: LucideIcon; label: string; hint: string }> =
  * current value (truncated) and a chevron. Each row opens its section of the settings form in a sheet;
  * Appearance's sheet is three tiles that apply on tap (no Save) and close it.
  */
-export function SettingsList({ values }: { values: SettingsValues }) {
+export function SettingsList({ values, historyCount }: { values: SettingsValues; historyCount: number }) {
   const { theme, setTheme } = useTheme();
   const [section, setSection] = useState<Section>("goal");
   const [open, setOpen] = useState(false);
@@ -75,20 +76,35 @@ export function SettingsList({ values }: { values: SettingsValues }) {
           const { label } = META[s];
           const Icon = iconOf(s);
           return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => show(s)}
-              aria-haspopup="dialog"
-              className="flex min-h-[54px] w-full items-center gap-3.5 px-4 text-left text-ink transition-colors not-first:border-t not-first:border-line hover:bg-sunken/60"
-            >
-              <Icon className="size-5 shrink-0 text-subtle" aria-hidden />
-              <span className="shrink-0 font-[550] whitespace-nowrap">{label}</span>
-              <span className="ml-auto min-w-0 truncate text-right text-[14px] text-subtle">
-                <span className="num">{value[s]}</span>
-              </span>
-              <ChevronRight className="size-[18px] shrink-0 text-subtle" aria-hidden />
-            </button>
+            <Fragment key={s}>
+              {/* Scan history sits just above Appearance: a link, not a sheet, but the same row shape. */}
+              {s === "appearance" && (
+                <Link
+                  href="/history"
+                  className="flex min-h-[54px] w-full items-center gap-3.5 px-4 text-left text-ink transition-colors not-first:border-t not-first:border-line hover:bg-sunken/60"
+                >
+                  <History className="size-5 shrink-0 text-subtle" aria-hidden />
+                  <span className="shrink-0 font-[550] whitespace-nowrap">Scan history</span>
+                  <span className="ml-auto min-w-0 truncate text-right text-[14px] text-subtle">
+                    <span className="num">{historyCount}</span>
+                  </span>
+                  <ChevronRight className="size-[18px] shrink-0 text-subtle" aria-hidden />
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => show(s)}
+                aria-haspopup="dialog"
+                className="flex min-h-[54px] w-full items-center gap-3.5 px-4 text-left text-ink transition-colors not-first:border-t not-first:border-line hover:bg-sunken/60"
+              >
+                <Icon className="size-5 shrink-0 text-subtle" aria-hidden />
+                <span className="shrink-0 font-[550] whitespace-nowrap">{label}</span>
+                <span className="ml-auto min-w-0 truncate text-right text-[14px] text-subtle">
+                  <span className="num">{value[s]}</span>
+                </span>
+                <ChevronRight className="size-[18px] shrink-0 text-subtle" aria-hidden />
+              </button>
+            </Fragment>
           );
         })}
       </div>

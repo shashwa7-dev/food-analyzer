@@ -48,9 +48,11 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const energy = workouts.length ? energyLine(kcal.total, burned, kcal.target) : null;
 
   return (
-    // Day + insights rail (mock-c1 "Today on desktop", option A). One column on phones. From 900 px the
-    // rail's cards show, under the day while the content area is narrow (a 300 px rail beside it would
-    // leave the day ~270 px at 900 px), and as a 300 px column beside it once the area is 840 px wide.
+    // Day + insights rail (mock-c1 "Today on desktop", option A). One column on phones. Workouts now sits
+    // in the main column, under the meals, on every width (spec: the hub lives at /workouts). From 900 px
+    // the rail's remaining cards show, under the day while the content area is narrow (a 300 px rail
+    // beside it would leave the day ~270 px at 900 px), and as a 300 px column beside it once the area is
+    // 840 px wide.
     <div className="@container">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 md:gap-6 @min-[840px]:grid-cols-[minmax(0,1fr)_300px] @min-[840px]:items-start">
         <div className="flex min-w-0 flex-col gap-3.5 md:gap-5">
@@ -73,18 +75,17 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           {showTargetsNotice(profile) && <TargetsNotice />}
           <DaySummary progress={day.progress} />
           {energy && <EnergyStrip line={energy} />}
-          <WorkoutsCard workouts={workouts} isToday={date === today} className="md:hidden" />
           <div className="flex flex-col gap-3 md:grid md:grid-cols-2 md:gap-4">
             {DAY_ORDER.map((m, i) => (
               <MealSection key={m} meal={m} index={i as 0 | 1 | 2 | 3} date={date} entries={day.entries.filter((e) => e.meal === m)} kcal={day.byMeal[m].energyKcal} />
             ))}
           </div>
+          <WorkoutsCard workouts={workouts} isToday={date === today} />
         </div>
         <aside aria-label="Insights" className="hidden min-w-0 gap-3.5 md:grid md:gap-5 md:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] md:items-start @min-[840px]:grid-cols-1">
           <DailyLimitsCard progress={day.progress} />
           <WeekCard week={week} goal={profile.goal} />
           <RecentScansCard scans={recent.scans} />
-          <WorkoutsCard workouts={workouts} isToday={date === today} />
         </aside>
       </div>
     </div>

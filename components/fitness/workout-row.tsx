@@ -23,7 +23,7 @@ export function WorkoutRow({ w, meta, className }: { w: WorkoutListItem; meta?: 
   const Icon = w.kind === "activity" && w.activity ? ACTIVITY_ICONS[w.activity] : Dumbbell;
   return (
     <Link href={`/workouts/${w.id}`} className={cn("flex min-h-14 min-w-0 items-center gap-3 rounded-[14px] text-ink", className)}>
-      <IconTile tone="protein"><Icon /></IconTile>
+      <IconTile tone="brand"><Icon /></IconTile>
       <span className="min-w-0 flex-1 leading-tight">
         <b className="block truncate text-[14.5px] font-semibold whitespace-nowrap">{w.title}</b>
         <span className="num block truncate text-[12.5px] whitespace-nowrap text-subtle">{meta ?? workoutMeta(w)}</span>

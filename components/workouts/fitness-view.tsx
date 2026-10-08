@@ -107,7 +107,7 @@ function UpNextCard({ next }: { next: FitnessSummary["upNext"] }) {
         </Link>
       </div>
       <Link href={`/workouts/session?preset=${next.preset}`} className={cn(CARD, "flex min-h-[68px] items-center gap-3 px-3.5 py-3 text-ink")}>
-        <IconTile tone="protein"><Dumbbell /></IconTile>
+        <IconTile tone="brand"><Dumbbell /></IconTile>
         <span className="min-w-0 flex-1 leading-tight">
           <b className="block truncate text-[15px] font-semibold whitespace-nowrap">{next.title}</b>
           <span className="block truncate text-[13px] whitespace-nowrap text-subtle">{next.muscles} · {next.exerciseCount} exercises</span>

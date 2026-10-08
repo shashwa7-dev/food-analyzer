@@ -197,7 +197,7 @@ function Session({ userId, timezone, requested }: Props) {
 
       <ResponsiveSheet open={askMinutes !== null} onOpenChange={(open) => { if (!open) setAskMinutes(null); }}>
         <div className="flex items-center gap-3">
-          <IconTile tone="protein" size="lg"><Timer /></IconTile>
+          <IconTile tone="brand" size="lg"><Timer /></IconTile>
           <div className="min-w-0 flex-1 leading-tight">
             <SheetTitle className="block truncate text-[18px] font-semibold tracking-[-0.02em] text-ink">How long did you train?</SheetTitle>
             <span className="block truncate text-[13px] text-subtle">This session was open for {Math.floor(elapsedMinutes(draft) / 60)} h</span>

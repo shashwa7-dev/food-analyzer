@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type IconTileTone = "neutral" | "brand" | "good" | "bad" | "protein";
+export type IconTileTone = "neutral" | "brand" | "good" | "bad";
 export type IconTileSize = "sm" | "md" | "lg";
 
 const SIZE: Record<IconTileSize, string> = {
@@ -15,8 +15,6 @@ const TONE: Record<IconTileTone, string> = {
   brand: "bg-brand-soft text-brand-deep",
   good: "bg-grade-a/15 text-grade-a",
   bad: "bg-grade-e/12 text-grade-e",
-  // mock-c1 `.ftile.wk`: workouts and activities.
-  protein: "bg-protein/14 text-protein",
 };
 
 export function IconTile({
