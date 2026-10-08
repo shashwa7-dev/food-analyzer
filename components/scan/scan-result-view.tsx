@@ -1,11 +1,10 @@
-// Server-rendered parts of /scans/[id] (spec §6.11, mock-c1 "Scan result"): tag chips, title, the
-// grade hero, calories, macro rings, flag chips, the better pick and the details below; and the
-// failure card. Data comes from the page (getScan, balance); nothing here touches the database.
+// Server-rendered parts of /scans/[id] (spec §6.11): the result, on the food page's layout with a
+// small image tile beside the title; and the failure card. Data comes from the page (getScan, balance); nothing here touches the database.
 import Link from "next/link";
-import { Barcode, CheckCircle2, Info, RotateCcw, Scale, ScanLine, Sparkles, TriangleAlert } from "lucide-react";
+import { Barcode, CheckCircle2, Info, RotateCcw, ScanLine, Sparkles, TriangleAlert } from "lucide-react";
 import type { ScanView } from "@/lib/scans/service";
 import { scanErrorAction } from "@/lib/scans/messages";
-import { oneLineReason, packSize, typicalPortion } from "@/lib/scans/result-display";
+import { oneLineReason, packSize, typicalPortion, warningFlags } from "@/lib/scans/result-display";
 import { foodIconKey, type FoodIconKey } from "@/lib/foods/icon";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { moreNutrientRows, vitaminMineralRows } from "@/lib/nutrition/nutrient-display";
@@ -14,16 +13,19 @@ import type { Diet, Meal, Nutrients } from "@/lib/nutrition/types";
 import type { ScanResult } from "@/lib/engine/result";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
-import { FOOD_ICON, FoodIcon } from "@/components/food/food-icon";
+import { FoodIcon } from "@/components/food/food-icon";
 import {
-  BetterPick, CalorieRow, CARD, CATEGORY, FlagChips, fmt, GradeHero, MacroCards, NutrientGrid, ResultTitle, Tag, Tags, vitaminsNote, WhyGrade,
+  BetterPick, BigCalories, CARD, CATEGORY, DietChip, fmt, FoodTitle, MacroCards, NutrientGrid, Tag, Tags, VerdictLine, vitaminsNote,
 } from "@/components/food/result-parts";
+import { DetailTabs } from "@/components/food/detail-tabs";
+import { ReasonList } from "@/components/food/food-verdict";
 import { IndbSodiumNote } from "@/components/food/indb-sodium-note";
 import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-note";
 import { FullNutritionTable } from "@/components/food/nutrition-table";
-import { cn } from "@/lib/utils";
+import { FlagNotes } from "@/components/food/sheet-parts";
 import { MODE_META } from "./mode-meta";
 import { ResultActions, ResultTopBar } from "./scan-result";
+import { ScanImageTile } from "./scan-image-tile";
 
 /** Validated ?meal=&date= carried from /scan, passed on to "Scan again" links. */
 export type ScanParams = { meal?: string; date?: string };
@@ -83,8 +85,10 @@ function SourceLine({ view, credits }: { view: ScanView & { result: ScanResult }
 }
 
 /**
- * A done scan's result (server-rendered); the top bar and the actions are the client parts. The stored
- * image is not shown here yet (the page is rebuilt separately): this is the grade-card layout.
+ * A done scan's result (server-rendered), laid out like a food's page (/foods/[id]): a title row with
+ * the image tile, the one-line verdict, calories, macros, nutrient cards and tabs on the left; the
+ * add panel, source line and "Scan something else" in a sticky column from `md`. Phones stack, with
+ * the sticky "Add to {Meal}" bar. The top bar and the actions are the client parts.
  */
 export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, hasAllergies, diet, sp }: {
   view: ScanView & { result: ScanResult }; credits: number; fromIndb: boolean;
@@ -95,7 +99,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   const p = r.portions[r.defaultPortion] ?? r.portions[0];
   // No per-100 values (per-serving label, weight unknown): show the one serving as printed.
   const forPortion = r.per100 ? (p?.grams ? nutrientsFor(r.per100, p.grams) : r.per100) : (r.perServing ?? { energyKcal: 0, protein: 0, carbs: 0, fat: 0 });
-  // The hero numbers: per 100 for a product, the whole plate for a meal, the serving when that's all there is.
+  // The headline numbers: per 100 for a product, the whole plate for a meal, the serving when that's all there is.
   const isMeal = r.kind === "meal" && !!p?.grams;
   const shown: Nutrients = isMeal || !r.per100 ? forPortion : r.per100;
   const basis = isMeal ? "this meal" : r.per100 ? `per 100 ${unit}` : "per serving";
@@ -106,62 +110,85 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
       ? `${fmt(typical.grams!)} ${unit} = ${fmt((r.per100.energyKcal * typical.grams!) / 100)} kcal`
       : null;
   const iconKey = category(r);
-  const pack = packSize(r.portions, unit);
   const mode = MODE_META[r.inputKind];
   const goalFlags = r.flags.filter((f) => f.type === "goal");
-  const align = "center";
-  const reason = oneLineReason(r.reasons, r.grade);
-
-  const content = (
-    <>
-      <Tags align={align}>
-        {r.kind !== "meal" && <Tag icon={FOOD_ICON[iconKey]}>{CATEGORY[iconKey]}</Tag>}
-        {pack && <Tag icon={Scale}><span className="num">{pack}</span></Tag>}
-        <Tag icon={mode.icon}>{mode.label}</Tag>
-      </Tags>
-      <ResultTitle name={r.name} brand={r.brand} align={align} />
-
-      <div className="grid gap-3 lg:grid-cols-[1.05fr_.95fr] lg:items-start lg:gap-4">
-        <div className="flex min-w-0 flex-col gap-3">
-          <GradeHero grade={r.grade} reason={reason} unavailable={r.gradeUnavailable} />
-          <CalorieRow kcal={shown.energyKcal} basis={basis} portion={portionText} />
-          <MacroCards n={shown} />
-          <FlagChips flags={r.flags} sodiumMg={shown.sodiumMg} sodiumPer100={r.per100?.sodiumMg} basis={r.basis} diet={diet} ingredientsKnown={r.ingredients.length > 0} />
-          <BetterPick alt={r.alternatives[0]} tip={r.tip} />
-          <NutrientGrid title="More nutrients" basis={basis} rows={moreNutrientRows(shown, r.per100, r.basis, r.components)} />
-          <NutrientGrid title="Vitamins & minerals" basis={basis} rows={vitaminMineralRows(shown)} note={vitaminsNote(fromIndb, shown)} foldAfter={6} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-3">
-          <WhyGrade reasons={r.reasons} hints={r.hints} goalFlags={goalFlags} />
-          <IngredientsUnknownNote ingredientsKnown={r.ingredients.length > 0} hasAllergies={hasAllergies} />
-          {r.kind === "meal" && r.items && r.items.length > 0 && <MealItems items={r.items} unit={unit} />}
-          <section className={cn(CARD, "flex flex-col gap-2.5")}>
-            <h2 className="section-title m-0">Ingredients</h2>
-            {r.ingredients.length > 0
-              ? <p className="m-0 text-sm leading-normal text-ink">{r.ingredients.join(", ")}</p>
-              : <p className="m-0 text-sm text-subtle">No ingredient list was read.</p>}
-            {fromIndb && <IndbSodiumNote source="indb" />}
-            <FullNutritionTable
-              per100={r.per100}
-              portion={!r.per100 ? (p ? { label: p.label, grams: p.grams, nutrients: forPortion } : null) : typical || isMeal ? { label: p!.label, grams: p!.grams, nutrients: forPortion } : null}
-              provenance={r.provenance}
-              unit={unit}
-            />
-          </section>
-          <SourceLine view={view} credits={credits} />
-          <Button render={<Link href={`/scan${scanQuery(sp)}`} />} nativeButton={false} variant="ghost-sunken" shape="pill" size="lg" className="self-center">
-            <ScanLine aria-hidden /> Scan something else
-          </Button>
-          <p className="m-0 px-1 text-[13px] text-subtle">Information only, not medical advice. Check the pack for allergens.</p>
-        </div>
-      </div>
-    </>
+  const ingredientsKnown = r.ingredients.length > 0;
+  // "Amul · Packaged · 200 g pack · Label scan · per 100 g"
+  const kindWord = r.kind === "meal" || iconKey === "default" ? null : CATEGORY[iconKey];
+  const meta = [r.brand, kindWord, packSize(r.portions, unit), `${mode.label} scan`, basis].filter(Boolean).join(" · ");
+  const grade = r.gradeUnavailable ? null : r.grade;
+  const whyLabel = r.gradeUnavailable || !grade ? "Why no grade" : `Why ${grade}`;
+  const better = <BetterPick alt={r.alternatives[0]} tip={r.tip} />;
+  const hasBetter = !!r.alternatives[0] || !!r.tip;
+  const source = <SourceLine view={view} credits={credits} />;
+  const scanAgain = (
+    <Button render={<Link href={`/scan${scanQuery(sp)}`} />} nativeButton={false} variant="ghost-sunken" shape="pill" size="lg" className="self-center">
+      <ScanLine aria-hidden /> Scan something else
+    </Button>
   );
 
+  const why = (
+    <div className="flex flex-col gap-3 text-[14px]">
+      <ReasonList reasons={r.reasons} />
+      {r.hints.map((h) => (
+        <p key={h} className="m-0 flex items-start gap-2 text-subtle"><Info className="mt-0.5 size-4 shrink-0" aria-hidden />{h}</p>
+      ))}
+      <FlagNotes flags={goalFlags} />
+    </div>
+  );
+  const ingredients = (
+    <div className="flex flex-col gap-3 text-[14px]">
+      {ingredientsKnown
+        ? <p className="m-0 leading-normal text-ink">{r.ingredients.join(", ")}</p>
+        : <p className="m-0 text-subtle">No ingredient list was read.</p>}
+      {fromIndb && <IndbSodiumNote source="indb" />}
+      <FullNutritionTable
+        per100={r.per100}
+        portion={!r.per100 ? (p ? { label: p.label, grams: p.grams, nutrients: forPortion } : null) : typical || isMeal ? { label: p!.label, grams: p!.grams, nutrients: forPortion } : null}
+        provenance={r.provenance}
+        unit={unit}
+      />
+    </div>
+  );
+  const tabs = [
+    { id: "why", label: whyLabel, panel: why },
+    { id: "ingredients", label: "Ingredients", panel: ingredients },
+    ...(r.kind === "meal" && r.items && r.items.length > 0 ? [{ id: "items", label: "Items", panel: <MealItems items={r.items} unit={unit} /> }] : []),
+  ];
+
   return (
-    <div data-no-phone-nav className="mx-auto flex w-full max-w-[1000px] flex-col gap-3">
+    <div data-no-phone-nav className="mx-auto flex w-full max-w-[1040px] flex-col gap-4">
       <ResultTopBar scanId={view.id} title="Scan result" />
-      {content}
+
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] md:items-start md:gap-6">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div data-scan-title className="flex items-center gap-3.5">
+            <ScanImageTile src={view.imageUrl} name={r.name} iconKey={iconKey} />
+            <div className="min-w-0 flex-1"><FoodTitle name={r.name} meta={meta} /></div>
+          </div>
+          <VerdictLine
+            grade={grade}
+            reason={oneLineReason(r.reasons, r.grade)}
+            unavailable={r.gradeUnavailable}
+            chip={<DietChip diet={diet} flags={r.flags} ingredientsKnown={ingredientsKnown} />}
+          />
+          <FlagNotes flags={warningFlags(r.flags)} />
+          <IngredientsUnknownNote ingredientsKnown={ingredientsKnown} hasAllergies={hasAllergies} />
+          <BigCalories kcal={shown.energyKcal} basis={basis} portion={portionText} />
+          <MacroCards n={shown} />
+          {hasBetter && <div className="md:hidden">{better}</div>}
+          <NutrientGrid title="More nutrients" basis={basis} rows={moreNutrientRows(shown, r.per100, r.basis, r.components)} />
+          <NutrientGrid title="Vitamins & minerals" basis={basis} rows={vitaminMineralRows(shown)} note={vitaminsNote(fromIndb, shown)} foldAfter={6} />
+          <DetailTabs label="Details" tabs={tabs} />
+          <p className="m-0 px-1 text-[13px] text-subtle">Information only, not medical advice. Check the pack for allergens.</p>
+          <div className="flex flex-col gap-4 md:hidden">{source}{scanAgain}</div>
+        </div>
+
+        <aside className="hidden min-w-0 flex-col gap-3 md:sticky md:top-4 md:flex">
+          {source}
+          {scanAgain}
+        </aside>
+      </div>
 
       <ResultActions
         scanId={view.id}

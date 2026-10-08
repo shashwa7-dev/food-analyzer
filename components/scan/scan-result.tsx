@@ -11,7 +11,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { OverflowMenu } from "@/components/ui/overflow-menu";
-import { BackButton, ON_MEDIA_ROUND } from "@/components/nav/back-button";
+import { BackButton } from "@/components/nav/back-button";
 import { ResponsiveSheet } from "@/components/ui/responsive-sheet";
 import { AddToMeal, type LoggableFood } from "@/components/food/add-to-meal";
 import { MEAL_META } from "@/components/food/meal-meta";
@@ -19,7 +19,6 @@ import { FlagNotes, FoodSheetHeader } from "@/components/food/sheet-parts";
 import { StickyActionBar } from "@/components/food/result-parts";
 import type { FoodIconKey } from "@/lib/foods/icon";
 import type { Flag, Meal } from "@/lib/nutrition/types";
-import { cn } from "@/lib/utils";
 import { AnalysingCard } from "./analysing-card";
 
 /** /scans/[id] while the scan is still queued/processing: the Analysing card, then a refresh into the result. */
@@ -34,9 +33,8 @@ export const DELETE_SCAN_COPY = "It disappears from your history. Foods you logg
  * The result's top bar (mock-c1 `.res-top`): Back (to the app page it came from, else History), the
  * title, and an overflow with "Delete scan". Deleting (DELETE /api/v1/scans/:id, a soft delete) asks
  * first with the spec §6.6 dialog; a deleted scan still counts toward the month, and the copy says so.
- * `onMedia` when it sits on the photo hero: white round buttons and title.
  */
-export function ResultTopBar({ scanId, title, onMedia }: { scanId: string; title: string; onMedia?: boolean }) {
+export function ResultTopBar({ scanId, title }: { scanId: string; title: string }) {
   const router = useRouter();
   const qc = useQueryClient();
   const [confirm, setConfirm] = useState(false);
@@ -59,12 +57,9 @@ export function ResultTopBar({ scanId, title, onMedia }: { scanId: string; title
 
   return (
     <div className="flex items-center justify-between gap-2.5">
-      <BackButton fallback="/history" onMedia={onMedia} />
-      <p className={cn("m-0 min-w-0 truncate text-[17px] font-semibold whitespace-nowrap", onMedia ? "text-on-media" : "text-ink")}>{title}</p>
-      <OverflowMenu
-        items={[{ label: "Delete scan", icon: <Trash2 />, tone: "danger", onSelect: () => setConfirm(true) }]}
-        triggerClassName={onMedia ? ON_MEDIA_ROUND : undefined}
-      />
+      <BackButton fallback="/history" />
+      <p className="m-0 min-w-0 truncate text-[17px] font-semibold whitespace-nowrap text-ink">{title}</p>
+      <OverflowMenu items={[{ label: "Delete scan", icon: <Trash2 />, tone: "danger", onSelect: () => setConfirm(true) }]} />
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
@@ -121,8 +116,8 @@ export function ResultActions({ scanId, food, canSave, date, defaultMeal, isToda
   const [session, setSession] = useState(0);
   return (
     <>
-      <StickyActionBar>
-        <div className={canSave ? "mx-auto grid max-w-[560px] grid-cols-[1fr_1.2fr] gap-2.5 lg:max-w-none" : "mx-auto grid max-w-[560px] lg:max-w-none"}>
+      <StickyActionBar fullWidth className="md:hidden">
+        <div className={canSave ? "mx-auto grid max-w-[560px] grid-cols-[1fr_1.2fr] gap-2.5" : "mx-auto grid max-w-[560px]"}>
           {canSave && <SaveFood scanId={scanId} />}
           <Button
             type="button"
