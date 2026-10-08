@@ -1,7 +1,7 @@
 "use client";
 // Client parts of /scans/[id]: the running state, the top bar (Back and the Delete overflow), and the
 // sticky actions (Save food, and Add to {Meal}, which opens the add sheet with the scan as its target).
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -103,7 +103,33 @@ function SaveFood({ scanId }: { scanId: string }) {
 }
 
 /**
- * The sticky action bar (mock-c1 `.actions`): Save food (ghost; only when the scan has per-100 values
+ * The add panel for wide screens (`md` and up, beside the result): the amount, meal and "Add to
+ * {Meal}" in place (logging the scan's own result), "Save food" under it when the scan has per-100
+ * values, then `footer` (the better pick). Phones get the sticky bar and the sheet (ResultActions).
+ */
+export function ScanAddPanel({ scanId, food, canSave, date, defaultMeal, isToday, footer }: {
+  scanId: string; food: LoggableFood; canSave: boolean; date: string; defaultMeal: Meal; isToday: boolean; footer?: ReactNode;
+}) {
+  const router = useRouter();
+  return (
+    <section className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-[24px] bg-surface p-[18px] shadow-card" aria-labelledby="add-panel-title">
+      <h2 id="add-panel-title" className="section-title m-0">Add to a meal</h2>
+      <AddToMeal
+        food={food}
+        target={{ kind: "scan", scanId }}
+        date={date}
+        defaultMeal={defaultMeal}
+        layout="panel"
+        onDone={() => router.push(isToday ? "/today" : `/today?date=${date}`)}
+      />
+      {canSave && <SaveFood scanId={scanId} />}
+      {footer}
+    </section>
+  );
+}
+
+/**
+ * The sticky action bar for phones (mock-c1 `.actions`): Save food (ghost; only when the scan has per-100 values
  * to save) and Add to {Meal} (solid), which opens the add sheet logging the scan's own result (log
  * kinds scan / scan_grams). After adding, goes to that day on Today.
  */

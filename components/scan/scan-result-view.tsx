@@ -24,7 +24,7 @@ import { IngredientsUnknownNote } from "@/components/food/ingredients-unknown-no
 import { FullNutritionTable } from "@/components/food/nutrition-table";
 import { FlagNotes } from "@/components/food/sheet-parts";
 import { MODE_META } from "./mode-meta";
-import { ResultActions, ResultTopBar } from "./scan-result";
+import { ResultActions, ResultTopBar, ScanAddPanel } from "./scan-result";
 import { ScanImageTile } from "./scan-image-tile";
 
 /** Validated ?meal=&date= carried from /scan, passed on to "Scan again" links. */
@@ -118,6 +118,8 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   const meta = [r.brand, kindWord, packSize(r.portions, unit), `${mode.label} scan`, basis].filter(Boolean).join(" · ");
   const grade = r.gradeUnavailable ? null : r.grade;
   const whyLabel = r.gradeUnavailable || !grade ? "Why no grade" : `Why ${grade}`;
+  const food = { name: r.name, per100: r.per100, perServing: r.perServing, portions: r.portions, defaultPortion: r.defaultPortion, basis: r.basis };
+  const canSave = !!r.per100;
   const better = <BetterPick alt={r.alternatives[0]} tip={r.tip} />;
   const hasBetter = !!r.alternatives[0] || !!r.tip;
   const source = <SourceLine view={view} credits={credits} />;
@@ -185,6 +187,15 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
         </div>
 
         <aside className="hidden min-w-0 flex-col gap-3 md:sticky md:top-4 md:flex">
+          <ScanAddPanel
+            scanId={view.id}
+            food={food}
+            canSave={canSave}
+            date={date}
+            defaultMeal={meal}
+            isToday={isToday}
+            footer={better}
+          />
           {source}
           {scanAgain}
         </aside>
@@ -192,8 +203,8 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
 
       <ResultActions
         scanId={view.id}
-        food={{ name: r.name, per100: r.per100, perServing: r.perServing, portions: r.portions, defaultPortion: r.defaultPortion, basis: r.basis }}
-        canSave={!!r.per100}
+        food={food}
+        canSave={canSave}
         date={date}
         defaultMeal={meal}
         isToday={isToday}
