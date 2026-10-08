@@ -22,11 +22,11 @@ const ITEM = "flex min-h-11 w-full items-center gap-2.5 rounded-[12px] px-3 text
  * A top bar's round "More actions" button and its menu (mock-c1 `.round` + popover): links and actions,
  * one per row. `triggerClassName` restyles the round button (e.g. ON_MEDIA_ROUND on a photo).
  */
-export function OverflowMenu({ items, triggerClassName }: { items: OverflowItem[]; triggerClassName?: string }) {
+export function OverflowMenu({ items, triggerClassName, label = "More actions" }: { items: OverflowItem[]; triggerClassName?: string; /** The trigger's accessible name. */ label?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger aria-label="More actions" className={cn(ROUND, triggerClassName)}>
+      <Popover.Trigger aria-label={label} className={cn(ROUND, triggerClassName)}>
         <Ellipsis aria-hidden />
       </Popover.Trigger>
       <Popover.Portal>

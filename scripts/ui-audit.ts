@@ -159,6 +159,18 @@ const SCENARIOS: Scenario[] = [
     await p.reload();
     await p.waitForSelector("section[aria-label='Session in progress']");
   } },
+  // The live session on the push preset, one set filled and ticked. The draft stays in this run's
+  // context only; nothing is posted.
+  { name: "workouts-session", path: () => "/workouts/session?preset=push", setup: async (p) => {
+    await p.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("eatri8-workout-draft")) localStorage.removeItem(k); });
+    await goto(p, "/workouts/session?preset=push");
+    const kg = await p.waitForSelector("input[aria-label='Set 1 weight, kg']", { visible: true, timeout: 15_000 });
+    await kg!.type("60");
+    await p.type("input[aria-label='Set 1 reps']", "8");
+    await p.click("button[aria-label='Set 1 done']");
+    await p.waitForSelector("button[aria-label='Set 1 done'][aria-pressed=true]");
+    await sleep(200);
+  } },
   { name: "history", path: () => "/history" },
   { name: "me", path: () => "/me" },
   { name: "me-credits", path: () => "/me/credits", setup: () => sleep(800) },

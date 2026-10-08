@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { draftKey, elapsedMinutes, restoreDraft } from "@/lib/fitness/draft";
 
 /** Fired on this tab when the draft is removed here (the "storage" event only reaches other tabs). */
-const DRAFT_EVENT = "eatri8-workout-draft";
+export const DRAFT_EVENT = "eatri8-workout-draft";
 
 function readDraft(key: string): string | null {
   try {
