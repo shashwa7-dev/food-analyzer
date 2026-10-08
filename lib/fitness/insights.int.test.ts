@@ -19,11 +19,13 @@ async function insertGym(opts: { userId: string; date: string; startedAt: Date; 
   return row!.id;
 }
 
-/** One done set of `bench_press` on a workout, weightKg × reps = volume. */
-async function addBench(workoutId: string, weightKg: number, reps: number) {
-  const [ex] = await db.insert(workoutExercise).values({ workoutId, position: 0, exerciseKey: "bench_press", name: "Bench press" }).returning({ id: workoutExercise.id });
+/** One done set of `exerciseKey` on a workout, weightKg × reps = volume. */
+async function addSet(workoutId: string, exerciseKey: string, name: string, weightKg: number, reps: number) {
+  const [ex] = await db.insert(workoutExercise).values({ workoutId, position: 0, exerciseKey, name }).returning({ id: workoutExercise.id });
   await db.insert(workoutSet).values({ exerciseId: ex!.id, position: 0, weightKg, reps, done: true });
 }
+const addBench = (workoutId: string, weightKg: number, reps: number) => addSet(workoutId, "bench_press", "Bench press", weightKg, reps);
+const addSquat = (workoutId: string, weightKg: number, reps: number) => addSet(workoutId, "squat", "Squat", weightKg, reps);
 
 describe("fitness insights service", () => {
   beforeEach(resetDb);
@@ -47,25 +49,35 @@ describe("fitness insights service", () => {
   it("soft delete: a deleted workout counts nowhere (volume, calendar, history, PRs)", async () => {
     const me = await createUser();
     // A baseline PR, well outside the current week/month, so it never affects period totals.
-    const baseline = await insertGym({ userId: me, date: addDays(today(), -40), startedAt: new Date("2026-01-01T06:00:00Z"), preset: "pull" });
-    await addBench(baseline, 40, 5); // e1rm ~46.7, not a PR itself (first ever)
+    const baseline = await insertGym({ userId: me, date: addDays(today(), -60), startedAt: new Date("2026-01-01T06:00:00Z"), preset: "pull" });
+    await addBench(baseline, 30, 5); // e1rm = 35, not a PR itself (first ever)
 
-    const deleted = await insertGym({ userId: me, date: today(), startedAt: new Date("2026-01-02T06:00:00Z"), preset: "legs" });
-    await addBench(deleted, 100, 5); // heavier: would raise the bar if counted
+    // Heavier, and dated BEFORE the current week/month period (not "today"): if the soft-delete filter
+    // ever leaked this into insightRows' sets query, it would still raise the bench bar for every later
+    // session, but its own PR event wouldn't land inside the period — so a leak flips tiles.prs.value
+    // for this period from 1 to 0, instead of leaving it at 1 either way (which dating it "today" would).
+    const deletedOld = await insertGym({ userId: me, date: addDays(today(), -20), startedAt: new Date("2026-01-20T06:00:00Z"), preset: "legs" });
+    await addBench(deletedOld, 100, 5); // e1rm ~116.7: would block the kept session's PR below if it leaked
+
+    // A second, independently soft-deleted workout dated today, on a different exercise, so it tests
+    // volume/calendar exclusion without touching the bench PR chain above.
+    const deletedToday = await insertGym({ userId: me, date: today(), startedAt: new Date("2026-01-02T06:00:00Z"), preset: "legs" });
+    await addSquat(deletedToday, 80, 5); // would add 400 kg of volume and own today's calendar colour if it leaked
 
     const kept = await insertGym({ userId: me, date: today(), startedAt: new Date("2026-01-02T08:00:00Z"), preset: "push" });
-    await addBench(kept, 50, 5); // lighter than the deleted one, but a PR once it's excluded
+    await addBench(kept, 50, 5); // e1rm ~58.3: beats the baseline (35) but not the deleted session's bar (116.7) if that leaked
 
-    expect(await deleteWorkout(me, deleted)).toBe(true);
+    expect(await deleteWorkout(me, deletedOld)).toBe(true);
+    expect(await deleteWorkout(me, deletedToday)).toBe(true);
 
     const stats = await getFitnessStats(me, "week");
-    expect(stats.tiles.volumeKg.value).toBe(250); // only kept: 50 * 5
-    expect(stats.tiles.prs.value).toBe(1); // kept's bench beats the baseline once the deleted one is excluded
-    expect(stats.calendar?.days.find((d) => d.date === today())?.type).toBe("push"); // kept's preset, not the deleted one's
+    expect(stats.tiles.volumeKg.value).toBe(250); // only kept: 50 * 5 (deletedToday's 400 kg of squats excluded)
+    expect(stats.tiles.prs.value).toBe(1); // kept's bench beats the baseline; would be 0 if deletedOld leaked and raised the bar
+    expect(stats.calendar?.days.find((d) => d.date === today())?.type).toBe("push"); // kept's preset, not deletedToday's "legs"
 
     const page = await historyPage(me, null, 20);
     expect(page.items.map((i) => i.id)).toEqual([kept, baseline]);
-    expect(page.items.some((i) => i.id === deleted)).toBe(false);
+    expect(page.items.some((i) => i.id === deletedOld || i.id === deletedToday)).toBe(false);
   });
 
   it("gates Month behind Pro once PRO_GATES_ENFORCED is on, locking week's extras for Basic", async () => {
