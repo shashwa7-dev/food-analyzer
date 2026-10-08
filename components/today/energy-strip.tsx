@@ -32,9 +32,9 @@ export function EnergyStrip({ line }: { line: EnergyLine }) {
       aria-label={`Energy balance: ${fmt(line.eaten)} eaten minus ${fmt(line.burned)} burned is ${fmt(line.net)} net of ${fmt(line.target)} kcal`}
       className="flex items-center justify-between gap-1.5 rounded-[24px] bg-brand-soft p-4"
     >
-      <Part icon={Flame} label="Eaten" value={line.eaten} />
+      <Part icon={Flame} label="Eaten" value={line.eaten} sub="kcal" />
       <Op>−</Op>
-      <Part icon={Dumbbell} label="Burned" value={line.burned} />
+      <Part icon={Dumbbell} label="Burned" value={line.burned} sub="kcal" />
       <Op>=</Op>
       <Part icon={Target} label="Net" value={line.net} sub={`of ${fmt(line.target)}`} net />
     </section>
