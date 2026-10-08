@@ -319,8 +319,9 @@ async function seedWorkouts(userId: string, today: string): Promise<number> {
       ex("deadlift", set(90, 5), set(90, 5), set(95, 4)), ex("barbell_row", set(50, 8), set(50, 8)), ex("seated_cable_row", set(45, 10), set(45, 10)),
       ex("face_pull", set(20, 15), set(20, 15)), ex("biceps_curl", set(12, 10), set(12, 9)),
     ]),
-    await walk(on(3), 7, 30),
-    await gym(on(3), "legs", 18, 55, [
+    // Always today (not on(3), which is Thursday from Friday on): Today must show the energy strip.
+    await walk(today, 7, 30),
+    await gym(today, "legs", 18, 55, [
       ex("squat", set(70, 8), set(75, 6), set(75, 6)), ex("romanian_deadlift", set(60, 8), set(60, 8)), ex("leg_press", set(120, 10), set(120, 10)),
       ex("leg_curl", set(35, 12), set(35, 11)), ex("calf_raise", set(40, 15), set(40, 15)),
     ]),
