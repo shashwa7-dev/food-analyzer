@@ -13,6 +13,10 @@ import { SodiumCard } from "@/components/progress/sodium-card";
 import { GradeDonutCard } from "@/components/progress/grade-donut";
 import { WorkoutsCard } from "@/components/progress/workouts-card";
 import { ProgressEmpty } from "@/components/progress/empty-state";
+import { ViewSwitch } from "@/components/progress/fitness/view-switch";
+import { FitnessView } from "@/components/progress/fitness/fitness-view";
+import { getFitnessSummary } from "@/lib/fitness/service";
+import { getWeightHistory } from "@/lib/fitness/weight";
 
 /** Fewer logged days than this and the charts would say nothing (spec §6.12). */
 const MIN_DAYS_FOR_TRENDS = 2;
@@ -21,13 +25,32 @@ const MIN_DAYS_FOR_TRENDS = 2;
  * Progress (spec §6.12, mock "Progress"). The phone reads top to bottom in DOM order; from 900 px
  * the cards sit in two columns in the desktop mock's order (calories, balance + quality, then the rest).
  */
-export default async function ProgressPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+export default async function ProgressPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string }> }) {
   const { userId, profile } = await requireUser();
+  const params = await searchParams;
   // Month is Pro-only once PRO_GATES_ENFORCED is on: a locked month shows the week with a Pro chip on the toggle.
   const monthLocked = !allows(profile.plan, "progressMonth");
-  const range: Range = (await searchParams).range === "month" && !monthLocked ? "month" : "week";
-  const summary = await getProgress(userId, range);
+  const range: Range = params.range === "month" && !monthLocked ? "month" : "week";
   const period = range === "week" ? "This week" : "This month";
+
+  // Food | Fitness (spec §C screen 6), kept in ?view=. Fitness is week-only, so it has no range toggle.
+  if (params.view === "fitness") {
+    const [fitness, weight] = await Promise.all([getFitnessSummary(userId), getWeightHistory(userId, { days: 30 })]);
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 md:gap-6">
+        <header className="flex min-h-11 items-center justify-between gap-2.5 md:col-span-2">
+          <h1 className="m-0 text-[30px] font-[650] leading-[1.05] tracking-[-0.04em] text-ink md:text-[40px]">
+            <span className="md:hidden">Progress</span>
+            <span className="hidden md:inline">This week</span>
+          </h1>
+        </header>
+        <ViewSwitch view="fitness" range={range} className="md:col-span-2 md:max-w-[360px]" />
+        <FitnessView summary={fitness} weight={weight} />
+      </div>
+    );
+  }
+
+  const summary = await getProgress(userId, range);
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 md:gap-6">
@@ -38,6 +61,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
         </h1>
         <RangeToggle range={range} monthLocked={monthLocked} />
       </header>
+      <ViewSwitch view="food" range={range} className="md:col-span-2 md:max-w-[360px]" />
 
       {summary.kpis.daysLogged < MIN_DAYS_FOR_TRENDS ? (
         <ProgressEmpty meal={defaultMealIn(profile.timezone)} range={range} />
