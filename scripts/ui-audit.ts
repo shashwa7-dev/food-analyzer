@@ -85,6 +85,8 @@ async function equalMealCards(page: Page): Promise<Finding[]> {
 }
 async function expandFirstMeal(page: Page) {
   await page.waitForSelector("[data-meal-card] button[aria-expanded=false]", { timeout: 15_000 });
+  // Centre it first: scrolled only just into view, it sits under the phone's fixed bottom nav, which takes the click.
+  await page.$eval("[data-meal-card] button[aria-expanded=false]", (b) => b.scrollIntoView({ block: "center" }));
   await page.click("[data-meal-card] button[aria-expanded=false]");
   await page.waitForSelector("[data-meal-card] button[aria-expanded=true]", { timeout: 5_000 });
   await sleep(200);

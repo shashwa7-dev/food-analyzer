@@ -51,6 +51,10 @@ action bars sit at the bottom; sheets, dialogs and the scanner are shot at the r
 | `scan-label`, `scan-barcode`, `scan-meal` | `/scans/{id}` | done scans |
 | `scan-failed` | `/scans/{id}` | failed, refunded scan |
 | `progress`, `progress-month` | `/progress`, `/progress?range=month` | |
+| `progress-fitness` | `/progress?view=fitness` | week strip, goal, up next, weight, recent |
+| `today-energy` | `/today` | energy strip and Workouts card (seeded workouts today) |
+| `weight`, `weight-log-sheet`, `weight-delete-confirm` | `/weight` | page; Log weight sheet; first entry's delete confirm |
+| `me-fitness-sheet` | `/me` | Fitness sheet open |
 | `history` | `/history` | |
 | `me`, `me-credits` | `/me`, `/me/credits` | |
 | `onboarding` | `/onboarding?redo=1` | step 1, not submitted |

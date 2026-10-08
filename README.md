@@ -140,12 +140,13 @@ or self-host the wasm via `prepareZXingModule({ overrides: { locateFile } })`.
 Sign-in is Google-only, so headless checks use a seeded demo account instead:
 
 ```bash
-pnpm seed:demo                                # demo@eatri8.local ("Aarav Kapoor"), 10 days of diary, 4 scans, 18/20 credits
+pnpm seed:demo                                # demo@eatri8.local ("Aarav Kapoor"), 10 days of diary, 4 scans, 18/20 credits,
+                                              # this week's Push/Pull/Legs + 2 walks, 30 days of weight (goal 70 kg, 5 days a week)
 pnpm shot /today --w 390                      # → .superpowers/shots/today-390-light.png
 pnpm shot /history --w 1280 --dark --full     # desktop, dark, full page; --out file.png to pick the path
 ```
 
-`seed:demo` is idempotent (re-run it any time; it rebuilds the diary relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
+`seed:demo` is idempotent (re-run it any time; it rebuilds the diary, workouts and weight relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
 
 ## UI
 
@@ -157,7 +158,7 @@ The C1 "Lime & Ink" design (spec: `docs/superpowers/specs/2026-10-07-redesign-c1
 - **Lime is a fill, never text.** Text accents use `--brand-deep`; text on `--brand-soft` uses `--on-brand-soft`; text on lime uses `--brand-ink`. Grade letters use `--on-grade` / `--on-grade-light`, and macro numbers `--protein-ink` / `--carbs-ink` / `--fat-ink`, so all text meets WCAG AA.
 - **Tap targets are at least 44 × 44 px** (the element itself, a `::before`/`::after` hit area, or a parent that is the hit area).
 
-`pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
+`pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm, the Today energy strip, Progress → Fitness, `/weight` and its log sheet, the Me Fitness sheet), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
 
 ```bash
 pnpm seed:demo && pnpm ui:audit
