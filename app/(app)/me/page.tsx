@@ -39,7 +39,7 @@ export default async function MePage() {
       {showTargetsNotice(profile) && <TargetsNotice />}
       {/* A locked plan's sheet shows the goal's presets (effective targets); stored overrides stay untouched. */}
       <SettingsList
-        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: effectiveOverrides(profile), country: profile.country, customTargets: allows(profile.plan, "customTargets"), fitness: { weeklyWorkoutGoal: profile.weeklyWorkoutGoal, goalWeightKg: profile.goalWeightKg } }}
+        values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: effectiveOverrides(profile), country: profile.country, customTargets: allows(profile.plan, "customTargets"), fitness: { weeklyWorkoutGoal: profile.weeklyWorkoutGoal, goalWeightKg: profile.goalWeightKg, heightCm: profile.heightCm } }}
       />
       <ExportRow />
       <AccountFooter />

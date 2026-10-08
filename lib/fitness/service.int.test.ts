@@ -210,9 +210,9 @@ describe("fitness settings", () => {
   beforeEach(resetDb);
   it("sets the weekly goal and goal weight, with range checks and null clearing", async () => {
     const me = await createUser();
-    expect(await updateFitnessSettings(me, {})).toEqual({ weeklyWorkoutGoal: 3, goalWeightKg: null });
-    expect(await updateFitnessSettings(me, { weeklyWorkoutGoal: 5, goalWeightKg: 68.456 })).toEqual({ weeklyWorkoutGoal: 5, goalWeightKg: 68.46 });
-    expect(await updateFitnessSettings(me, { goalWeightKg: null })).toEqual({ weeklyWorkoutGoal: 5, goalWeightKg: null });
+    expect(await updateFitnessSettings(me, {})).toEqual({ weeklyWorkoutGoal: 3, goalWeightKg: null, heightCm: null });
+    expect(await updateFitnessSettings(me, { weeklyWorkoutGoal: 5, goalWeightKg: 68.456 })).toEqual({ weeklyWorkoutGoal: 5, goalWeightKg: 68.46, heightCm: null });
+    expect(await updateFitnessSettings(me, { goalWeightKg: null })).toEqual({ weeklyWorkoutGoal: 5, goalWeightKg: null, heightCm: null });
     await expect(updateFitnessSettings(me, { weeklyWorkoutGoal: 8 })).rejects.toThrow();
     await expect(updateFitnessSettings(me, { weeklyWorkoutGoal: 0 })).rejects.toThrow();
     // The database guards the range too.

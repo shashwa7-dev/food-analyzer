@@ -5,15 +5,18 @@ import { z } from "zod";
 import { db, type Db, type Tx } from "@/lib/db/client";
 import { bodyWeight, profile, workout, workoutExercise, workoutSet } from "@/lib/db/schema";
 import { addDays, DateSchema, todayIn } from "@/lib/dates";
-import { InvalidError } from "@/lib/errors";
+import { allows } from "@/lib/credits/plans";
+import { InvalidError, ProRequiredError } from "@/lib/errors";
 import { kcalBurned } from "@/lib/fitness/burn";
 import { ACTIVITIES, customExerciseKey, exerciseByKey, PRESETS } from "@/lib/fitness/catalogue";
+import { buildStats, type FitnessStats, type InsightSet, type InsightWorkout, type StatsRange } from "@/lib/fitness/insights";
 import { bestSet, isPr, upNext, weekBounds, weekSummary } from "@/lib/fitness/stats";
 import {
   ACTIVITY_KEYS, INTENSITIES, PRESET_KEYS,
-  type FitnessSettings, type FitnessSummary, type KcalBasis, type Preset, type PreviousSets, type WorkoutDetail, type WorkoutExercise,
-  type WorkoutListItem, type WorkoutSet,
+  type FitnessSettings, type FitnessSummary, type HistoryPage, type KcalBasis, type Preset, type PreviousSets, type WorkoutDetail,
+  type WorkoutExercise, type WorkoutListItem, type WorkoutSet,
 } from "@/lib/fitness/types";
+import { logWeight } from "@/lib/fitness/weight";
 import { getProfile } from "@/lib/profile/service";
 
 type Q = Db | Tx;
@@ -191,6 +194,70 @@ async function queryList(userId: string, opts: { from?: string; to?: string; lim
   return rows.map(toListItem);
 }
 
+export const StatsQuerySchema = z.object({ range: z.enum(["week", "month"]).default("week") });
+
+/** Every visible workout as insight rows (a person's history is small; no range needed for streaks and PRs). */
+async function insightRows(userId: string): Promise<{ workouts: InsightWorkout[]; sets: InsightSet[] }> {
+  const rows = await queryList(userId, {});
+  const workouts: InsightWorkout[] = rows.map((r) => ({
+    id: r.id, date: r.date, kind: r.kind, preset: r.preset, startedAt: r.startedAt, durationMin: r.durationMin,
+    kcalBurned: r.kcalBurned, kcalEstimated: r.kcalEstimated, volumeKg: r.volumeKg,
+  }));
+  const setRows = await db.select({
+    workoutId: workout.id, date: workout.date, startedAt: workout.startedAt, createdAt: workout.createdAt,
+    exerciseKey: workoutExercise.exerciseKey, name: workoutExercise.name, weightKg: workoutSet.weightKg, reps: workoutSet.reps,
+  }).from(workoutSet)
+    .innerJoin(workoutExercise, eq(workoutSet.exerciseId, workoutExercise.id))
+    .innerJoin(workout, eq(workoutExercise.workoutId, workout.id))
+    .where(and(visibleWorkoutWhere(userId), eq(workoutSet.done, true)));
+  const sets: InsightSet[] = setRows.map((s) => ({ ...s, startedAt: s.startedAt.toISOString(), createdAt: s.createdAt.toISOString() }));
+  return { workouts, sets };
+}
+
+/** GET /api/v1/fitness/stats: the hub's numbers; Month and the Pro fields need `fitnessInsights`. */
+export async function getFitnessStats(userId: string, range: StatsRange, now: Date = new Date()): Promise<FitnessStats> {
+  const prof = await getProfile(userId);
+  const locked = !allows(prof.plan, "fitnessInsights");
+  if (locked && range === "month") throw new ProRequiredError("Month stats are part of Pro.");
+  const { workouts, sets } = await insightRows(userId);
+  return buildStats({ range, today: todayIn(prof.timezone, now), goal: prof.weeklyWorkoutGoal, workouts, sets, locked });
+}
+
+/** The cursor's shape: the last row's keyset tuple, so the next page can resume with `<`. */
+const CursorTuple = z.tuple([z.iso.date(), z.iso.datetime({ offset: true }), z.iso.datetime({ offset: true }), z.uuid()]);
+
+function decodeCursor(cursor: string | null): { date: string; startedAt: string; createdAt: string; id: string } | null {
+  if (!cursor) return null;
+  try {
+    const parts = Buffer.from(cursor, "base64url").toString("utf8").split("|");
+    const [date, startedAt, createdAt, id] = CursorTuple.parse(parts);
+    return { date, startedAt, createdAt, id };
+  } catch {
+    return null;
+  }
+}
+
+function encodeCursor(item: { date: string; startedAt: string; createdAt: string; id: string }): string {
+  return Buffer.from(`${item.date}|${item.startedAt}|${item.createdAt}|${item.id}`, "utf8").toString("base64url");
+}
+
+/** GET /api/v1/workouts/history?cursor=: all visible workouts, newest first, `limit` (default 20) at a time. */
+export async function historyPage(userId: string, cursor: string | null, limit = 20): Promise<HistoryPage> {
+  const after = decodeCursor(cursor);
+  const keyset = after
+    ? sql`(${workout.date}, ${workout.startedAt}, ${workout.createdAt}, ${workout.id}) < (${after.date}::date, ${after.startedAt}::timestamptz, ${after.createdAt}::timestamptz, ${after.id}::uuid)`
+    : undefined;
+  const rows = await db.select(listColumns).from(workout)
+    .where(and(visibleWorkoutWhere(userId), keyset))
+    .orderBy(desc(workout.date), desc(workout.startedAt), desc(workout.createdAt), desc(workout.id))
+    .limit(limit + 1);
+  const page = rows.slice(0, limit).map(toListItem);
+  const hasMore = rows.length > limit;
+  const last = rows[limit - 1]?.row;
+  const nextCursor = hasMore && last ? encodeCursor({ date: last.date, startedAt: last.startedAt.toISOString(), createdAt: last.createdAt.toISOString(), id: last.id }) : null;
+  return { items: page, nextCursor };
+}
+
 export const ListQuerySchema = z.object({ from: PlainDateSchema.optional(), to: PlainDateSchema.optional() });
 
 /** GET /api/v1/workouts: `from`–`to` inclusive (default the 30 days to today in the user's timezone), at most 366 days. */
@@ -293,17 +360,51 @@ export async function getFitnessSummary(userId: string, raw: z.input<typeof Summ
 export const FitnessSettingsSchema = z.object({
   weeklyWorkoutGoal: z.number().int().min(1).max(7).optional(),
   goalWeightKg: z.number().min(20).max(400).nullable().optional(),
+  heightCm: z.number().int().min(100).max(250).nullable().optional(),
 });
 
-/** PATCH /api/v1/me/fitness: the weekly goal (days, 1–7) and the goal weight (null clears it). */
+/** PATCH /api/v1/me/fitness: the weekly goal (days, 1–7), the goal weight and the height (null clears either). */
 export async function updateFitnessSettings(userId: string, raw: z.input<typeof FitnessSettingsSchema>): Promise<FitnessSettings> {
   const input = FitnessSettingsSchema.parse(raw);
   const set: Partial<typeof profile.$inferInsert> = {};
   if (input.weeklyWorkoutGoal !== undefined) set.weeklyWorkoutGoal = input.weeklyWorkoutGoal;
   if (input.goalWeightKg !== undefined) set.goalWeightKg = input.goalWeightKg === null ? null : round2(input.goalWeightKg);
+  if (input.heightCm !== undefined) set.heightCm = input.heightCm;
   await getProfile(userId);
   if (Object.keys(set).length) await db.update(profile).set({ ...set, updatedAt: new Date() }).where(eq(profile.userId, userId));
   const prof = await getProfile(userId);
-  return { weeklyWorkoutGoal: prof.weeklyWorkoutGoal, goalWeightKg: prof.goalWeightKg };
+  return { weeklyWorkoutGoal: prof.weeklyWorkoutGoal, goalWeightKg: prof.goalWeightKg, heightCm: prof.heightCm };
+}
+
+export const FitnessSetupSchema = z.union([
+  z.object({ skip: z.literal(true) }),
+  z.object({
+    heightCm: z.number().int().min(100).max(250).nullable().optional(),
+    weightKg: z.number().min(20).max(400).nullable().optional(),
+    goalWeightKg: z.number().min(20).max(400).nullable().optional(),
+    weeklyWorkoutGoal: z.number().int().min(1).max(7),
+  }),
+]);
+
+/**
+ * POST /api/v1/me/fitness/setup: the Workouts hub's first-visit setup (spec "First-visit setup"). Skip
+ * marks it done without touching any field; otherwise saves the goal, goal weight and height, and logs
+ * today's weight when given (which also recomputes kcal via I1, same as a plain weight log).
+ */
+export async function completeFitnessSetup(userId: string, raw: unknown, now: Date = new Date()): Promise<FitnessSettings> {
+  const input = FitnessSetupSchema.parse(raw);
+  if ("skip" in input) {
+    await getProfile(userId);
+    await db.update(profile).set({ fitnessOnboardedAt: now, updatedAt: now }).where(eq(profile.userId, userId));
+    const prof = await getProfile(userId);
+    return { weeklyWorkoutGoal: prof.weeklyWorkoutGoal, goalWeightKg: prof.goalWeightKg, heightCm: prof.heightCm };
+  }
+  const settings = await updateFitnessSettings(userId, { weeklyWorkoutGoal: input.weeklyWorkoutGoal, goalWeightKg: input.goalWeightKg, heightCm: input.heightCm });
+  if (input.weightKg != null) {
+    const prof = await getProfile(userId);
+    await logWeight(userId, { date: todayIn(prof.timezone, now), kg: input.weightKg });
+  }
+  await db.update(profile).set({ fitnessOnboardedAt: now, updatedAt: now }).where(eq(profile.userId, userId));
+  return settings;
 }
 

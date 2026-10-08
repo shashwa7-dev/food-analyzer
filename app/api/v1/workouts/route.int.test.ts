@@ -106,7 +106,7 @@ describe("fitness API", () => {
     expect((await weightDate.DELETE(send(`weight/${today()}`, "DELETE"), ctx("date", today()))).status).toBe(404);
 
     const f = await meFitness.PATCH(send("me/fitness", "PATCH", { weeklyWorkoutGoal: 5, goalWeightKg: 68 }));
-    expect(((await f.json()) as { fitness: FitnessSettings }).fitness).toEqual({ weeklyWorkoutGoal: 5, goalWeightKg: 68 });
+    expect(((await f.json()) as { fitness: FitnessSettings }).fitness).toEqual({ weeklyWorkoutGoal: 5, goalWeightKg: 68, heightCm: null });
     expect(((await (await summary.GET(new Request(url("fitness/summary")))).json()) as FitnessSummary).week.goal.target).toBe(5);
   });
 });

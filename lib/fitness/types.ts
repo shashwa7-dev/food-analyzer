@@ -117,5 +117,8 @@ export type WeightHistory = {
 /** GET /api/v1/workouts/previous?keys=a,b → each key's sets from the last workout that had it. */
 export type PreviousSets = Record<string, WorkoutSet[]>;
 
-/** PATCH /api/v1/me/fitness */
-export type FitnessSettings = { weeklyWorkoutGoal: number; goalWeightKg: number | null };
+/** GET /api/v1/workouts/history?cursor= → a page of workouts, newest first. */
+export type HistoryPage = { items: WorkoutListItem[]; nextCursor: string | null };
+
+/** PATCH /api/v1/me/fitness, and the return of POST /api/v1/me/fitness/setup. */
+export type FitnessSettings = { weeklyWorkoutGoal: number; goalWeightKg: number | null; heightCm: number | null };
