@@ -61,8 +61,8 @@ export function TrendsCard({ calendar, volume, className }: { calendar: MonthCal
   const title = tab === "calendar" ? monthName(calendar.month) : "Last 8 weeks";
 
   return (
-    <section aria-labelledby={`${base}-title`} className={cn(CARD, "grid min-w-0 gap-2.5 p-3.5 md:p-4", className)}>
-      <div className="flex min-h-7 items-center justify-between gap-2">
+    <section aria-labelledby={`${base}-title`} className={cn(CARD, "grid grid-cols-[minmax(0,1fr)] min-w-0 gap-2.5 p-3.5 md:p-4", className)}>
+      <div className="flex min-h-7 min-w-0 items-center justify-between gap-2">
         <h2 id={`${base}-title`} className="m-0 inline-flex items-center gap-1.5 text-[15px] font-semibold whitespace-nowrap text-ink">
           {title}
           <ProBadge size="sm" />

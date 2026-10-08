@@ -45,15 +45,15 @@ function signedKg(delta: number): string {
 }
 
 function Row({ rank, ex }: { rank: number; ex: TopExercise }) {
-  const meta = [`${ex.sets} sets`, `${ex.sessions} sessions`, ex.best && `best ${ex.best.weightKg} kg × ${ex.best.reps}`].filter(Boolean).join(" · ");
+  const meta = [`${ex.sets} ${ex.sets === 1 ? "set" : "sets"}`, `${ex.sessions} ${ex.sessions === 1 ? "session" : "sessions"}`, ex.best && `best ${ex.best.weightKg} kg × ${ex.best.reps}`].filter(Boolean).join(" · ");
   return (
-    <div className="flex items-center gap-2.5 py-[7px]">
+    <div className="flex min-w-0 items-center gap-2.5 py-[7px]">
       <span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-sunken text-[11px] font-bold text-subtle">{rank}</span>
       <div className="min-w-0 flex-1">
         <b className="block truncate text-[13.5px] font-semibold text-ink">{ex.name}</b>
         <span className="block truncate text-[12px] whitespace-nowrap text-subtle">{meta}</span>
       </div>
-      <Sparkline values={ex.spark} />
+      <span className="hidden shrink-0 sm:block"><Sparkline values={ex.spark} /></span>
       {ex.e1rm !== null && (
         <span className="shrink-0 text-right text-[12.5px] leading-tight">
           <b className="block whitespace-nowrap text-brand-deep">e1RM {ex.e1rm} kg</b>
@@ -71,8 +71,8 @@ function Row({ rank, ex }: { rank: number; ex: TopExercise }) {
  */
 export function TopExercises({ items, range, className }: { items: TopExercise[]; range: StatsRange; className?: string }) {
   return (
-    <section aria-labelledby="fo-top-exercises" className={cn(CARD, "mt-3.5 grid min-w-0 gap-1 p-3.5 md:p-4", className)}>
-      <div className="mb-1 flex items-center justify-between gap-2">
+    <section aria-labelledby="fo-top-exercises" className={cn(CARD, "mt-3.5 grid grid-cols-[minmax(0,1fr)] min-w-0 gap-1 p-3.5 md:p-4", className)}>
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
         <h2 id="fo-top-exercises" className="m-0 inline-flex items-center gap-1.5 text-[15px] font-semibold whitespace-nowrap text-ink">
           Top exercises
           <ProBadge size="sm" />
@@ -82,7 +82,7 @@ export function TopExercises({ items, range, className }: { items: TopExercise[]
       {items.length === 0 ? (
         <p className="m-0 text-[13.5px] text-subtle">No sets logged this {range} yet.</p>
       ) : (
-        <div className="divide-y divide-line">
+        <div className="min-w-0 divide-y divide-line">
           {items.map((ex, i) => (
             <Row key={ex.exerciseKey} rank={i + 1} ex={ex} />
           ))}

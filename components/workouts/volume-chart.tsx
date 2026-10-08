@@ -92,7 +92,7 @@ export function VolumeChart({ volume, className }: { volume: VolumeWeeks; classN
   const areaPath = last ? `M${pts.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" L")} L${last.x.toFixed(1)} ${plotBottom} L${pts[0]!.x.toFixed(1)} ${plotBottom}Z` : "";
 
   return (
-    <div className={cn("grid min-w-0 gap-2", className)}>
+    <div className={cn("grid grid-cols-[minmax(0,1fr)] min-w-0 gap-2", className)}>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <b className="num text-[22px] leading-none font-[650] tracking-[-0.03em] whitespace-nowrap text-ink">{fmtTonnes(current)}</b>
         <span className="text-[12.5px] font-semibold whitespace-nowrap text-brand-deep">{signedTonnes(deltaVsLast)} vs last week</span>

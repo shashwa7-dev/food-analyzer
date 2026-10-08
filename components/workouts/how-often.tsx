@@ -9,8 +9,8 @@ const CARD = "rounded-[24px] bg-surface shadow-card";
 export function HowOften({ items, range, className }: { items: TypeCount[]; range: StatsRange; className?: string }) {
   const max = Math.max(1, ...items.map((i) => i.sessions));
   return (
-    <section aria-labelledby="fo-how-often" className={cn(CARD, "grid min-w-0 gap-1 p-3.5 md:p-4", className)}>
-      <div className="mb-1 flex items-center justify-between gap-2">
+    <section aria-labelledby="fo-how-often" className={cn(CARD, "grid grid-cols-[minmax(0,1fr)] min-w-0 gap-1 p-3.5 md:p-4", className)}>
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-2">
         <h2 id="fo-how-often" className="m-0 inline-flex items-center gap-1.5 text-[15px] font-semibold whitespace-nowrap text-ink">
           How often
           <ProBadge size="sm" />

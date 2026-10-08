@@ -15,7 +15,7 @@ const WEEKDAY_HEADERS = ["M", "T", "W", "T", "F", "S", "S"];
 export function MonthCalendar({ calendar, className }: { calendar: MonthCalendarData; className?: string }) {
   const types = DAY_TYPES.filter((t) => calendar.days.some((d) => d.type === t));
   return (
-    <div className={cn("grid min-w-0 gap-2.5", className)}>
+    <div className={cn("grid grid-cols-[minmax(0,1fr)] min-w-0 gap-2.5", className)}>
       <p className="m-0 text-[12.5px] whitespace-nowrap text-subtle">{calendar.workoutDays} workout days</p>
       <div role="grid" aria-label="Calendar" className="grid grid-cols-7 gap-1.5">
         {WEEKDAY_HEADERS.map((h, i) => (

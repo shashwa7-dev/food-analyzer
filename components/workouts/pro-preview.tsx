@@ -15,7 +15,7 @@ export function ProPreview() {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <div aria-hidden inert className="grid min-w-0 opacity-55 blur-[5px]">
+      <div aria-hidden inert className="grid grid-cols-[minmax(0,1fr)] min-w-0 opacity-55 blur-[5px]">
         <TrendsCard calendar={SAMPLE_CALENDAR} volume={SAMPLE_VOLUME} />
         <TopExercises items={SAMPLE_TOP_EXERCISES} range="month" />
       </div>
