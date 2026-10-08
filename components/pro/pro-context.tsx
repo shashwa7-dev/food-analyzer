@@ -17,7 +17,7 @@ export type ProState = {
   joinWaitlist: () => Promise<void>;
 };
 
-const NONE: Record<GatedFeature, boolean> = { progressMonth: false, dataExport: false, customTargets: false };
+const NONE: Record<GatedFeature, boolean> = { progressMonth: false, dataExport: false, customTargets: false, fitnessInsights: false };
 const ProContext = createContext<ProState>({ plan: "basic", locks: NONE, upsell: false, onWaitlist: false, joinWaitlist: async () => undefined });
 
 export function ProProvider({ plan, locks, onWaitlist, children }: { plan: PlanKey; locks: Record<GatedFeature, boolean>; onWaitlist: boolean; children: ReactNode }) {

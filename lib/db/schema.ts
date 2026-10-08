@@ -46,11 +46,16 @@ export const profile = pgTable("profile", {
   /** Days a week the user aims to train (spec §C), 1–7. */
   weeklyWorkoutGoal: smallint("weekly_workout_goal").notNull().default(3),
   goalWeightKg: numeric("goal_weight_kg", { precision: 5, scale: 2, mode: "number" }),
+  /** Optional, from the Workouts setup or Me → Fitness (spec "First-visit setup"); stored only for now. */
+  heightCm: smallint("height_cm"),
+  /** Set when the Workouts setup is finished or skipped; null shows the setup on /workouts. */
+  fitnessOnboardedAt: timestamp("fitness_onboarded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   check("credits_non_negative", sql`${t.credits} >= 0`),
   check("weekly_workout_goal_range", sql`${t.weeklyWorkoutGoal} BETWEEN 1 AND 7`),
+  check("height_cm_range", sql`${t.heightCm} IS NULL OR ${t.heightCm} BETWEEN 100 AND 250`),
 ]);
 
 export const food = pgTable("food", {

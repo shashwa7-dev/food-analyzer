@@ -9,16 +9,18 @@ export interface PlanFeatures {
   dataExport: boolean;
   /** Daily targets other than the goal's preset. */
   customTargets: boolean;
+  /** The Workouts hub's Pro insights: Month stats, trends, top exercises, how often. */
+  fitnessInsights: boolean;
 }
 
 export const PLANS = {
-  basic: { aiScansPerMonth: 20, progressMonth: false, dataExport: false, customTargets: false },
-  pro: { aiScansPerMonth: 200, progressMonth: true, dataExport: true, customTargets: true },
+  basic: { aiScansPerMonth: 20, progressMonth: false, dataExport: false, customTargets: false, fitnessInsights: false },
+  pro: { aiScansPerMonth: 200, progressMonth: true, dataExport: true, customTargets: true, fitnessInsights: true },
 } as const satisfies Record<string, PlanFeatures>;
 export type PlanKey = keyof typeof PLANS;
 
 export type GatedFeature = { [K in keyof PlanFeatures]: PlanFeatures[K] extends boolean ? K : never }[keyof PlanFeatures];
-export const GATED_FEATURES = ["progressMonth", "dataExport", "customTargets"] as const satisfies readonly GatedFeature[];
+export const GATED_FEATURES = ["progressMonth", "dataExport", "customTargets", "fitnessInsights"] as const satisfies readonly GatedFeature[];
 
 /** Whether `plan` may use `feature`, given the launch switch. `allows` in lib/credits/plans.ts reads the switch for you. */
 export function planAllows(plan: PlanKey, feature: GatedFeature, enforced: boolean): boolean {

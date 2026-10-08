@@ -78,6 +78,13 @@
       "when": 1791412105263,
       "tag": "0010_fitness",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791450180600,
+      "tag": "0011_fitness_setup",
+      "breakpoints": true
     }
   ]
 }
