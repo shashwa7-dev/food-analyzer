@@ -1,4 +1,5 @@
 "use client";
+import { parseAmount } from "@/lib/parse-amount";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Check, Plus, Trash2 } from "lucide-react";
 import { OverflowMenu, type OverflowItem } from "@/components/ui/overflow-menu";
@@ -32,10 +33,11 @@ function NumberCell({ value, decimal, label, onChange }: { value: number | null;
         maxLength={decimal ? 6 : 3}
         value={text}
         onChange={(e) => {
-          const t = decimal ? e.target.value.replace(",", ".").replace(/[^\d.]/g, "") : e.target.value.replace(/\D/g, "");
+          // Keep only what an amount can contain, then read it with the shared parser (decimal comma rules).
+          const t = decimal ? e.target.value.replace(/[^\d.,]/g, "") : e.target.value.replace(/\D/g, "");
           setText(t);
-          const n = decimal ? parseFloat(t) : parseInt(t, 10);
-          onChange(Number.isFinite(n) ? n : null);
+          const n = parseAmount(t);
+          onChange(n !== null && Number.isFinite(n) ? (decimal ? n : Math.round(n)) : null);
         }}
         className="peer relative z-[1] h-11 w-full min-w-0 bg-transparent text-center text-[14px] font-semibold text-ink outline-none! placeholder:text-subtle"
       />
