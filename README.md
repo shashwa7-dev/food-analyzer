@@ -83,7 +83,7 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 | `MODEL_FAST` | no | Model id for the (only) tier the engine currently calls. Defaults to `gemini-3.5-flash-lite` (`lib/engine/models.ts`). |
 | `MODEL_STRONG` | no | Reserved for a future strong-tier pass; not yet called by the engine. Defaults to `gemini-3.5-flash`. |
 | `DAILY_AI_SCAN_CAP` | no | Global cap on model-calling scans per UTC day, across all users combined. Defaults to `300`. Once hit, new AI scans get `503 SERVICE_BUSY` until the day rolls over (`lib/scans/deps.ts`, `lib/rate-limit.ts`). |
-| `PRO_GATES_ENFORCED` | no | Launch switch for the Pro-only features (200 AI scans a month, Progress month view, CSV data export, custom daily targets; `lib/credits/plan-features.ts`). Off by default, so everything stays open until Pro launches. Set `true` (or `1`) to enforce: Basic users get a "Pro" lock on those features and an upgrade sheet that joins the waitlist; `GET /api/v1/progress?range=month` and `GET /api/v1/export` return `403 PRO_REQUIRED`; saving custom targets on Basic is rejected. Reads are gated too: a Basic user's stored custom targets are ignored and their goal preset applies everywhere (Today, Progress, scan grading), with a one-time notice on Today and Me. The stored overrides are kept, so they come back on upgrading. Try Pro locally with `pnpm plan:set <email> pro`. |
+| `PRO_GATES_ENFORCED` | no | Launch switch for the Pro-only features (200 AI scans a month, Progress month view, workout insights (Month stats, trends, top exercises, how often), CSV data export, custom daily targets; `lib/credits/plan-features.ts`). Off by default, so everything stays open until Pro launches. Set `true` (or `1`) to enforce: Basic users get a "Pro" lock on those features and an upgrade sheet that joins the waitlist; `GET /api/v1/progress?range=month`, `GET /api/v1/fitness/stats?range=month` and `GET /api/v1/export` return `403 PRO_REQUIRED` (the Workouts page quietly falls back to Week and shows one blurred Pro preview in place of the insight cards); saving custom targets on Basic is rejected. Reads are gated too: a Basic user's stored custom targets are ignored and their goal preset applies everywhere (Today, Progress, scan grading), with a one-time notice on Today and Me. The stored overrides are kept, so they come back on upgrading. Try Pro locally with `pnpm plan:set <email> pro`. |
 
 ### Credits
 
@@ -135,6 +135,17 @@ supports EAN-13 (Chrome on Android/macOS), and otherwise lazily loads [`zxing-wa
 configured yet; when one is added, allow that origin in `connect-src` (and `script-src 'wasm-unsafe-eval'`),
 or self-host the wasm via `prepareZXingModule({ overrides: { locateFile } })`.
 
+## Workouts
+
+`/workouts` is the fitness hub. On first visit it asks for a weekly goal, goal weight and height ("Set up your training", skippable); until the first workout it shows the six ways to start a session; after that it has the weekly goal and next preset in your rotation, a week strip, weekly stats (sessions, volume, time, calories burned), body weight with its 30-day trend and the full paged history. Pro adds workout insights: a Week | Month switch, a Calendar | Volume trends card (monthly day-type calendar, 8-week volume), top exercises and how often you train each day type. With `PRO_GATES_ENFORCED` on, Basic users see one blurred preview with a "See Pro" button instead.
+
+| Route | Purpose |
+| --- | --- |
+| `/workouts` | The hub (setup form, empty state or full hub; `?range=month` is Pro) |
+| `GET /api/v1/fitness/stats` | Stats for `?range=week\|month` (month and the insight fields are Pro) |
+| `GET /api/v1/workouts/history` | Paged workout history (`?cursor=`) |
+| `POST /api/v1/me/fitness/setup` | Saves the first-visit setup (goal, goal weight, height) or skips it |
+
 ## Demo data and screenshots (dev only)
 
 Sign-in is Google-only, so headless checks use a seeded demo account instead:
@@ -146,7 +157,7 @@ pnpm shot /today --w 390                      # → .superpowers/shots/today-390
 pnpm shot /history --w 1280 --dark --full     # desktop, dark, full page; --out file.png to pick the path
 ```
 
-`seed:demo` is idempotent (re-run it any time; it rebuilds the diary, workouts and weight relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
+`seed:demo` is idempotent (re-run it any time; it rebuilds the diary, workouts and weight relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It seeds 10 weeks of workouts (one rest week, so the streak breaks) and writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored). It also creates two more local users, touching no others: `fresh@demo.local` (no fitness setup, so `/workouts` shows the setup form; `.superpowers/demo-fresh-cookie.txt`) and `starter@demo.local` (set up, 68 kg, no workouts, so `/workouts` shows the empty hub; `.superpowers/demo-starter-cookie.txt`) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
 
 ## UI
 
@@ -158,7 +169,7 @@ The C1 "Lime & Ink" design (spec: `docs/superpowers/specs/2026-10-07-redesign-c1
 - **Lime is a fill, never text.** Text accents use `--brand-deep`; text on `--brand-soft` uses `--on-brand-soft`; text on lime uses `--brand-ink`. Grade letters use `--on-grade` / `--on-grade-light`, and macro numbers `--protein-ink` / `--carbs-ink` / `--fat-ink`, so all text meets WCAG AA.
 - **Tap targets are at least 44 × 44 px** (the element itself, a `::before`/`::after` hit area, or a parent that is the hit area).
 
-`pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm, the Today energy strip, Progress → Fitness, `/weight` and its log sheet, the Me Fitness sheet), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
+`pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm, the Today energy strip, the Workouts page in each of its states (setup, empty, week, month, Volume tab, Pro-locked), `/weight` and its log sheet, the Me Fitness sheet), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
 
 ```bash
 pnpm seed:demo && pnpm ui:audit

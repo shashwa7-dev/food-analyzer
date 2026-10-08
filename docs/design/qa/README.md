@@ -51,7 +51,11 @@ action bars sit at the bottom; sheets, dialogs and the scanner are shot at the r
 | `scan-label`, `scan-barcode`, `scan-meal` | `/scans/{id}` | done scans |
 | `scan-failed` | `/scans/{id}` | failed, refunded scan |
 | `progress`, `progress-month` | `/progress`, `/progress?range=month` | |
-| `progress-fitness` | `/progress?view=fitness` | week strip, goal, up next, weight, recent |
+| `workouts` | `/workouts` | the full hub |
+| `workouts-setup` | `/workouts` | as Fresh Demo: setup form, inputs labelled |
+| `workouts-empty` | `/workouts` | as Starter Demo: empty hub, six preset links, no History |
+| `workouts-month`, `workouts-volume` | `/workouts?range=month`, `/workouts` | gates open: Month calendar; Volume tab (8-week chart) |
+| `workouts-locked` | `/workouts` | gates on: one blurred Pro preview with See Pro |
 | `today-energy` | `/today` | energy strip and Workouts card (seeded workouts today) |
 | `weight`, `weight-log-sheet`, `weight-delete-confirm` | `/weight` | page; Log weight sheet; first entry's delete confirm |
 | `me-fitness-sheet` | `/me` | Fitness sheet open |
