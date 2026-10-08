@@ -41,7 +41,7 @@ describe("workouts", () => {
       { name: "Cable kickback", sets: [set(10, 12)] },
     ]);
     expect(w).toMatchObject({
-      kind: "gym", preset: "push", title: "Push", intensity: "moderate", durationMin: 48, kcalBurned: 280, kcalEstimated: true,
+      kind: "gym", preset: "push", title: "Push day", intensity: "moderate", durationMin: 48, kcalBurned: 280, kcalEstimated: true,
       kcalBasis: { met: 5, weightKg: 70, estimated: true, minutes: 48 }, exerciseCount: 2, setCount: 3, volumeKg: 1080, prCount: 0,
     });
     expect(w.exercises.map((e) => [e.exerciseKey, e.name, e.sets.length])).toEqual([["bench_press", "Bench press", 3], ["custom:cable_kickback", "Cable kickback", 1]]);
@@ -75,7 +75,7 @@ describe("workouts", () => {
     await gym(other, 1, []);
     const all = await listWorkouts(me, {});
     expect(all.map((w) => w.date)).toEqual([addDays(today(), -1), addDays(today(), -5)]);
-    expect(all[0]!.title).toBe("Legs");
+    expect(all[0]!.title).toBe("Leg day");
     expect((await listWorkouts(me, { from: addDays(today(), -60), to: addDays(today(), -2) })).map((w) => w.date)).toEqual([addDays(today(), -5), addDays(today(), -40)]);
     await expect(listWorkouts(me, { from: "2026-10-05", to: "2026-10-01" })).rejects.toBeInstanceOf(InvalidError);
     await expect(listWorkouts(me, { from: "2024-01-01", to: "2026-01-01" })).rejects.toBeInstanceOf(InvalidError);
@@ -86,7 +86,7 @@ describe("workouts", () => {
     expect(await getWorkout(other, w.id)).toBeNull();
     expect(await updateWorkout(other, w.id, { title: "Mine now" })).toBeNull();
     expect(await deleteWorkout(other, w.id)).toBe(false);
-    expect((await getWorkout(me, w.id))!.title).toBe("Push");
+    expect((await getWorkout(me, w.id))!.title).toBe("Push day");
     expect(await getWorkout(me, "not-a-uuid")).toBeNull();
   });
 
@@ -176,7 +176,7 @@ describe("fitness summary", () => {
     expect(s.week).toMatchObject({ start: "2026-10-05", end: "2026-10-11", sessions: 4, minutes: 165, kcal: 263 * 3 + 123, kcalEstimated: true, goal: { target: 4, done: 3, met: false } });
     expect(s.week.days.map((d) => d.state)).toEqual(["done", "done", "done", "today", "future", "future", "future"]);
     expect(s.week.days[1]!.sessions).toBe(2);
-    expect(s.upNext).toEqual({ preset: "push", title: "Push", muscles: "Chest · Shoulders · Triceps", exerciseCount: 5 }); // after Legs
+    expect(s.upNext).toEqual({ preset: "push", title: "Push day", muscles: "Chest · Shoulders · Triceps", exerciseCount: 5 }); // after Legs
     expect(s.recent.map((w) => w.title)).toEqual(["Legs", "Pull", "Walk", "Push", "Back"]);
     // Another week by any date inside it.
     const last = await getFitnessSummary(me, { week: "2026-09-30" }, now);

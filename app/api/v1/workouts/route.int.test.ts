@@ -50,7 +50,7 @@ describe("fitness API", () => {
     const res = await workouts.POST(send("workouts", "POST", { ...pushDay(), kcalBurned: 9999 }));
     expect(res.status).toBe(201);
     const { workout: created } = (await res.json()) as { workout: WorkoutDetail };
-    expect(created).toMatchObject({ title: "Push", kcalBurned: 280, kcalEstimated: true, volumeKg: 960, setCount: 2 }); // client kcal ignored
+    expect(created).toMatchObject({ title: "Push day", kcalBurned: 280, kcalEstimated: true, volumeKg: 960, setCount: 2 }); // client kcal ignored
 
     const list = (await (await workouts.GET(new Request(url("workouts")))).json()) as { workouts: WorkoutListItem[] };
     expect(list.workouts.map((w) => w.id)).toEqual([created.id]);

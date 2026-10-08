@@ -66,11 +66,11 @@ const BY_KEY = new Map(EXERCISES.map((e) => [e.key, e]));
 export const exerciseByKey = (key: string): Exercise | undefined => BY_KEY.get(key);
 
 export const PRESETS: Record<Preset, { title: string; muscles: string; exercises: string[] }> = {
-  push: { title: "Push", muscles: "Chest · Shoulders · Triceps", exercises: ["bench_press", "overhead_press", "incline_db_press", "lateral_raise", "triceps_pushdown"] },
-  pull: { title: "Pull", muscles: "Back · Biceps", exercises: ["deadlift", "barbell_row", "seated_cable_row", "face_pull", "biceps_curl"] },
-  legs: { title: "Legs", muscles: "Quads · Hamstrings · Calves", exercises: ["squat", "romanian_deadlift", "leg_press", "leg_curl", "calf_raise"] },
-  back: { title: "Back", muscles: "Lats · Upper back", exercises: ["pull_up", "barbell_row", "single_arm_db_row", "straight_arm_pulldown", "back_extension"] },
-  shoulders: { title: "Shoulders", muscles: "Delts · Traps", exercises: ["overhead_press", "lateral_raise", "rear_delt_fly", "arnold_press", "shrug"] },
+  push: { title: "Push day", muscles: "Chest · Shoulders · Triceps", exercises: ["bench_press", "overhead_press", "incline_db_press", "lateral_raise", "triceps_pushdown"] },
+  pull: { title: "Pull day", muscles: "Back · Biceps", exercises: ["deadlift", "barbell_row", "seated_cable_row", "face_pull", "biceps_curl"] },
+  legs: { title: "Leg day", muscles: "Quads · Hamstrings · Calves", exercises: ["squat", "romanian_deadlift", "leg_press", "leg_curl", "calf_raise"] },
+  back: { title: "Back day", muscles: "Lats · Upper back", exercises: ["pull_up", "barbell_row", "single_arm_db_row", "straight_arm_pulldown", "back_extension"] },
+  shoulders: { title: "Shoulders day", muscles: "Delts · Traps", exercises: ["overhead_press", "lateral_raise", "rear_delt_fly", "arnold_press", "shrug"] },
 };
 
 export const ACTIVITIES: Record<Activity, { title: string }> = {
