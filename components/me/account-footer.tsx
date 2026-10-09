@@ -1,11 +1,10 @@
 "use client";
 import { useId, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { LogOut, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { authClient } from "@/lib/auth-client";
+import { signOutAndLeave } from "@/lib/sign-out";
 import { deleteAccountAction } from "@/app/(app)/me/actions";
 
 const LINKS = [
@@ -21,7 +20,6 @@ const LINKS = [
  * the server checks it again.
  */
 export function AccountFooter() {
-  const router = useRouter();
   const inputId = useId();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
@@ -30,8 +28,9 @@ export function AccountFooter() {
 
   async function signOut() {
     setSigningOut(true);
-    await authClient.signOut().catch(() => undefined);
-    router.replace("/");
+    if (await signOutAndLeave("/")) return; // the page is on its way out
+    setSigningOut(false);
+    toast.error("Couldn't sign you out. Try again.");
   }
 
   async function confirmDelete() {

@@ -22,7 +22,7 @@ import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
 import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
 import { targetsToSave } from "@/lib/profile/targets-gate";
 import { saveProfile } from "@/app/(app)/me/actions";
-import { authClient } from "@/lib/auth-client";
+import { signOutAndLeave } from "@/lib/sign-out";
 
 const STEPS = [
   { title: "What's your goal?", hint: "It sets your daily targets. You can change it later in Me." },
@@ -208,8 +208,9 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
 
   async function signOut() {
     setSigningOut(true);
-    await authClient.signOut().catch(() => undefined);
-    router.replace("/sign-in");
+    if (await signOutAndLeave("/sign-in")) return; // the page is on its way out
+    setSigningOut(false);
+    toast.error("Couldn't sign you out. Try again.");
   }
 
   const last = step === STEPS.length - 1;

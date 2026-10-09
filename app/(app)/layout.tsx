@@ -13,6 +13,7 @@ import { NavTracker } from "@/components/nav/nav-tracker";
 import { ScanShortcut } from "@/components/nav/scan-shortcut";
 import { TimezoneSync } from "@/components/timezone-sync";
 import { SessionKeepAlive } from "@/components/session-keep-alive";
+import { DataRefresher } from "@/components/nav/data-refresher";
 
 // Signed-in pages are personal: keep them out of search engines.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -47,6 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <NavTracker />
         <TimezoneSync current={profile.timezone} />
         <SessionKeepAlive />
+        <DataRefresher />
       </div>
     </ProProvider>
   );
