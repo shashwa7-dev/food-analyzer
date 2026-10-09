@@ -70,6 +70,8 @@ The app runs at `http://localhost:3000`.
 | `OFF_CONTACT_EMAIL` | no | Contact email sent in the `User-Agent` header on Open Food Facts requests (`Santul/2.0 (<contact>)`) |
 | `TEST_DATABASE_URL` | yes, for `pnpm test:int` | Points at a separate local database, e.g. `postgres://eatri8:eatri8@localhost:5432/eatri8_test` |
 
+Server code runs in Vercel's Singapore region (`sin1`, set in `vercel.json`) because the Neon database is in `ap-southeast-1`, also Singapore. Every page makes several database round trips, so the two must stay side by side: if the database ever moves, change `regions` to match.
+
 All env vars are validated at boot through `lib/env.ts` (zod; an empty string counts as unset). There are no `NEXT_PUBLIC_` secrets.
 
 ## Scanning (M2)
