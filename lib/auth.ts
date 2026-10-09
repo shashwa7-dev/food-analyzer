@@ -4,6 +4,8 @@ import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db/client";
 import { user, session, account, verification } from "@/lib/db/auth-schema";
 import { env } from "@/lib/env";
+import { SITE_URL } from "@/lib/site";
+import { trustedOrigins } from "@/lib/auth-origins";
 
 /** How long a session is trusted from its cookie before the database is asked again. */
 export const SESSION_CACHE_SECONDS = 5 * 60;
@@ -12,7 +14,7 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema: { user, session, account, verification } }),
   secret: env().BETTER_AUTH_SECRET,
   baseURL: env().BETTER_AUTH_URL,
-  trustedOrigins: [env().BETTER_AUTH_URL],
+  trustedOrigins: trustedOrigins(env().BETTER_AUTH_URL, SITE_URL),
   socialProviders: {
     google: { clientId: env().GOOGLE_CLIENT_ID, clientSecret: env().GOOGLE_CLIENT_SECRET, prompt: "select_account" },
   },
