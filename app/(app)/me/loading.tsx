@@ -3,7 +3,7 @@ import { Bone, SkeletonCard, SkeletonPage } from "@/components/ui/skeleton";
 /** Me: who you are, the AI scans card, then the settings list. */
 export default function MeLoading() {
   return (
-    <SkeletonPage>
+    <SkeletonPage className="mx-auto w-full max-w-[560px]">
       <div className="flex items-center gap-3 pt-1">
         <Bone className="size-12 shrink-0" />
         <div className="flex flex-col gap-2">

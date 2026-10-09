@@ -3,7 +3,7 @@ import { Bone, SkeletonPage, SkeletonRow, SkeletonTopBar } from "@/components/ui
 /** Food search: the bar, the search field, then a list of foods. */
 export default function FoodsLoading() {
   return (
-    <SkeletonPage>
+    <SkeletonPage className="mx-auto w-full max-w-[720px]">
       <SkeletonTopBar />
       <Bone className="h-12 w-full" />
       <Bone className="h-3.5 w-20" />

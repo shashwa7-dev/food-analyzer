@@ -3,7 +3,7 @@ import { Bone, SkeletonCard, SkeletonPage, SkeletonRow, SkeletonTitle } from "@/
 /** History: search, the grade filters, then the scans. */
 export default function HistoryLoading() {
   return (
-    <SkeletonPage>
+    <SkeletonPage className="mx-auto w-full max-w-[720px]">
       <SkeletonTitle />
       <Bone className="h-12 w-full" />
       <div className="flex gap-2 overflow-hidden">

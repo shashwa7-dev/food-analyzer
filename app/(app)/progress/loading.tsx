@@ -2,21 +2,22 @@ import { Bone, SkeletonCard, SkeletonPage, SkeletonTitle } from "@/components/ui
 
 const BARS = ["h-[62%]", "h-[38%]", "h-[18%]", "h-[46%]", "h-[66%]", "h-[36%]", "h-[32%]"];
 
-/** Progress: three stat tiles, the calories chart, then the macro split. */
+/** Progress: the stat tiles, the calories chart, then the macro split (two cards side by side from 900 px). */
 export default function ProgressLoading() {
   return (
-    <SkeletonPage>
-      <SkeletonTitle withSwitch />
-      <div className="grid grid-cols-3 gap-2.5">
-        {[0, 1, 2].map((i) => (
-          <SkeletonCard key={i} className="flex flex-col gap-3 p-3.5">
+    <SkeletonPage className="md:grid md:grid-cols-2 md:gap-6">
+      <SkeletonTitle withSwitch className="md:col-span-2" />
+      <div className="grid grid-cols-3 gap-2.5 md:col-span-2 md:grid-cols-4">
+        {/* Three tiles on a phone, four from 900 px. */}
+        {[0, 1, 2, 3].map((i) => (
+          <SkeletonCard key={i} className={i === 3 ? "hidden flex-col gap-3 p-3.5 md:flex" : "flex flex-col gap-3 p-3.5"}>
             <Bone className="size-4" />
             <Bone className="h-5 w-14 rounded-[8px]" />
             <Bone className="h-3 w-16" />
           </SkeletonCard>
         ))}
       </div>
-      <SkeletonCard className="flex flex-col gap-5">
+      <SkeletonCard className="flex flex-col gap-5 md:col-span-2">
         <div className="flex items-center justify-between">
           <Bone className="h-4 w-24" />
           <Bone className="h-3 w-40" />
@@ -38,6 +39,10 @@ export default function ProgressLoading() {
             ))}
           </div>
         </div>
+      </SkeletonCard>
+      <SkeletonCard className="hidden flex-col gap-5 md:flex">
+        <Bone className="h-4 w-32" />
+        <Bone className="h-[104px] w-full rounded-[14px]" />
       </SkeletonCard>
     </SkeletonPage>
   );

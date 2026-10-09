@@ -3,7 +3,7 @@ import { Bone, SkeletonCard, SkeletonPage, SkeletonTopBar } from "@/components/u
 /** Weight: the current weight with its trend, the log button, then recent entries. */
 export default function WeightLoading() {
   return (
-    <SkeletonPage>
+    <SkeletonPage className="mx-auto w-full max-w-[720px]">
       <SkeletonTopBar />
       <SkeletonCard className="flex flex-col gap-5">
         <div className="flex items-end justify-between">
