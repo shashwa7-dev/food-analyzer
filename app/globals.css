@@ -97,12 +97,17 @@
   --shadow-card: var(--shadow-card);
 }
 
-/* Scanner motion (spec §3 rule 8): only ever applied under motion-safe: */
+/* Scanner and loader motion (spec §3 rule 8): only ever applied under motion-safe: */
 @theme {
   --animate-laser: laser 2.4s ease-in-out infinite;
   --animate-dot-pulse: dot-pulse 1.2s ease-in-out infinite alternate;
   @keyframes laser { 0%, 100% { top: 14%; } 50% { top: 86%; } }
   @keyframes dot-pulse { from { box-shadow: 0 0 0 5px var(--brand-soft); } to { box-shadow: 0 0 0 9px var(--brand-soft); } }
+  /* The logo loader (LogoMark animated): the plate's halves slide along the cut, out of step. At rest they sit 12 units apart. */
+  --animate-plate-up: plate-up .9s ease-in-out infinite alternate;
+  --animate-plate-down: plate-down .9s ease-in-out infinite alternate;
+  @keyframes plate-up { from { transform: translateY(0); } to { transform: translateY(12px); } }
+  @keyframes plate-down { from { transform: translateY(0); } to { transform: translateY(-12px); } }
 }
 
 html, body { height: 100%; }

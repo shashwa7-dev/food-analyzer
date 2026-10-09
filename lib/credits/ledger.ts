@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db, type Tx } from "@/lib/db/client";
 import { creditTxn, profile, scan } from "@/lib/db/schema";
 import type { PlanKey } from "./plans";
-import { allowanceFor, currentPeriod, nextPeriodStart } from "./logic";
+import { allowanceFor, balanceIfCurrent, currentPeriod, nextPeriodStart, type Balance, type BalanceRow } from "./logic";
 import { carriedUsage, pruneTombstones } from "./tombstone";
 import type { ActivityFilter, ActivityItem } from "./activity";
 import { InvalidError } from "@/lib/errors";
@@ -96,7 +96,15 @@ export async function ensureCurrentPeriod(userId: string, now: Date = new Date()
   return { credits, period };
 }
 
-export async function getBalance(userId: string, now: Date = new Date()): Promise<{ credits: number; allowance: number; periodResetsAt: Date }> {
+/**
+ * The caller's balance for the current period. Reads it off the profile row (the one the caller
+ * already has, or one plain SELECT) and only opens the resetting transaction when the row is from
+ * an earlier period, which happens once a month per user: this runs on every page load.
+ */
+export async function getBalance(userId: string, now: Date = new Date(), known?: BalanceRow): Promise<Balance> {
+  const row = known ?? (await db.select({ plan: profile.plan, credits: profile.credits, allowancePeriod: profile.allowancePeriod }).from(profile).where(eq(profile.userId, userId)))[0];
+  const current = row && balanceIfCurrent(row, now);
+  if (current) return current;
   const { credits, allowance } = await periodInOwnTx(userId, now);
   return { credits, allowance, periodResetsAt: nextPeriodStart(now) };
 }

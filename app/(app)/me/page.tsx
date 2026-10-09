@@ -22,7 +22,7 @@ const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
  */
 export default async function MePage() {
   const { userId, profile, name, email } = await requireUser();
-  const [balance, historyCount] = await Promise.all([getBalance(userId), countVisibleScans(userId)]);
+  const [balance, historyCount] = await Promise.all([getBalance(userId, new Date(), profile), countVisibleScans(userId)]);
   const resetsLabel = resetDayLabel(balance.periodResetsAt, profile.timezone);
 
   return (
