@@ -12,6 +12,7 @@ import { AppNav } from "@/components/app-nav";
 import { NavTracker } from "@/components/nav/nav-tracker";
 import { ScanShortcut } from "@/components/nav/scan-shortcut";
 import { TimezoneSync } from "@/components/timezone-sync";
+import { SessionKeepAlive } from "@/components/session-keep-alive";
 
 // Signed-in pages are personal: keep them out of search engines.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -23,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const path = (await headers()).get("x-pathname") ?? "";
   if (!profile.onboardedAt && !path.startsWith("/onboarding")) redirect("/onboarding");
   const [balance, historyCount, onWaitlist] = await Promise.all([
-    getBalance(userId), countVisibleScans(userId), profile.plan === "pro" ? false : isOnWaitlist(userId),
+    getBalance(userId, new Date(), profile), countVisibleScans(userId), profile.plan === "pro" ? false : isOnWaitlist(userId),
   ]);
   const resetsLabel = resetDayLabel(balance.periodResetsAt, profile.timezone);
   return (
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <ScanShortcut />
         <NavTracker />
         <TimezoneSync current={profile.timezone} />
+        <SessionKeepAlive />
       </div>
     </ProProvider>
   );
