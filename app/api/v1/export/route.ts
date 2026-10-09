@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     return new Response(body, {
       headers: {
         "content-type": "text/csv; charset=utf-8",
-        "content-disposition": `attachment; filename="eatri8-${what}-${todayIn(profile.timezone)}.csv"`,
+        "content-disposition": `attachment; filename="santul-${what}-${todayIn(profile.timezone)}.csv"`,
         "cache-control": "no-store",
       },
     });

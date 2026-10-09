@@ -1,6 +1,6 @@
 import { MarketingPage, ProseSection } from "@/components/marketing/marketing-page";
 
-export const metadata = { title: "Terms — EATRi8" };
+export const metadata = { title: "Terms" };
 
 // Deliberate exception to "all env vars go through lib/env.ts": see app/(marketing)/privacy/page.tsx
 // for why this static page reads OFF_CONTACT_EMAIL directly instead of via env().
@@ -12,12 +12,12 @@ export default function TermsPage() {
     <MarketingPage title="Terms" intro="Plain language, no legalese. Last updated October 2026.">
       <ProseSection title="The service">
         <p className="m-0">
-          EATRi8 helps you log food and see honest, neutral grades for it. You sign in with Google; there&apos;s no separate password to manage.
+          Santul helps you log food and see honest, neutral grades for it. You sign in with Google; there&apos;s no separate password to manage.
         </p>
       </ProseSection>
       <ProseSection title="Not medical advice">
         <p className="m-0">
-          Nothing in EATRi8 is medical, dietary or clinical advice. Grades and flags are informational. Use your own judgement, and check with a
+          Nothing in Santul is medical, dietary or clinical advice. Grades and flags are informational. Use your own judgement, and check with a
           doctor or dietitian for anything related to a health condition.
         </p>
       </ProseSection>
@@ -29,7 +29,7 @@ export default function TermsPage() {
       </ProseSection>
       <ProseSection title="No warranty">
         <p className="m-0">
-          EATRi8 is provided as-is. Nutrition figures come from public databases and user submissions and may contain errors — check the pack
+          Santul is provided as-is. Nutrition figures come from public databases and user submissions and may contain errors — check the pack
           when it matters.
         </p>
       </ProseSection>

@@ -1,6 +1,8 @@
-# EATRi8
+# Santul
 
-EATRi8 is a mobile-first daily food tracker — MyFitnessPal-style logging made effortless by scanning — that tells you how healthy each food is, personalised to your diet, allergies and goals, and suggests a better option sold in your country. M1 shipped the tracker core: Google sign-in, onboarding, a seeded food catalogue (INDB + USDA FNDDS + Open Food Facts India, ~14.8k foods), search, food log, a Today view with a date switcher, and account settings. M2 adds scanning: free barcode lookups and AI-assisted photo extraction with a monthly credit allowance (see [Scanning](#scanning-m2)).
+Santul is a mobile-first daily food tracker — MyFitnessPal-style logging made effortless by scanning — that tells you how healthy each food is, personalised to your diet, allergies and goals, and suggests a better option sold in your country. M1 shipped the tracker core: Google sign-in, onboarding, a seeded food catalogue (INDB + USDA FNDDS + Open Food Facts India, ~14.8k foods), search, food log, a Today view with a date switcher, and account settings. M2 adds scanning: free barcode lookups and AI-assisted photo extraction with a monthly credit allowance (see [Scanning](#scanning-m2)).
+
+> The product was renamed from EATRi8 to Santul in October 2026. Internal identifiers (the `eatri8-theme` cookie, browser storage keys, database, package and CI names) still say `eatri8` on purpose: renaming them would reset people's theme and lose in-progress workouts.
 
 ## Prerequisites
 
@@ -65,7 +67,7 @@ The app runs at `http://localhost:3000`.
 | `BETTER_AUTH_URL` | yes | `http://localhost:3000` locally, your deployed URL in prod |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | yes | Google Cloud Console → OAuth 2.0 Web client; redirect URI `{BETTER_AUTH_URL}/api/auth/callback/google` |
 | `CREDIT_TOMBSTONE_PEPPER` | no | Keys the email HMAC kept when an account is deleted (so deleting and signing up again can't reset AI-scan usage). Falls back to `BETTER_AUTH_SECRET`; set a dedicated value (≥ 16 chars, `openssl rand -base64 32`) so rotating the auth secret doesn't orphan tombstones. In production the fallback logs a one-time warning. |
-| `OFF_CONTACT_EMAIL` | no | Contact email sent in the `User-Agent` header on Open Food Facts requests (`EATRi8/2.0 (<contact>)`) |
+| `OFF_CONTACT_EMAIL` | no | Contact email sent in the `User-Agent` header on Open Food Facts requests (`Santul/2.0 (<contact>)`) |
 | `TEST_DATABASE_URL` | yes, for `pnpm test:int` | Points at a separate local database, e.g. `postgres://eatri8:eatri8@localhost:5432/eatri8_test` |
 
 All env vars are validated at boot through `lib/env.ts` (zod; an empty string counts as unset). There are no `NEXT_PUBLIC_` secrets.

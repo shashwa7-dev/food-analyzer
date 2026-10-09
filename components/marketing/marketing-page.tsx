@@ -13,7 +13,7 @@ export function MarketingPage({ title, intro, children }: { title: string; intro
       <div className="mx-auto flex w-full max-w-[680px] flex-col gap-5">
         <div className="flex items-center justify-between gap-2.5">
           <BackButton fallback="/" />
-          <Link href="/" className="inline-flex min-h-11 items-center rounded-full px-2" aria-label="EATRi8 home">
+          <Link href="/" className="inline-flex min-h-11 items-center rounded-full px-2" aria-label="Santul home">
             <Logo className="text-[19px]" />
           </Link>
           <span className="size-11 shrink-0" aria-hidden />

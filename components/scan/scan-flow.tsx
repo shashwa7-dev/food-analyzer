@@ -24,7 +24,7 @@ import { ROUND_ON_MEDIA, ScanStage } from "./scan-stage";
 import { usePro } from "@/components/pro/pro-context";
 import { UpgradeSheet } from "@/components/pro/upgrade-sheet";
 
-const NETWORK_MESSAGE = "Couldn't reach EATRi8. Check your connection and try again.";
+const NETWORK_MESSAGE = "Couldn't reach Santul. Check your connection and try again.";
 
 type Photo = { id: string; blob: Blob; url: string };
 type Me = { profile: { credits: number; allowance: number } };
