@@ -112,7 +112,7 @@ export function Landing() {
           <h1 className="m-0 text-[43px] leading-none font-[650] tracking-[-0.048em] text-ink md:text-[58px] min-[1270px]:text-[66px]">
             Eat well.<br />
             Train well.<br />
-            <span className="whitespace-nowrap text-brand-deep dark:text-brand">Stay in balance.</span>
+            <span className="whitespace-nowrap text-brand-deep">Stay in balance.</span>
           </h1>
           <p className="m-0 text-base leading-[1.45] text-subtle md:hidden">Your meals, workouts and weight in one place.</p>
           <p className="m-0 hidden max-w-[27em] text-[19px] leading-[1.45] text-pretty text-subtle md:block">

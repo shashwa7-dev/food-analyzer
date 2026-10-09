@@ -1,6 +1,6 @@
 # Santul: new name, logo, home page and share metadata
 
-**Status:** draft for review · **Date:** 2026-10-09
+**Status:** implemented (see the "As built" notes in §4 and §5) · **Date:** 2026-10-09
 **Branch:** `santul-rebrand`, from `master` at `f5991a9` (Phase 2 merged)
 **Visual source of truth:** the approved companion mocks in `.superpowers/brainstorm/21347-1791554966/content/` (git-ignored): `santul-split-plate-refine.html` (logo), `landing-one-screen-v3.html` (desktop home), `mobile-and-og.html` (phone home option A, share card).
 
@@ -87,7 +87,7 @@ A new server component `components/marketing/landing.tsx` renders the page. `app
 | Small print, under the button | Free to use. By continuing you agree to the terms and privacy policy. (both linked) |
 | Links | Data sources · Privacy · Terms |
 
-Icons are lucide (`Soup`, `ScanLine`, `Dumbbell`) in `IconTile tone="brand"`, plus the existing `GradeBadge`, as on today's home page. In Light, where `--brand` on the page background is too pale for text, the headline's last line uses `--brand-deep`.
+Icons are lucide (`Soup`, `ScanLine`, `Dumbbell`) in `IconTile tone="brand"`, plus the existing `GradeBadge`, as on today's home page. The headline's last line uses `--brand-deep` in both themes: the app's lime-for-text token (the UI audit forbids `--brand` itself as text).
 
 ### 4.3 Layout
 
@@ -95,7 +95,7 @@ Icons are lucide (`Soup`, `ScanLine`, `Dumbbell`) in `IconTile tone="brand"`, pl
 - Top bar: logo left; Data sources, Privacy, Terms right.
 - Two columns. Left (about 600 px): headline at 66 px, lede, the four features in a 2 × 2 grid, the button at its natural width, the small print directly below it.
 - Right: three phone frames. Today in front and centred (292 px wide); the scan result behind it on the left and Workouts behind on the right (232 px wide, rotated −7° and +7°).
-- Between 900 px and about 1100 px the side phones are hidden so the centre phone never collides with the text.
+- Below 1270 px the side phones are hidden so the phones never collide with the text. (As built: the spec first said about 1100 px, but the three-phone fan needs 540 px beside a 570 px text column.) Between 900 and 1269 px the headline is 58 px.
 
 **Below 900 px:** a single column that scrolls.
 - Logo, headline at 43 px, phone lede.
@@ -111,7 +111,7 @@ The pinned bar is the page's only fixed element. The phone frames are decorative
 Six images in `public/landing/`: `today`, `scan`, `workouts`, each in `-dark` and `-light`, as WebP.
 - Source: the UI audit's 390 px screenshots (`today`, `scan-label`, `workouts` in `docs/design/qa/`, which is git-ignored and produced from demo data).
 - A new script, `pnpm brand:assets` (§5.3), crops each to the top 780 × 1620 px and writes it 584 px wide with `sharp`. Target: under 60 KB each.
-- Both themes' images are in the markup; CSS shows the one for the active theme (the `dark:` variant), so there is no flash and no client JavaScript. Images have explicit width and height. The centre phone loads eagerly; the side phones load lazily.
+- Both themes' images are in the markup; CSS shows the one for the active theme (the `dark:` variant), so there is no flash and no client JavaScript. Images have explicit width and height. All of them load lazily, so the hidden theme's file is never fetched.
 
 ## 5. Titles, descriptions and share cards
 
@@ -135,13 +135,13 @@ Root `app/layout.tsx`:
 | `title.template` | `%s · Santul` |
 | `description` | Track meals, workouts and weight in one place. Log Indian dishes in real portions and scan any pack for an honest A–E grade. |
 | `applicationName` | Santul |
-| `openGraph` | `type: website`, `siteName: Santul`, `locale: en_IN`, `url: /`, title and description as above |
+| `openGraph` | `type: website`, `siteName: Santul`, `locale: en_IN`, title and description as above (no `url`: every page inherits this block) |
 | `twitter` | `card: summary_large_image`, title and description as above |
 | `alternates.canonical` | `/` on the home page; each public page sets its own |
 
 - Public pages set a short title that goes through the template: "Privacy", "Terms", "Data sources".
 - `app/(app)/layout.tsx` sets `robots: { index: false, follow: false }`, and each signed-in page sets a short title ("Today", "Workouts", "Progress", "Scan", "Foods", "History", "Weight", "Me", "Get started" for onboarding).
-- `app/robots.ts`: allow `/`, disallow `/api/` and the signed-in prefixes from `proxy.ts`, and point to the sitemap.
+- `app/robots.ts`: allow `/`, disallow `/api/` and the signed-in prefixes (`lib/nav/app-prefixes.ts`, shared with `proxy.ts`), and point to the sitemap.
 - `app/sitemap.ts`: `/`, `/privacy`, `/terms`, `/about/data`.
 
 ### 5.3 Images and icons

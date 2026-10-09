@@ -92,8 +92,9 @@ async function shareCard() {
     const card = await sharp(shot).png({ compressionLevel: 9 }).toBuffer();
     write("app/opengraph-image.png", card);
     write("app/twitter-image.png", card);
-    write("app/opengraph-image.alt.txt", `${SHARE_IMAGE_ALT}\n`);
-    write("app/twitter-image.alt.txt", `${SHARE_IMAGE_ALT}\n`);
+    // No trailing newline: Next drops the alt tag when the file ends with one.
+    write("app/opengraph-image.alt.txt", SHARE_IMAGE_ALT);
+    write("app/twitter-image.alt.txt", SHARE_IMAGE_ALT);
   } finally {
     await browser.close();
   }
