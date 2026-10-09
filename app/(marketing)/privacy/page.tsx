@@ -1,6 +1,6 @@
 import { MarketingPage, ProseSection } from "@/components/marketing/marketing-page";
 
-export const metadata = { title: "Privacy" };
+export const metadata = { title: "Privacy", alternates: { canonical: "/privacy" } };
 
 // Deliberate exception to "all env vars go through lib/env.ts": lib/env.ts's env()
 // requires Google OAuth vars to be present, which would make this static,

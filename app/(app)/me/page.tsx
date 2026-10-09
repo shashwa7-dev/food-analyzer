@@ -12,6 +12,8 @@ import { ScansUpsell } from "@/components/pro/scans-upsell";
 import { TargetsNotice } from "@/components/today/targets-notice";
 import { effectiveOverrides, showTargetsNotice } from "@/lib/profile/effective-targets";
 
+export const metadata = { title: "Me" };
+
 const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
 
 /**

@@ -2,7 +2,7 @@ import { ArrowUpRight, Database } from "lucide-react";
 import { IconTile } from "@/components/ui/icon-tile";
 import { MarketingPage } from "@/components/marketing/marketing-page";
 
-export const metadata = { title: "Data sources" };
+export const metadata = { title: "Data sources", alternates: { canonical: "/about/data" } };
 
 const SOURCES = [
   {

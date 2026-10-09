@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/session";
@@ -11,6 +12,9 @@ import { AppNav } from "@/components/app-nav";
 import { NavTracker } from "@/components/nav/nav-tracker";
 import { ScanShortcut } from "@/components/nav/scan-shortcut";
 import { TimezoneSync } from "@/components/timezone-sync";
+
+// Signed-in pages are personal: keep them out of search engines.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
 

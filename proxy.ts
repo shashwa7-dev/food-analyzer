@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-
-const APP_PREFIXES = ["/today", "/foods", "/me", "/onboarding", "/history", "/scan", "/scans", "/progress", "/workouts", "/weight"];
+import { APP_PREFIXES } from "@/lib/nav/app-prefixes";
 
 export function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;

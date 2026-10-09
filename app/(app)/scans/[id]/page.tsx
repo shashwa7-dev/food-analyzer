@@ -8,6 +8,8 @@ import { MEALS, type Meal } from "@/lib/nutrition/types";
 import { RunningScan } from "@/components/scan/scan-result";
 import { FailedScan, ScanResultView, type ScanParams } from "@/components/scan/scan-result-view";
 
+export const metadata = { title: "Scan result" };
+
 export default async function ScanResultPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<ScanParams> }) {
   const { userId, profile } = await requireUser();
   const [view, raw] = await Promise.all([getScan(userId, (await params).id), searchParams]);

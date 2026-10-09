@@ -15,6 +15,8 @@ import { GradeDonutCard } from "@/components/progress/grade-donut";
 import { WorkoutsCard } from "@/components/progress/workouts-card";
 import { ProgressEmpty } from "@/components/progress/empty-state";
 
+export const metadata = { title: "Progress" };
+
 /** Fewer logged days than this and the charts would say nothing (spec §6.12). */
 const MIN_DAYS_FOR_TRENDS = 2;
 

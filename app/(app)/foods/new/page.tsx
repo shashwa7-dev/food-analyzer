@@ -5,6 +5,8 @@ import { BackButton } from "@/components/nav/back-button";
 import { CustomFoodForm } from "@/components/food/custom-food-form";
 import type { CustomFoodFormInitial } from "@/lib/foods/service";
 
+export const metadata = { title: "New food" };
+
 export default async function NewFoodPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
   const { userId } = await requireUser();
   const editId = (await searchParams).edit;

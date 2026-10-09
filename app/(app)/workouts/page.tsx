@@ -10,6 +10,8 @@ import { TopExercises } from "@/components/workouts/top-exercises";
 import { HowOften } from "@/components/workouts/how-often";
 import { ProPreview } from "@/components/workouts/pro-preview";
 
+export const metadata = { title: "Workouts" };
+
 /**
  * Workouts hub (spec §C "The /workouts page"): first-visit setup, then the empty state until there's a
  * first workout, then the full hub (goal, up next, week dots, stat tiles, weight and history). `range`

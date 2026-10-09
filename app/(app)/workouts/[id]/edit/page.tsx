@@ -4,6 +4,8 @@ import { getWorkout } from "@/lib/fitness/service";
 import { draftFromWorkout } from "@/lib/fitness/draft";
 import { EditSession } from "@/components/fitness/session/edit-session";
 
+export const metadata = { title: "Edit workout" };
+
 /**
  * Edit a saved gym session in the live session's editor (no timer; a minutes field; Save). Activity
  * workouts are edited in a sheet on their summary, so they go back there.

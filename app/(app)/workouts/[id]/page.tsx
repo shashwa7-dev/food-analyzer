@@ -8,6 +8,8 @@ import { grouped } from "@/lib/progress/copy";
 import type { Intensity } from "@/lib/fitness/types";
 import { WorkoutTopBar } from "@/components/fitness/workout-actions";
 
+export const metadata = { title: "Workout" };
+
 const INTENSITY_LABEL: Record<Intensity, string> = { easy: "Easy", moderate: "Moderate", hard: "Hard" };
 
 /**

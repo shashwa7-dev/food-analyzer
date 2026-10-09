@@ -1,6 +1,8 @@
 import { requireUser } from "@/lib/session";
 import { LogWorkout } from "@/components/fitness/log-workout";
 
+export const metadata = { title: "Log workout" };
+
 /** Log workout (spec §C screen 1): pick a gym preset or an empty session, or log another activity. */
 export default async function NewWorkoutPage() {
   const { userId, profile } = await requireUser();

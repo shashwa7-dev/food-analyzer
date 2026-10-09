@@ -1,6 +1,6 @@
 import { MarketingPage, ProseSection } from "@/components/marketing/marketing-page";
 
-export const metadata = { title: "Terms" };
+export const metadata = { title: "Terms", alternates: { canonical: "/terms" } };
 
 // Deliberate exception to "all env vars go through lib/env.ts": see app/(marketing)/privacy/page.tsx
 // for why this static page reads OFF_CONTACT_EMAIL directly instead of via env().

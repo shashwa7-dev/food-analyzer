@@ -5,6 +5,8 @@ import { MEALS, type Meal } from "@/lib/nutrition/types";
 import { MEAL_META } from "@/components/food/meal-meta";
 import { FoodsPageSearch } from "@/components/add-food/foods-page-search";
 
+export const metadata = { title: "Foods" };
+
 type Params = { meal?: string; date?: string };
 
 /**

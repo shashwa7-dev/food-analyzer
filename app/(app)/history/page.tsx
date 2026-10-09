@@ -2,6 +2,8 @@ import { requireUser } from "@/lib/session";
 import { listScans } from "@/lib/scans/service";
 import { ScanList } from "@/components/history/scan-list";
 
+export const metadata = { title: "History" };
+
 export default async function HistoryPage() {
   const { userId, profile } = await requireUser();
   const now = new Date();
