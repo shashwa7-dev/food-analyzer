@@ -17,7 +17,7 @@ export type ProfileRow = typeof profile.$inferSelect;
  * insert runs only when the row is missing, and ON CONFLICT keeps a concurrent first visit safe.
  */
 export async function ensureProfile(userId: string, country?: string): Promise<ProfileRow> {
-  const existing = await readProfile(userId);
+  const existing = await findProfile(userId);
   if (existing) return existing;
   await db
     .insert(profile)
@@ -29,11 +29,11 @@ export async function ensureProfile(userId: string, country?: string): Promise<P
 }
 
 /**
- * The profile row, read once per page render: the layout, the page and the services they call all
+ * The profile row if there is one, read once per page render: the layout, the page and the services they call all
  * ask for it. React's cache only holds for one server render (pages never write the profile); in
  * route handlers and tests it is a plain function, so a write is always followed by a fresh read.
  */
-const readProfile = cache(async (userId: string): Promise<ProfileRow | undefined> => {
+export const findProfile = cache(async (userId: string): Promise<ProfileRow | undefined> => {
   const [row] = await db.select().from(profile).where(eq(profile.userId, userId));
   return row;
 });
