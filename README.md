@@ -175,6 +175,8 @@ The C1 "Lime & Ink" design (spec: `docs/superpowers/specs/2026-10-07-redesign-c1
 
 `pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm, the Today energy strip, the Workouts page in each of its states (setup, empty, week, month, Volume tab, Pro-locked), `/weight` and its log sheet, the Me Fitness sheet), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
 
+`pnpm brand:assets` rewrites the static brand files that are committed with the app: the icons (`app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`, `public/icons/`), the share card (`app/opengraph-image.png` and `app/twitter-image.png`, 1200 × 630, with their alt text) and the home page's phone screenshots (`public/landing/`). The screenshots are cut from `pnpm ui:audit`'s 390 px shots of Today, a label scan and Workouts, so run the audit first; re-run it whenever those screens change. It needs Google Chrome in `/Applications` and the network once (for the Geist font). The mark itself is drawn in `scripts/brand/mark.ts` and `components/brand/logo.tsx`.
+
 ```bash
 pnpm seed:demo && pnpm ui:audit
 pnpm ui:audit --only today,foods-dal-sheet --w 390 --theme light   # a subset

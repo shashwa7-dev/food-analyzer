@@ -22,6 +22,7 @@
     "plan:set": "tsx --env-file-if-exists=.env.local scripts/plan-set.ts",
     "shot": "tsx --env-file-if-exists=.env.local scripts/shot.ts",
     "ui:audit": "tsx --env-file-if-exists=.env.local scripts/ui-audit.ts",
+    "brand:assets": "tsx scripts/brand-assets.ts",
     "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
