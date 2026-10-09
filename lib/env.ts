@@ -88,6 +88,8 @@ export function tombstonePepper(raw: Record<string, string | undefined> = proces
   return fallback.data;
 }
 
+let r2PartialWarned = false;
+
 export type R2Config = { accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string };
 
 /**
@@ -103,6 +105,14 @@ export function r2Config(raw: Record<string, string | undefined> = process.env):
   const accessKeyId = read("R2_ACCESS_KEY_ID");
   const secretAccessKey = read("R2_SECRET_ACCESS_KEY");
   const bucket = read("R2_BUCKET");
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null;
-  return { accountId, accessKeyId, secretAccessKey, bucket };
+  const set = [accountId, accessKeyId, secretAccessKey, bucket].filter(Boolean).length;
+  if (set < 4) {
+    // Some but not all: almost certainly a missing or misspelt variable, so say so once instead of silently storing nothing.
+    if (set > 0 && !r2PartialWarned) {
+      r2PartialWarned = true;
+      console.warn("Scan image storage is off: set all of R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET");
+    }
+    return null;
+  }
+  return { accountId: accountId!, accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey!, bucket: bucket! };
 }

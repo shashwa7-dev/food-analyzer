@@ -112,6 +112,8 @@ A bucket used with an earlier build of this branch may hold old objects under `d
 
 ### Before launch
 
+- Run `pnpm db:migrate` against the production database before each deploy that adds migrations (this release: 0008–0012). Nothing runs them automatically, and the new code reads columns they add, so an unmigrated database returns a 500 on every signed-in page. Migrating first is safe for the build already live.
+- Scan image storage is on only when all four `R2_*` variables are set; the server logs a warning when some but not all are.
 - Rotate the old Gemini key: `NEXT_PUBLIC_GEMINI_API_KEY` is still in `master` history (added in `3afd1c4`, removed in `4d2b34c`). Revoke it in Google AI Studio and make sure `GOOGLE_GENERATIVE_AI_API_KEY` is a different, server-only key.
 
 ### Scanning eval harness

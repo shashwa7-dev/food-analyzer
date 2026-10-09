@@ -6,7 +6,7 @@ import { GradeBadge } from "@/components/grade-badge";
 import { Barcode, CheckCircle2, Info, RotateCcw, ScanLine, Sparkles, TriangleAlert } from "lucide-react";
 import type { ScanView } from "@/lib/scans/service";
 import { scanErrorAction } from "@/lib/scans/messages";
-import { dietChip, oneLineReason, packSize, typicalPortion, verdict, warningFlags } from "@/lib/scans/result-display";
+import { oneLineReason, packSize, typicalPortion, verdict, warningFlags } from "@/lib/scans/result-display";
 import { foodIconKey, type FoodIconKey } from "@/lib/foods/icon";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { moreNutrientRows, vitaminMineralRows } from "@/lib/nutrition/nutrient-display";
@@ -124,7 +124,6 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   const canSave = !!r.per100;
   const better = <BetterPick alt={r.alternatives[0]} tip={r.tip} />;
   const longName = r.name.length > 40;
-  const chip = dietChip(diet, r.flags, ingredientsKnown) !== null;
   const hasBetter = !!r.alternatives[0] || !!r.tip;
   const source = <SourceLine view={view} credits={credits} />;
 
@@ -164,7 +163,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_320px] md:items-start md:gap-6">
         <div className="flex min-w-0 flex-col gap-4">
           {/* One plain block (no card): the image with the grade pinned to its corner, then the name, meta and one-line verdict; the diet chip sits top right. */}
-          <section data-scan-title aria-label="Result" className="relative flex items-start gap-5">
+          <section data-scan-title aria-label="Result" className="flex items-start gap-5">
             <div className="relative shrink-0">
               <ScanImageTile src={view.imageUrl} name={r.name} iconKey={iconKey} />
               {/* White ring in both themes: the badge sits on a photo or the tinted tile, like a sticker. */}
@@ -174,23 +173,25 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
             </div>
             {/* The copy starts level with the image's top edge, with one even step between its three lines. */}
             <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
-              <h1
-                title={longName ? r.name : undefined}
-                className={cn(
-                  "title m-0 line-clamp-3 leading-[1.1] font-[650] tracking-[-0.035em] break-words text-ink",
-                  longName ? "text-[22px] md:text-[24px]" : "text-[26px] md:text-[30px]",
-                  chip && "pr-[88px]", // room for the diet chip
-                )}
-              >
-                {r.name}
-              </h1>
+              {/* The diet chip sits top right, beside the name: in the row, so a long label never covers it. */}
+              <div className="flex items-start justify-between gap-3">
+                <h1
+                  title={longName ? r.name : undefined}
+                  className={cn(
+                    "title m-0 line-clamp-3 min-w-0 flex-1 leading-[1.1] font-[650] tracking-[-0.035em] break-words text-ink",
+                    longName ? "text-[22px] md:text-[24px]" : "text-[26px] md:text-[30px]",
+                  )}
+                >
+                  {r.name}
+                </h1>
+                <DietChip diet={diet} flags={r.flags} ingredientsKnown={ingredientsKnown} />
+              </div>
               <p className="m-0 line-clamp-2 text-[13px] leading-[1.4] text-subtle">{meta}</p>
               <p className="m-0 text-[13.5px] leading-[1.4] text-subtle">
                 <b className="font-semibold text-ink">{r.gradeUnavailable ? "Grade unavailable" : verdict(grade)}</b>
                 {(r.gradeUnavailable ?? oneLineReason(r.reasons, r.grade)) && <> · {r.gradeUnavailable ?? oneLineReason(r.reasons, r.grade)}</>}
               </p>
             </div>
-            {chip && <span className="absolute top-0 right-0"><DietChip diet={diet} flags={r.flags} ingredientsKnown={ingredientsKnown} /></span>}
           </section>
           <FlagNotes flags={warningFlags(r.flags)} />
           <IngredientsUnknownNote ingredientsKnown={ingredientsKnown} hasAllergies={hasAllergies} />
@@ -234,7 +235,7 @@ export function ScanResultView({ view, credits, fromIndb, date, meal, isToday, h
   );
 }
 
-/** A failed scan, in the same card style: the M2 sentence and its one recovery action. */
+/** A failed scan, as one card: the M2 sentence and its one recovery action. */
 export function FailedScan({ view, sp }: { view: ScanView; sp: ScanParams }) {
   const code = view.errorCode ?? "MODEL_ERROR";
   const action = scanErrorAction(code);
