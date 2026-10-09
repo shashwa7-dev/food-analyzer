@@ -4,7 +4,7 @@ EATRi8 is a mobile-first daily food tracker — MyFitnessPal-style logging made 
 
 ## Prerequisites
 
-- Node.js ≥ 22
+- Node.js 24 (`package.json` `engines` pins `24.x`, which is also what Vercel builds with)
 - pnpm ≥ 10 (`corepack enable` or `npm i -g pnpm`)
 - Docker Desktop (for local Postgres)
 
