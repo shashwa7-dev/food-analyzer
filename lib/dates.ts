@@ -49,7 +49,7 @@ export function formatLocalDate(d: Date): string {
 
 // Fixed 3-letter English abbreviations ("Sep", not ICU en-GB/en-IN's "Sept") so "12 Sep" is exact
 // regardless of the host's locale data.
-const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
  * A short, human relative time for a scan row, in the user's own timezone `tz` (not UTC — two

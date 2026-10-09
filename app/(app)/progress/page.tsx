@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { allows } from "@/lib/credits/plans";
 import { defaultMealIn } from "@/lib/dates";
@@ -21,13 +22,17 @@ const MIN_DAYS_FOR_TRENDS = 2;
  * Progress (spec §6.12, mock "Progress"). The phone reads top to bottom in DOM order; from 900 px
  * the cards sit in two columns in the desktop mock's order (calories, balance + quality, then the rest).
  */
-export default async function ProgressPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+export default async function ProgressPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string }> }) {
+  const params = await searchParams;
+  // Fitness moved to its own hub at /workouts; this view kept the link alive.
+  if (params.view === "fitness") redirect("/workouts");
   const { userId, profile } = await requireUser();
   // Month is Pro-only once PRO_GATES_ENFORCED is on: a locked month shows the week with a Pro chip on the toggle.
   const monthLocked = !allows(profile.plan, "progressMonth");
-  const range: Range = (await searchParams).range === "month" && !monthLocked ? "month" : "week";
+  const range: Range = params.range === "month" && !monthLocked ? "month" : "week";
+  const period = range === "week" ? "Last 7 days" : "This month"; // Food is a rolling window
+
   const summary = await getProgress(userId, range);
-  const period = range === "week" ? "This week" : "This month";
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 md:gap-6">

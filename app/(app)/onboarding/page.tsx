@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { allows } from "@/lib/credits/plans";
+import { effectiveOverrides } from "@/lib/profile/effective-targets";
 import { OnboardingFlow } from "@/components/onboarding/onboarding-flow";
 
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ redo?: string }> }) {
@@ -13,7 +14,8 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         goal: profile.goal,
         diet: profile.diet,
         allergies: profile.allergies,
-        targets: profile.targets ?? null,
+        // A locked plan sees (and keeps) the goal's presets; its stored overrides stay untouched.
+        targets: effectiveOverrides(profile),
       }}
       customTargets={allows(profile.plan, "customTargets")}
       redo={redo}

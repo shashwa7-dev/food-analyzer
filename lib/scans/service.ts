@@ -13,10 +13,11 @@ import { EngineError } from "@/lib/engine/errors";
 import type { ScanResult } from "@/lib/engine/result";
 import type { EngineImage } from "@/lib/engine/schema";
 import { InvalidError } from "@/lib/errors";
-import { targetsFor } from "@/lib/nutrition/targets";
+import { effectiveTargets } from "@/lib/profile/effective-targets";
 import { getProfile } from "@/lib/profile/service";
 import { dailyCapHit, isRateLimited } from "@/lib/rate-limit";
 import { crowdDraft, upsertCrowdFood } from "./crowd";
+import { deleteScanPhotos, signedImageUrl, storeScanImage } from "./photo-storage";
 import { NOT_CONFIGURED_MESSAGE, SCAN_MESSAGES, scanErrorMessage, type ScanErrorCode } from "./messages";
 
 /** One model-time budget per scan, counted from the start of the request (route maxDuration is 60 s). */
@@ -48,8 +49,10 @@ export interface ScanView {
   status: ScanStatus;
   inputKind: ScanRow["inputKind"];
   barcode: string | null;
-  /** Photos sent with the scan (never stored — just the count, for "Read from 2 photos"). */
+  /** Photos sent with the scan (the count, for "Read from 2 photos"). */
   imageCount: number;
+  /** Signed (10 min) URL of the scan's one stored image, or null (storage off, or none stored). */
+  imageUrl: string | null;
   /** A credit was taken for this scan (AI path); false for free barcode scans. */
   charged: boolean;
   result: ScanResult | null;
@@ -86,6 +89,7 @@ function toView(row: ScanRow): ScanView {
   const refunded = row.status === "failed" && row.charged;
   return {
     id: row.id, status: row.status, inputKind: row.inputKind, barcode: row.barcode, imageCount: row.imageCount, charged: row.charged,
+    imageUrl: null, // signed by getScan only
     result: row.result ?? null,
     errorCode: row.errorCode,
     errorMessage: row.errorCode ? scanErrorMessage(row.errorCode, { specific: row.errorMessage, refunded }) : null,
@@ -142,7 +146,7 @@ export async function sweepStuck(userId: string, now: number = Date.now()): Prom
 
 async function engineProfile(userId: string): Promise<EngineInput["profile"]> {
   const p = await getProfile(userId);
-  return { country: p.country, allergies: p.allergies, diet: p.diet, goal: p.goal, targets: targetsFor(p.goal, p.targets) };
+  return { country: p.country, allergies: p.allergies, diet: p.diet, goal: p.goal, targets: effectiveTargets(p) };
 }
 
 type TxOutcome = { kind: "row"; row: ScanRow; created: boolean } | { kind: "limit"; result: CreateScanResult };
@@ -233,7 +237,13 @@ export async function createScan(userId: string, input: CreateScanInput, deps: S
   if (res.kind === "limit") return res.result;
   if (res.created) {
     const { barcodeFood, offNotFound } = outcome;
-    schedule(() => completeScan(res.row.id, userId, engineInput, deps, { deadline, barcodeFood, offNotFound }));
+    const scanId = res.row.id;
+    schedule(async () => {
+      // The scan's one image is stored only once the job has succeeded (storeScanImage checks that); it
+      // never fails, changes or delays the scan's own writes. A job that throws stores nothing.
+      await completeScan(scanId, userId, engineInput, deps, { deadline, barcodeFood, offNotFound });
+      await storeScanImage(userId, scanId, input.images);
+    });
   }
   return ok(res.row);
 }
@@ -351,25 +361,36 @@ export async function getScan(userId: string, id: string, now: number = Date.now
     row = await read();
     if (!row) return null;
   }
-  return toView(row);
+  return { ...toView(row), imageUrl: await signedImageUrl(row.thumbnailKey) };
 }
 
 /**
  * DELETE /scans/:id — a soft delete: the row stays (deleted_at set) so the rate limit, daily caps and
  * daily_ai_cost keep counting it; otherwise create → fail (refunded) → delete would be an unlimited
  * loop of paid model calls. A running scan is first failed (+ refunded) in the same transaction, so
- * the job's later write is a no-op. Account deletion still cascades the rows away.
+ * the job's later write is a no-op. Account deletion still cascades the rows away. Its stored photos
+ * are deleted best-effort once the delete has committed, via `schedule` (the route passes `after`).
  */
-export async function deleteScan(userId: string, id: string, now: number = Date.now()): Promise<boolean> {
+export async function deleteScan(userId: string, id: string, now: number = Date.now(), schedule: Schedule = runInline): Promise<boolean> {
   if (!isUuid(id)) return false;
-  return db.transaction(async (tx) => {
-    const [row] = await tx.select({ status: scan.status }).from(scan).where(and(eq(scan.id, id), visibleScanWhere(userId))).for("update");
+  const deleted = await db.transaction(async (tx) => {
+    const [row] = await tx.select({ status: scan.status, imageCount: scan.imageCount }).from(scan).where(and(eq(scan.id, id), visibleScanWhere(userId))).for("update");
     if (!row) return false;
     if (isRunning(row.status)) await failScanTx(tx, userId, id, "MODEL_ERROR", now);
     await tx.update(scan).set({ deletedAt: new Date(now) }).where(and(eq(scan.id, id), eq(scan.userId, userId)));
-    return true;
+    return { hadImages: row.imageCount > 0 };
   });
+  if (!deleted) return false;
+  // Any scan sent with photos: storeScanImage removes its own upload if the scan was deleted first, and
+  // this catches an image put before the delete committed.
+  if (deleted.hadImages) schedule(() => deleteScanPhotos(userId, id));
+  return true;
 }
+
+/** deleteScan's default Schedule: run the job now, in the background, never rejecting. */
+const runInline: Schedule = (fn) => {
+  void fn().catch(() => undefined);
+};
 
 // --- History ---------------------------------------------------------------------------------------
 
@@ -392,6 +413,8 @@ export interface ScanListItem {
   brand: string | null;
   grade: string | null;
   kind: string | null;
+  /** Signed (10 min) URL of the scan's stored image, or null (storage off, or none stored). */
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -427,7 +450,7 @@ export async function listScans(
   const name = sql<string | null>`${scan.result}->>'name'`;
   const rows = await db.select({
     id: scan.id, status: scan.status, inputKind: scan.inputKind, charged: scan.charged, confidence: scan.confidence, errorCode: scan.errorCode,
-    createdAt: scan.createdAt, name, brand: sql<string | null>`${scan.result}->>'brand'`,
+    createdAt: scan.createdAt, name, brand: sql<string | null>`${scan.result}->>'brand'`, thumbnailKey: scan.thumbnailKey,
     // A result whose grade is unavailable (lib/nutrition/grade-unavailable.ts) lists as "?".
     grade: sql<string | null>`COALESCE(${scan.result}->>'grade', CASE WHEN ${scan.result}->>'gradeUnavailable' IS NOT NULL THEN ${GRADE_UNAVAILABLE} END)`, kind: sql<string | null>`${scan.result}->>'kind'`,
   }).from(scan)
@@ -443,7 +466,7 @@ export async function listScans(
   const page = rows.slice(0, pageSize);
   const last = page.at(-1);
   return {
-    scans: page.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    scans: await Promise.all(page.map(async ({ thumbnailKey, ...r }) => ({ ...r, imageUrl: await signedImageUrl(thumbnailKey), createdAt: r.createdAt.toISOString() }))),
     nextCursor: rows.length > pageSize && last ? encodeCursor(last.createdAt, last.id) : null,
   };
 }

@@ -1,8 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
-  boolean, check, customType, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, smallint, text, timestamp, uniqueIndex, uuid,
+  boolean, check, customType, date, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, smallint, text, timestamp, uniqueIndex, uuid,
 } from "drizzle-orm/pg-core";
 import type { DailyTargets, Nutrients, Portion, Provenance, NutrientKey, ScoreComponent } from "@/lib/nutrition/types";
+import type { Activity, KcalBasis, Preset } from "@/lib/fitness/types";
 import { user } from "./auth-schema";
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
@@ -19,6 +20,11 @@ export const scanStatusEnum = pgEnum("scan_status", ["queued", "processing", "do
 export const scanInputKindEnum = pgEnum("scan_input_kind", ["barcode", "label", "front", "meal"]);
 export const creditTxnTypeEnum = pgEnum("credit_txn_type", ["grant", "debit", "refund", "expire", "purchase"]);
 export const confidenceEnum = pgEnum("confidence", ["high", "medium", "low"]);
+export const workoutKindEnum = pgEnum("workout_kind", ["gym", "activity"]);
+export const intensityEnum = pgEnum("intensity", ["easy", "moderate", "hard"]);
+
+/** Dismissed one-time notices, keyed by notice. */
+export type ProfileNotices = { targetsReset?: boolean };
 
 export const profile = pgTable("profile", {
   userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
@@ -35,9 +41,22 @@ export const profile = pgTable("profile", {
   /** Charged scans carried over from a deleted account with this email (credit_tombstone), counting toward this UTC day's cap. */
   carriedDay: date("carried_day"),
   carriedDayScans: integer("carried_day_scans").notNull().default(0),
+  /** One-time notices the user has dismissed (spec §B): `targetsReset` for "Custom targets are now part of Pro". */
+  notices: jsonb("notices").$type<ProfileNotices>().notNull().default({}),
+  /** Days a week the user aims to train (spec §C), 1–7. */
+  weeklyWorkoutGoal: smallint("weekly_workout_goal").notNull().default(3),
+  goalWeightKg: numeric("goal_weight_kg", { precision: 5, scale: 2, mode: "number" }),
+  /** Optional, from the Workouts setup or Me → Fitness (spec "First-visit setup"); stored only for now. */
+  heightCm: smallint("height_cm"),
+  /** Set when the Workouts setup is finished or skipped; null shows the setup on /workouts. */
+  fitnessOnboardedAt: timestamp("fitness_onboarded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [check("credits_non_negative", sql`${t.credits} >= 0`)]);
+}, (t) => [
+  check("credits_non_negative", sql`${t.credits} >= 0`),
+  check("weekly_workout_goal_range", sql`${t.weeklyWorkoutGoal} BETWEEN 1 AND 7`),
+  check("height_cm_range", sql`${t.heightCm} IS NULL OR ${t.heightCm} BETWEEN 100 AND 250`),
+]);
 
 export const food = pgTable("food", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -105,6 +124,7 @@ export const scan = pgTable("scan", {
   errorCode: text("error_code"),
   /** The engine's own user-safe sentence when more specific than the code's fixed message (lib/scans/messages.ts). */
   errorMessage: text("error_message"),
+  /** R2 key of the scan's one stored image (480 px WebP, lib/storage/keys.ts); kept until the scan is deleted. */
   thumbnailKey: text("thumbnail_key"),
   engineVersion: text("engine_version").notNull(),
   modelId: text("model_id"),
@@ -178,3 +198,57 @@ export const userFoodStats = pgTable("user_food_stats", {
   uses: integer("uses").notNull().default(0),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.userId, t.foodId] })]);
+
+/**
+ * A gym session or an activity (spec §C). `date` is the user's local day. `kcal_burned` is computed on
+ * the server from `kcal_basis` (MET, the weight used, whether that weight was the 70 kg estimate).
+ * Soft delete: `deleted_at` hides the workout everywhere (lists, PRs, previous values, exports).
+ */
+export const workout = pgTable("workout", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  kind: workoutKindEnum("kind").notNull(),
+  preset: text("preset").$type<Preset>(),
+  title: text("title").notNull(),
+  activity: text("activity").$type<Activity>(),
+  intensity: intensityEnum("intensity").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  durationMin: integer("duration_min").notNull(),
+  kcalBurned: integer("kcal_burned").notNull(),
+  kcalBasis: jsonb("kcal_basis").$type<KcalBasis>().notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+}, (t) => [
+  index("workout_user_date_idx").on(t.userId, t.date),
+  check("workout_duration_range", sql`${t.durationMin} BETWEEN 0 AND 1440`),
+]);
+
+export const workoutExercise = pgTable("workout_exercise", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workoutId: uuid("workout_id").notNull().references(() => workout.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  /** A catalogue key (lib/fitness/catalogue.ts) or `custom:<slug>` for one added by name. */
+  exerciseKey: text("exercise_key").notNull(),
+  name: text("name").notNull(),
+}, (t) => [index("workout_exercise_workout_idx").on(t.workoutId, t.position)]);
+
+export const workoutSet = pgTable("workout_set", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  exerciseId: uuid("exercise_id").notNull().references(() => workoutExercise.id, { onDelete: "cascade" }),
+  position: integer("position").notNull(),
+  weightKg: numeric("weight_kg", { precision: 6, scale: 2, mode: "number" }),
+  reps: integer("reps"),
+  /** Only done sets count toward volume and PRs. */
+  done: boolean("done").notNull().default(false),
+}, (t) => [index("workout_set_exercise_idx").on(t.exerciseId, t.position)]);
+
+/** One weigh-in per user per local day; logging again that day replaces it. */
+export const bodyWeight = pgTable("body_weight", {
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  kg: numeric("kg", { precision: 5, scale: 2, mode: "number" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ name: "body_weight_user_date_pk", columns: [t.userId, t.date] })]);

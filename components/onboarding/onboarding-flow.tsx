@@ -12,7 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
 import { BackButton } from "@/components/nav/back-button";
-import { ALL_FIELDS, MORE_FIELDS, PRIMARY_FIELDS, ProChip, TargetField, toTextRecord, type FieldKey } from "@/components/me/target-fields";
+import { ALL_FIELDS, MORE_FIELDS, PRIMARY_FIELDS, TargetField, toTextRecord, type FieldKey } from "@/components/me/target-fields";
+import { ProChip } from "@/components/pro/pro-chip";
+import { UpgradeSheet } from "@/components/pro/upgrade-sheet";
 import { cn } from "@/lib/utils";
 import { targetsFor } from "@/lib/nutrition/targets";
 import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
@@ -128,6 +130,7 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
   const [showAll, setShowAll] = useState(false);
   const [pending, setPending] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [upgrade, setUpgrade] = useState(false);
 
   /** Entering the targets step: fields the user hasn't typed in follow the goal picked now. */
   function prepareFields() {
@@ -279,7 +282,7 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
             {!customTargets && (
               <div className="flex items-center justify-between gap-2 rounded-[14px] bg-sunken py-1 pr-1.5 pl-3">
                 <span className="text-[13px] text-subtle">Your goal&apos;s targets</span>
-                <ProChip>Custom targets</ProChip>
+                <ProChip feature="Custom targets" />
               </div>
             )}
             <div className="grid grid-cols-2 gap-2.5">
@@ -291,6 +294,7 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
                   value={fields[f.key]}
                   error={invalid.has(f.key)}
                   readOnly={!customTargets}
+                  onLocked={() => setUpgrade(true)}
                   onChange={(v) => setField(f.key, v)}
                 />
               ))}
@@ -315,6 +319,7 @@ export function OnboardingFlow({ initial, customTargets = true, redo = false }: 
           {!pending && !last && <ArrowRight data-icon="inline-end" aria-hidden />}
         </Button>
       </div>
+      {!customTargets && <UpgradeSheet open={upgrade} onOpenChange={setUpgrade} />}
     </div>
   );
 }

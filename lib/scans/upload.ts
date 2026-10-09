@@ -1,6 +1,6 @@
-// Multipart scan upload parsing (spec §8 POST /scans). Images are only held in memory for the model
-// call (no image storage in M2). Every check here is on the actual bytes, never on the client's
-// claimed MIME type or file name.
+// Multipart scan upload parsing (spec §8 POST /scans). Images are held in memory for the model call;
+// the originals are never stored (only resized, metadata-free copies: lib/scans/photos.ts). Every check
+// here is on the actual bytes, never on the client's claimed MIME type or file name.
 import { normaliseBarcode } from "@/lib/engine/barcode";
 import type { EngineImage } from "@/lib/engine/schema";
 

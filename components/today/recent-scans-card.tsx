@@ -5,6 +5,7 @@ import { GradeBadge } from "@/components/grade-badge";
 import { RailCard, RailCardHead, RailCardLink } from "@/components/today/rail-card";
 import { Button } from "@/components/ui/button";
 import { IconTile } from "@/components/ui/icon-tile";
+import { ScanThumb } from "@/components/scan/scan-thumb";
 import { isScanFailed, isScanRunning, recentScanMeta, scanTitle } from "@/lib/scans/history";
 import type { ScanListItem } from "@/lib/scans/service";
 
@@ -22,7 +23,7 @@ function Status({ s }: { s: ScanListItem }) {
 
 /**
  * Recent scans (mock-c1 option A): the last three visible scans, each a 44 px row linking to the
- * scan with its input-kind icon, name and "Barcode · free" / "Label" / "Meal photo"; otherwise a
+ * scan with its thumbnail (or input-kind icon), name and "Barcode · free" / "Label" / "Meal photo"; otherwise a
  * centred empty state with a Scan food pill.
  */
 export function RecentScansCard({ scans }: { scans: ScanListItem[] }) {
@@ -55,7 +56,9 @@ export function RecentScansCard({ scans }: { scans: ScanListItem[] }) {
                   href={`/scans/${s.id}`}
                   className="-mx-2 flex min-h-[54px] items-center gap-2.5 rounded-[14px] px-2 py-1.5 transition-colors hover:bg-sunken/60"
                 >
-                  <IconTile size="sm"><Icon /></IconTile>
+                  {s.imageUrl
+                    ? <ScanThumb src={s.imageUrl} size="sm" fallback={<IconTile size="sm"><Icon /></IconTile>} />
+                    : <IconTile size="sm"><Icon /></IconTile>}
                   <span className="min-w-0 flex-1 leading-tight">
                     <span className="block truncate text-sm font-semibold text-ink">{scanTitle(s)}</span>
                     {meta && <span className="mt-0.5 block truncate text-[12.5px] text-subtle">{meta}</span>}

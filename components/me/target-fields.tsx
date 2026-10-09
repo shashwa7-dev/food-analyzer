@@ -1,9 +1,7 @@
 "use client";
 // The daily-target inputs shared by the Me goal sheet and onboarding's targets step: the field list,
-// one labelled input with its unit, and the Pro chip shown while custom targets are Pro-only.
+// one labelled input with its unit. The Pro chip shown while custom targets are Pro-only is components/pro/pro-chip.tsx.
 import { useId } from "react";
-import Link from "next/link";
-import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DailyTargets } from "@/lib/nutrition/types";
 import { amountError } from "@/lib/parse-amount";
@@ -29,24 +27,9 @@ export function toTextRecord(t: DailyTargets): Record<FieldKey, string> {
   return out;
 }
 
-/** "Pro" with a lock, linking to the plans: marks a control that's Pro-only while the gates are on. */
-export function ProChip({ children }: { children: string }) {
-  return (
-    <Link
-      href="/me/credits#pro"
-      aria-label={`${children} are part of Pro`}
-      className="-my-2 inline-flex min-h-11 shrink-0 items-center"
-    >
-      <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-[12px] font-[650] whitespace-nowrap text-on-brand-soft">
-        <Lock className="size-3" aria-hidden />
-        Pro
-      </span>
-    </Link>
-  );
-}
-
-export function TargetField({ label, unit, value, error, readOnly, onChange }: {
-  label: string; unit: string; value: string; error: boolean; readOnly: boolean; onChange: (v: string) => void;
+/** `onLocked`: what tapping a read-only (Pro-locked) field does instead, i.e. open the upgrade sheet. */
+export function TargetField({ label, unit, value, error, readOnly, onChange, onLocked }: {
+  label: string; unit: string; value: string; error: boolean; readOnly: boolean; onChange: (v: string) => void; onLocked?: () => void;
 }) {
   const errorId = useId();
   return (
@@ -64,6 +47,7 @@ export function TargetField({ label, unit, value, error, readOnly, onChange }: {
           aria-label={`${label} (${unit})`}
           aria-invalid={error || undefined}
           readOnly={readOnly}
+          onClick={readOnly ? onLocked : undefined}
           aria-describedby={error ? errorId : undefined}
           className="num h-full w-full min-w-0 bg-transparent text-base font-semibold text-ink outline-none!"
         />

@@ -1,9 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { profile } from "@/lib/db/schema";
+import { profile, type ProfileNotices } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
 import { pruneTombstones, recordTombstone } from "@/lib/credits/tombstone";
+import { deleteUserPhotos } from "@/lib/scans/photo-storage";
 import { TargetsSchema } from "@/lib/nutrition/targets";
 import { ALLERGEN_KEYS, allergensForDiet, type AllergenKey } from "@/lib/nutrition/personalise";
 
@@ -66,7 +67,25 @@ export async function updateProfile(userId: string, raw: z.infer<typeof ProfileU
   await db.update(profile).set({ ...rest, ...(onboarded ? { onboardedAt: new Date() } : {}), updatedAt: new Date() }).where(eq(profile.userId, userId));
 }
 
-export async function deleteAccount(userId: string, now: Date = new Date()) {
+export const NOTICE_KEYS = ["targetsReset"] as const satisfies readonly (keyof ProfileNotices)[];
+export type NoticeKey = (typeof NOTICE_KEYS)[number];
+
+/** Records a one-time notice as dismissed (spec §B): merges `{ [key]: true }` into profile.notices. */
+export async function dismissNotice(userId: string, key: NoticeKey) {
+  await db.update(profile)
+    .set({ notices: sql`${profile.notices} || ${JSON.stringify({ [key]: true })}::jsonb`, updatedAt: new Date() })
+    .where(eq(profile.userId, userId));
+}
+
+/**
+ * Deletes the account. Scan photos first (spec §A Deletion): the user's R2 prefix goes before the user row
+ * does, and a failure throws with the account intact, so trying again finishes the job. Pass
+ * `photosDeleted` when the caller already did that step (deleteAccountAction does it before signing the
+ * user out, so a storage error never happens after sign-out). After the commit a best-effort second
+ * sweep catches an image an in-flight scan job put in the meantime.
+ */
+export async function deleteAccount(userId: string, now: Date = new Date(), opts: { photosDeleted?: boolean } = {}) {
+  if (!opts.photosDeleted) await deleteUserPhotos(userId);
   await db.transaction(async (tx) => {
     // Lock order (review N4): the user's running scans first, then the profile — the same order as
     // failScanTx (conditional scan UPDATE, then refundScan's profile lock) and deleteScan. Taking the
@@ -76,8 +95,16 @@ export async function deleteAccount(userId: string, now: Date = new Date()) {
     await tx.execute(sql`SELECT 1 FROM profile WHERE user_id = ${userId} FOR UPDATE`);
     // Keep this period's AI-scan usage and today's count (keyed by an email HMAC) so signing up again can't reset them.
     await recordTombstone(tx, userId, now);
-    await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods
+    await tx.delete(user).where(eq(user.id, userId)); // FKs cascade: profile, sessions, accounts, scans, credit_txn, food_log, user_food_stats, custom foods, workouts (and their exercises and sets), body_weight
   });
+  // Second photo sweep, after the commit and best-effort: an upload that finished between the first
+  // sweep and the commit could otherwise leave objects behind (storeScanImage also cleans up after
+  // itself when its scan is gone, but only for its own keys and only if it gets that far).
+  try {
+    await deleteUserPhotos(userId);
+  } catch (err) {
+    console.error("post-deletion photo sweep failed", err);
+  }
   // Opportunistic retention sweep (review N5), after the deletion has committed: a failure here must
   // never fail or roll back the deletion itself.
   try {

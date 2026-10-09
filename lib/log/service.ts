@@ -11,7 +11,7 @@ import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
 import { dropImplausible, PER100_BOUNDS } from "@/lib/nutrition/plausible";
 import { boundsFor } from "@/lib/foods/sane";
 import { nutrientsFor, rescaleEntry, scaleNutrients } from "@/lib/nutrition/portions";
-import { targetsFor } from "@/lib/nutrition/targets";
+import { effectiveTargets } from "@/lib/profile/effective-targets";
 import { dayTotals } from "@/lib/nutrition/totals";
 import { MEALS, type Nutrients, type Portion } from "@/lib/nutrition/types";
 import { getProfile } from "@/lib/profile/service";
@@ -144,7 +144,7 @@ async function addScanEntry(userId: string, input: Extract<AddEntryInput, { kind
 
 export async function getDay(userId: string, date: string) {
   const prof = await getProfile(userId);
-  const targets = targetsFor(prof.goal, prof.targets);
+  const targets = effectiveTargets(prof);
   const entries = await db.select().from(foodLog).where(and(eq(foodLog.userId, userId), eq(foodLog.date, date))).orderBy(asc(foodLog.createdAt));
   return { date, entries, targets, ...dayTotals(entries.map((e) => ({ meal: e.meal, nutrients: e.nutrients })), targets) };
 }

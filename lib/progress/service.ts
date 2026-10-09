@@ -3,7 +3,7 @@ import { db } from "@/lib/db/client";
 import { foodLog } from "@/lib/db/schema";
 import { addDays, todayIn } from "@/lib/dates";
 import { getProfile } from "@/lib/profile/service";
-import { targetsFor } from "@/lib/nutrition/targets";
+import { effectiveTargets } from "@/lib/profile/effective-targets";
 import type { Grade, NutrientKey } from "@/lib/nutrition/types";
 import { STREAK_CAP, rangeDays, summarize, type DayAgg, type ProgressSummary, type Range } from "./aggregate";
 
@@ -50,5 +50,5 @@ export async function getProgress(userId: string, range: Range, now: Date = new 
       missing: { sugars: Number(r.noSugars), sodium: Number(r.noSodium), satFat: Number(r.noSatFat) },
     };
   });
-  return summarize(days, targetsFor(prof.goal, prof.targets), prof.goal, today, range, { dates: streakRows.map((r) => r.date), from: streakFrom });
+  return summarize(days, effectiveTargets(prof), prof.goal, today, range, { dates: streakRows.map((r) => r.date), from: streakFrom });
 }

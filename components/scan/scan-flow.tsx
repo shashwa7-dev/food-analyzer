@@ -21,6 +21,8 @@ import { AnalysingCard } from "./analysing-card";
 import { ModeTiles } from "./mode-tiles";
 import { ReviewTray } from "./review-tray";
 import { ROUND_ON_MEDIA, ScanStage } from "./scan-stage";
+import { usePro } from "@/components/pro/pro-context";
+import { UpgradeSheet } from "@/components/pro/upgrade-sheet";
 
 const NETWORK_MESSAGE = "Couldn't reach EATRi8. Check your connection and try again.";
 
@@ -96,6 +98,9 @@ export function ScanFlow({ meal, date, initialBarcode, initialMode }: {
   const [barcodeUnknown, setBarcodeUnknown] = useState(initialBarcode !== null);
   const [submitting, setSubmitting] = useState<"barcode" | "photos" | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
+  // Out of AI scans with the Pro gates on and on Basic (spec §B): the notice also offers Pro.
+  const { upsell } = usePro();
+  const [upgrade, setUpgrade] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [running, setRunning] = useState<string | null>(null);
@@ -278,9 +283,18 @@ export function ScanFlow({ meal, date, initialBarcode, initialMode }: {
       {problem && (
         <Notice tone="bad">
           <p className="m-0 flex items-start gap-2"><TriangleAlert className="mt-px size-4 shrink-0 text-bad" aria-hidden />{problem.message}</p>
-          {action?.kind === "credits" && (
+          {action?.kind === "credits" && (upsell ? (
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="ghost-sunken" shape="pill" size="lg" onClick={() => setUpgrade(true)} aria-haspopup="dialog">
+                <Sparkles aria-hidden />
+                See Pro
+              </Button>
+              <Button render={<Link href="/me/credits" />} nativeButton={false} variant="ghost-sunken" shape="pill" size="lg">{action.label}</Button>
+              <UpgradeSheet open={upgrade} onOpenChange={setUpgrade} />
+            </div>
+          ) : (
             <Button render={<Link href="/me/credits" />} nativeButton={false} variant="ghost-sunken" shape="pill" size="lg" className={NOTICE_ACTION}>{action.label}</Button>
-          )}
+          ))}
           {action?.kind === "retry" && (
             <Button type="button" variant="ghost-sunken" shape="pill" size="lg" className={NOTICE_ACTION} onClick={() => void submit(problem.kind)}>{action.label}</Button>
           )}

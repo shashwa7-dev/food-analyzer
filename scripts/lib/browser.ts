@@ -6,7 +6,14 @@ import puppeteer, { type Browser, type BrowserContext, type Page } from "puppete
 import { THEME_COOKIE, type Theme } from "../../lib/theme";
 
 export const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-export const COOKIE_FILE = resolve(".superpowers/demo-cookie.txt");
+/** The demo users pnpm seed:demo makes: the main one, a fresh one (no fitness setup) and a starter (set up, no workouts). */
+export type DemoUser = "demo" | "fresh" | "starter";
+export const COOKIE_FILES: Record<DemoUser, string> = {
+  demo: resolve(".superpowers/demo-cookie.txt"),
+  fresh: resolve(".superpowers/demo-fresh-cookie.txt"),
+  starter: resolve(".superpowers/demo-starter-cookie.txt"),
+};
+export const COOKIE_FILE = COOKIE_FILES.demo;
 // Hides the Next.js dev indicator / overlay badge without touching next.config.ts.
 export const HIDE_DEV_UI = "nextjs-portal, [data-nextjs-toast], [data-next-badge-root], #__next-build-watcher { display: none !important; }";
 // The scanner needs a camera: Chrome's fake device plus auto-accepted permission.
@@ -23,10 +30,11 @@ export function assertDev(what: string) {
   if (process.env.NODE_ENV === "production") throw new Error(`${what} is dev only.`);
 }
 
-/** The demo session cookie as [name, value]. */
-export function demoCookie(): [string, string] {
-  if (!existsSync(COOKIE_FILE)) throw new Error("No demo cookie. Run pnpm seed:demo first.");
-  const line = readFileSync(COOKIE_FILE, "utf8").trim();
+/** A demo user's session cookie as [name, value] (default: the main demo user). */
+export function demoCookie(who: DemoUser = "demo"): [string, string] {
+  const file = COOKIE_FILES[who];
+  if (!existsSync(file)) throw new Error("No demo cookie. Run pnpm seed:demo first.");
+  const line = readFileSync(file, "utf8").trim();
   const eq = line.indexOf("=");
   return [line.slice(0, eq), line.slice(eq + 1)];
 }
@@ -43,14 +51,16 @@ export type PageOpts = {
   theme: Theme;
   /** Send the demo session cookie (false = signed out). */
   signedIn?: boolean;
+  /** Which demo user's session (default "demo"). */
+  user?: DemoUser;
 };
 
 /** Sets the session (unless signed out) and theme cookies on a browser or an isolated context. */
-export async function setCookies(target: Browser | BrowserContext, { theme, signedIn = true }: Pick<PageOpts, "theme" | "signedIn">) {
+export async function setCookies(target: Browser | BrowserContext, { theme, signedIn = true, user = "demo" }: Pick<PageOpts, "theme" | "signedIn" | "user">) {
   const base = baseUrl();
   const cookies = [{ name: THEME_COOKIE, value: theme, domain: base.hostname, path: "/", sameSite: "Lax" as const }];
   if (signedIn) {
-    const [name, value] = demoCookie();
+    const [name, value] = demoCookie(user);
     cookies.push({ name, value, domain: base.hostname, path: "/", httpOnly: true, secure: name.startsWith("__Secure-"), sameSite: "Lax" } as (typeof cookies)[number]);
   }
   await target.setCookie(...cookies);

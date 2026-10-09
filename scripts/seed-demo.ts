@@ -12,7 +12,11 @@ import { refundScan, debitForScan, getBalance } from "@/lib/credits/ledger";
 import { addDays, todayIn } from "@/lib/dates";
 import { db } from "@/lib/db/client";
 import { session, user } from "@/lib/db/auth-schema";
-import { creditTxn, food, foodLog, profile, scan, userFoodStats } from "@/lib/db/schema";
+import { bodyWeight, creditTxn, food, foodLog, profile, scan, userFoodStats, workout } from "@/lib/db/schema";
+import { createWorkout } from "@/lib/fitness/service";
+import type { Preset } from "@/lib/fitness/types";
+import { logWeight } from "@/lib/fitness/weight";
+import { weekBounds } from "@/lib/fitness/stats";
 import { ENGINE_VERSION } from "@/lib/engine";
 import { buildResult, type ScanResult } from "@/lib/engine/result";
 import { searchFoodRows, type FoodRow } from "@/lib/foods/service";
@@ -20,40 +24,42 @@ import { addEntry, getDay, type AddEntryInput } from "@/lib/log/service";
 import { dishScore } from "@/lib/nutrition/grade/dish";
 import { ensureBasePortion, scaleNutrients } from "@/lib/nutrition/portions";
 import { targetsFor } from "@/lib/nutrition/targets";
+import { assertLocalDb } from "./lib/local-guard";
 import type { Meal, NutrientKey, Nutrients, Provenance } from "@/lib/nutrition/types";
 
 const EMAIL = "demo@eatri8.local";
 const NAME = "Aarav Kapoor";
 const TZ = "Asia/Kolkata";
 const COOKIE_FILE = resolve(".superpowers/demo-cookie.txt");
+const FRESH_COOKIE_FILE = resolve(".superpowers/demo-fresh-cookie.txt");
+const STARTER_COOKIE_FILE = resolve(".superpowers/demo-starter-cookie.txt");
+// Two extra demo users for the Workouts hub's other states: Fresh has never opened /workouts (setup form),
+// Starter is set up for fitness but has no workouts yet (the empty hub).
+const FRESH = { email: "fresh@demo.local", name: "Fresh Demo" };
+const STARTER = { email: "starter@demo.local", name: "Starter Demo" };
 const SESSION_DAYS = 30;
-const PROFILE = { timezone: TZ, goal: "weight_loss", diet: "vegetarian", allergies: ["peanut"], country: "IN" } as const;
+const DEMO_TARGETS = { protein: 75 };
+const PROFILE = { timezone: TZ, goal: "weight_loss", diet: "vegetarian", allergies: ["peanut"], country: "IN", weeklyWorkoutGoal: 5, goalWeightKg: 70 } as const;
 
-function guard() {
-  if (process.env.NODE_ENV === "production") throw new Error("seed:demo refuses to run with NODE_ENV=production.");
-  const raw = process.env.DATABASE_URL;
-  let host = "";
-  let overridesHost = true;
-  try {
-    const u = new URL(raw ?? "");
-    host = u.hostname;
-    // pg copies query params onto the connection config, so ?host=… or ?hostaddr=… would redirect a "localhost" URL.
-    overridesHost = [...u.searchParams.keys()].some((k) => /^(host|hostaddr|service)$/i.test(k));
-  } catch { /* reported below */ }
-  if (overridesHost || (host !== "localhost" && host !== "127.0.0.1")) {
-    throw new Error("seed:demo only runs against a local database (DATABASE_URL host must be localhost or 127.0.0.1, with no host/hostaddr/service params).");
-  }
-}
+const guard = () => assertLocalDb("seed:demo");
 
 // --- user, profile, session -------------------------------------------------------------------------
 
-async function upsertUser(): Promise<string> {
-  const [existing] = await db.select({ id: user.id }).from(user).where(eq(user.email, EMAIL));
+type DemoAccount = { email: string; name: string; fitnessOnboarded: boolean; heightCm?: number; targets?: Record<string, number> };
+
+/** Creates or refreshes one demo user and its profile. Only ever touches the row with this email. */
+async function upsertUser({ email, name, fitnessOnboarded, heightCm, targets }: DemoAccount): Promise<string> {
+  const [existing] = await db.select({ id: user.id }).from(user).where(eq(user.email, email));
   const id = existing?.id ?? `demo_${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
   const now = new Date();
-  if (existing) await db.update(user).set({ name: NAME, emailVerified: true, updatedAt: now }).where(eq(user.id, id));
-  else await db.insert(user).values({ id, name: NAME, email: EMAIL, emailVerified: true, createdAt: now, updatedAt: now });
-  const p = { ...PROFILE, allergies: [...PROFILE.allergies], targets: null, onboardedAt: now, plan: "basic" as const, updatedAt: now };
+  if (existing) await db.update(user).set({ name, emailVerified: true, updatedAt: now }).where(eq(user.id, id));
+  else await db.insert(user).values({ id, name, email, emailVerified: true, createdAt: now, updatedAt: now });
+  // The main demo user has one custom target, set "before Pro": with PRO_GATES_ENFORCED on it's ignored (the goal's preset
+  // applies) and the one-time targets-reset notice shows, so ui:audit can cover it. notices reset so it shows again.
+  const p = {
+    ...PROFILE, allergies: [...PROFILE.allergies], targets: targets ?? {}, notices: {}, onboardedAt: now, plan: "basic" as const,
+    fitnessOnboardedAt: fitnessOnboarded ? now : null, heightCm: heightCm ?? null, updatedAt: now,
+  };
   await db.insert(profile).values({ userId: id, ...p }).onConflictDoUpdate({ target: profile.userId, set: p });
   return id;
 }
@@ -262,6 +268,114 @@ async function seedScans(userId: string) {
   });
 }
 
+// --- fitness --------------------------------------------------------------------------------------
+
+/** 30 days of weight ending today, 73.4 → 72.0 kg with a small deterministic wobble. */
+async function seedWeight(userId: string, today: string) {
+  await db.delete(bodyWeight).where(eq(bodyWeight.userId, userId));
+  const DAYS = 30, FROM = 73.4, TO = 72.0;
+  const WOBBLE = [0, 0.2, -0.1, 0.1, -0.2, 0.1, 0];
+  for (let i = 0; i < DAYS; i++) {
+    const t = i / (DAYS - 1);
+    const edge = i === 0 || i === DAYS - 1;
+    const kg = Math.round((FROM + (TO - FROM) * t + (edge ? 0 : WOBBLE[i % WOBBLE.length]!)) * 10) / 10;
+    await logWeight(userId, { date: addDays(today, -(DAYS - 1 - i)), kg });
+  }
+}
+
+/** The ISO instant of hh:mm IST on `date`, never later than two hours ago (a seed run early in the day). */
+function istAt(date: string, hh: number, mm = 0): string {
+  const at = new Date(`${date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+05:30`);
+  return new Date(Math.min(at.getTime(), Date.now() - 2 * 3_600_000)).toISOString();
+}
+
+/**
+ * This week (Monday to today, IST): Push, Pull and Legs plus two walks, spread over the days so far
+ * (today always has Legs and a walk, so Today shows the energy strip), and last week's lighter Push so
+ * this week's bench is a PR; then 9 older weeks (below). Replaces every workout of the user it's given.
+ */
+async function seedWorkouts(userId: string, today: string): Promise<number> {
+  await db.delete(workout).where(eq(workout.userId, userId));
+  const { start } = weekBounds(today);
+  const days: string[] = [];
+  for (let d = start; d <= today; d = addDays(d, 1)) days.push(d);
+  const on = (i: number) => days[Math.min(i, days.length - 1)]!;
+  const set = (weightKg: number, reps: number) => ({ weightKg, reps, done: true });
+  const ex = (exerciseKey: string, ...sets: ReturnType<typeof set>[]) => ({ exerciseKey, sets });
+  const gym = (date: string, preset: "push" | "pull" | "legs", hh: number, durationMin: number, exercises: ReturnType<typeof ex>[]) =>
+    createWorkout(userId, { kind: "gym", date, preset, intensity: "moderate", durationMin, startedAt: istAt(date, hh), exercises });
+  const walk = (date: string, hh: number, durationMin: number) =>
+    createWorkout(userId, { kind: "activity", date, activity: "walk", intensity: "moderate", durationMin, startedAt: istAt(date, hh) });
+
+  const lastWeek = addDays(start, -4);
+  const made: unknown[] = [
+    await gym(lastWeek, "push", 18, 45, [ex("bench_press", set(57.5, 8), set(57.5, 8), set(57.5, 7)), ex("overhead_press", set(32.5, 8), set(32.5, 7))]),
+    await gym(on(0), "push", 18, 48, [
+      ex("bench_press", set(60, 8), set(62.5, 8), set(62.5, 6)), ex("overhead_press", set(35, 8), set(35, 8), set(35, 7)),
+      ex("incline_db_press", set(20, 10), set(20, 9)), ex("lateral_raise", set(8, 12), set(8, 12)), ex("triceps_pushdown", set(25, 12), set(25, 11)),
+    ]),
+    await walk(on(1), 7, 35),
+    await gym(on(2), "pull", 18, 52, [
+      ex("deadlift", set(90, 5), set(90, 5), set(95, 4)), ex("barbell_row", set(50, 8), set(50, 8)), ex("seated_cable_row", set(45, 10), set(45, 10)),
+      ex("face_pull", set(20, 15), set(20, 15)), ex("biceps_curl", set(12, 10), set(12, 9)),
+    ]),
+    // Always today (not on(3), which is Thursday from Friday on): Today must show the energy strip.
+    await walk(today, 7, 30),
+    await gym(today, "legs", 18, 55, [
+      ex("squat", set(70, 8), set(75, 6), set(75, 6)), ex("romanian_deadlift", set(60, 8), set(60, 8)), ex("leg_press", set(120, 10), set(120, 10)),
+      ex("leg_curl", set(35, 12), set(35, 11)), ex("calf_raise", set(40, 15), set(40, 15)),
+    ]),
+  ];
+  made.push(...(await seedOlderWeeks(userId, start)));
+  return made.length;
+}
+
+type Tpl = [key: string, weightKg: number | null, reps: number, sets: number];
+// A day's lifts at this week's loads (the heaviest the demo user has ever done); older weeks scale down.
+const TEMPLATES: Record<Preset, Tpl[]> = {
+  push: [["bench_press", 62.5, 8, 3], ["overhead_press", 35, 8, 3], ["incline_db_press", 20, 10, 2], ["lateral_raise", 8, 12, 2], ["triceps_pushdown", 25, 12, 2]],
+  pull: [["deadlift", 90, 5, 3], ["barbell_row", 50, 8, 2], ["seated_cable_row", 45, 10, 2], ["face_pull", 20, 15, 2], ["biceps_curl", 12, 10, 2]],
+  legs: [["squat", 75, 6, 3], ["romanian_deadlift", 60, 8, 2], ["leg_press", 120, 10, 2], ["leg_curl", 35, 12, 2], ["calf_raise", 40, 15, 2]],
+  back: [["pull_up", null, 8, 3], ["barbell_row", 50, 8, 3], ["single_arm_db_row", 22, 10, 2], ["straight_arm_pulldown", 25, 12, 2], ["back_extension", null, 12, 2]],
+  shoulders: [["overhead_press", 35, 8, 3], ["lateral_raise", 8, 12, 3], ["rear_delt_fly", 6, 12, 2], ["arnold_press", 16, 10, 2], ["shrug", 24, 12, 2]],
+};
+const ROTATION: Preset[] = ["push", "pull", "legs", "back", "shoulders"];
+
+/**
+ * Weeks -9 to -1 (week -1 already has its push): 3 or 4 gym sessions rotating through the five day types,
+ * one or two walks or runs, loads growing ~1.5% a week towards this week's, and a rest week at -6 with a
+ * single walk (the streak breaks there). Everything is lighter than this week, so its PRs hold.
+ */
+async function seedOlderWeeks(userId: string, thisMonday: string) {
+  const made: unknown[] = [];
+  let n = 0; // running index into the rotation, so each week starts where the last left off
+  for (let w = 9; w >= 1; w--) {
+    const monday = addDays(thisMonday, -7 * w);
+    const day = (offset: number) => addDays(monday, offset);
+    const walk = async (offset: number, hh: number, durationMin: number, activity: "walk" | "run" = "walk") =>
+      made.push(await createWorkout(userId, { kind: "activity", date: day(offset), activity, intensity: "moderate", durationMin, startedAt: istAt(day(offset), hh) }));
+    if (w === 6) { await walk(2, 7, 30); continue; }
+    const scale = 1 / 1.015 ** w;
+    const gym = async (offset: number, preset: Preset) => {
+      const exercises = TEMPLATES[preset].map(([exerciseKey, kg, reps, sets], i) => ({
+        exerciseKey,
+        sets: Array.from({ length: sets }, (_, s) => ({ weightKg: kg === null ? null : Math.round(kg * scale * 2) / 2, reps: Math.max(1, reps - (s === sets - 1 && i % 2 === 0 ? 1 : 0)), done: true })),
+      }));
+      made.push(await createWorkout(userId, { kind: "gym", date: day(offset), preset, intensity: "moderate", durationMin: 45 + ((n + w) % 4) * 4, startedAt: istAt(day(offset), 18), exercises }));
+    };
+    // Week -1 keeps the seeded push (Thursday), so it gets the other four types and no second push.
+    const offsets = w % 2 === 0 ? [0, 1, 3, 4] : [0, 2, 4];
+    for (const offset of offsets) {
+      let preset = ROTATION[n++ % ROTATION.length]!;
+      if (w === 1 && preset === "push") preset = ROTATION[n++ % ROTATION.length]!;
+      await gym(offset, preset);
+    }
+    if (w % 2 === 0) await walk(5, 7, 40);
+    else { await walk(1, 7, 30); await walk(5, 7, 35, "run"); }
+  }
+  return made;
+}
+
 // --- verify -----------------------------------------------------------------------------------------
 
 async function verify(cookie: string): Promise<string> {
@@ -279,17 +393,37 @@ async function verify(cookie: string): Promise<string> {
   }
 }
 
+function writeCookie(file: string, cookie: string) {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${cookie}\n`, { mode: 0o600 });
+}
+
+/** Fresh (food-onboarded, never opened /workouts) and Starter (fitness set up, 68 kg today, no workouts). */
+async function seedExtraUsers(today: string) {
+  const fresh = await upsertUser({ ...FRESH, fitnessOnboarded: false });
+  await db.delete(workout).where(eq(workout.userId, fresh));
+  await db.delete(bodyWeight).where(eq(bodyWeight.userId, fresh));
+  writeCookie(FRESH_COOKIE_FILE, await mintSession(fresh));
+  const starter = await upsertUser({ ...STARTER, fitnessOnboarded: true, heightCm: 172 });
+  await db.delete(workout).where(eq(workout.userId, starter));
+  await db.delete(bodyWeight).where(eq(bodyWeight.userId, starter));
+  await logWeight(starter, { date: today, kg: 68 });
+  writeCookie(STARTER_COOKIE_FILE, await mintSession(starter));
+}
+
 async function main() {
   guard();
-  const userId = await upsertUser();
+  const userId = await upsertUser({ email: EMAIL, name: NAME, fitnessOnboarded: true, heightCm: 172, targets: DEMO_TARGETS });
   const cookie = await mintSession(userId);
-  mkdirSync(dirname(COOKIE_FILE), { recursive: true });
-  writeFileSync(COOKIE_FILE, `${cookie}\n`, { mode: 0o600 });
+  writeCookie(COOKIE_FILE, cookie);
 
   const today = todayIn(TZ);
   const foods = await resolveFoods(userId);
   await seedDiary(userId, foods, today);
   const scans = await seedScans(userId);
+  await seedWeight(userId, today);
+  const workouts = await seedWorkouts(userId, today);
+  await seedExtraUsers(today);
 
   console.log(`Demo user   ${userId} (${EMAIL})`);
   console.log(`Cookie file ${COOKIE_FILE} (valid ${SESSION_DAYS} days)`);
@@ -300,6 +434,8 @@ async function main() {
     console.log(`  ${d.date}  ${String(d.entries.length).padStart(2)} entries  ${Math.round(kcal.total)}/${kcal.target} kcal  sodium ${Math.round(na.total)}/${na.target} mg`);
   }
   console.log(`Scans       label ${scans.peanuts} (${scans.grades.peanuts}), barcode ${scans.milk} (${scans.grades.milk}), meal ${scans.thali} (${scans.grades.thali}), failed ${scans.failed}`);
+  console.log(`Fitness     ${workouts} workouts over 10 weeks (rest week -6), 30 days of weight, goal 70 kg, 5 days a week, 172 cm`);
+  console.log(`Cookies     ${COOKIE_FILE}\n            ${FRESH_COOKIE_FILE} (${FRESH.email}, no fitness setup)\n            ${STARTER_COOKIE_FILE} (${STARTER.email}, no workouts)`);
   const bal = await getBalance(userId);
   const txns = await db.select({ type: creditTxn.type, amount: creditTxn.amount }).from(creditTxn).where(eq(creditTxn.userId, userId));
   console.log(`Credits     ${bal.credits} of ${bal.allowance} (ledger: ${txns.map((t) => `${t.type} ${t.amount > 0 ? "+" : ""}${t.amount}`).join(", ")})`);

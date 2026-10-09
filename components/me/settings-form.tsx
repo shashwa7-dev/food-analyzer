@@ -14,7 +14,9 @@ import type { DailyTargets, Diet, Goal } from "@/lib/nutrition/types";
 import { GOALS, DIETS, ALLERGEN_LABELS } from "@/lib/profile/options";
 import { saveProfile } from "@/app/(app)/me/actions";
 import { parseTarget } from "@/lib/profile/parse-target";
-import { ALL_FIELDS, MORE_FIELDS, PRIMARY_FIELDS, ProChip, TargetField, toTextRecord, type FieldKey } from "@/components/me/target-fields";
+import { ALL_FIELDS, MORE_FIELDS, PRIMARY_FIELDS, TargetField, toTextRecord, type FieldKey } from "@/components/me/target-fields";
+import { ProChip } from "@/components/pro/pro-chip";
+import { UpgradeSheet } from "@/components/pro/upgrade-sheet";
 
 export const COUNTRIES: [string, string][] = [
   ["IN", "India"], ["US", "United States"], ["GB", "United Kingdom"],
@@ -44,7 +46,7 @@ function useProfileSave(onDone: () => void) {
 }
 
 /** Cancel and Save, the sheet's one main action (mock-c1 sheet footer). */
-function SheetActions({ pending, dirty, onCancel, onSave }: { pending: boolean; dirty: boolean; onCancel: () => void; onSave: () => void }) {
+export function SheetActions({ pending, dirty, onCancel, onSave }: { pending: boolean; dirty: boolean; onCancel: () => void; onSave: () => void }) {
   return (
     <div className="grid shrink-0 grid-cols-[1fr_1.3fr] gap-2.5 pt-1">
       <Button type="button" variant="ghost-sunken" shape="pill" size="xl" className="h-[54px] min-w-0 px-4" disabled={pending} onClick={onCancel}>
@@ -109,6 +111,7 @@ export function GoalSection({ goal, targets, customTargets, onDone }: {
   const [edited, setEdited] = useState<Set<FieldKey>>(() => new Set());
   const [showAll, setShowAll] = useState(false);
   const [invalid, setInvalid] = useState<Set<FieldKey>>(() => new Set());
+  const [upgrade, setUpgrade] = useState(false);
   const initial = toTextRecord(targetsFor(goal, targets));
   const dirty = draftGoal !== goal || ALL_FIELDS.some((f) => fields[f.key] !== initial[f.key]);
 
@@ -158,11 +161,11 @@ export function GoalSection({ goal, targets, customTargets, onDone }: {
       <OptionList label="Goal" options={GOALS.map(([key, title, desc]) => ({ key, title, desc }))} value={draftGoal} onPick={pickGoal} />
       <div className="flex shrink-0 items-center justify-between gap-2">
         <SubHead>Daily targets</SubHead>
-        {!customTargets && <ProChip>Custom targets</ProChip>}
+        {!customTargets && <ProChip feature="Custom targets" />}
       </div>
       <div className="grid shrink-0 grid-cols-2 gap-2.5">
-        {PRIMARY_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} readOnly={!customTargets} onChange={(v) => setField(f.key, v)} />)}
-        {showAll && MORE_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} readOnly={!customTargets} onChange={(v) => setField(f.key, v)} />)}
+        {PRIMARY_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} readOnly={!customTargets} onLocked={() => setUpgrade(true)} onChange={(v) => setField(f.key, v)} />)}
+        {showAll && MORE_FIELDS.map((f) => <TargetField key={f.key} label={f.label} unit={f.unit} value={fields[f.key]} error={invalid.has(f.key)} readOnly={!customTargets} onLocked={() => setUpgrade(true)} onChange={(v) => setField(f.key, v)} />)}
       </div>
       <button
         type="button"
@@ -174,6 +177,7 @@ export function GoalSection({ goal, targets, customTargets, onDone }: {
         <ChevronDown className={cn("size-4 transition-transform", showAll && "rotate-180")} aria-hidden />
       </button>
       <SheetActions pending={pending} dirty={dirty} onCancel={onDone} onSave={submit} />
+      {!customTargets && <UpgradeSheet open={upgrade} onOpenChange={setUpgrade} />}
     </>
   );
 }

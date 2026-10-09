@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { createUser, resetDb, testDb } from "@/tests/helpers/db";
-import { profile, foodLog } from "@/lib/db/schema";
+import { profile, foodLog, workout, workoutExercise, workoutSet, bodyWeight } from "@/lib/db/schema";
 import { user } from "@/lib/db/auth-schema";
 import { addEntry } from "@/lib/log/service";
+import { createWorkout } from "@/lib/fitness/service";
+import { logWeight } from "@/lib/fitness/weight";
 import { deleteAccount, updateProfile } from "./service";
 
 describe("profile updates", () => {
@@ -39,5 +41,18 @@ describe("profile updates", () => {
     await deleteAccount(u);
     expect(await testDb().select().from(user).where(eq(user.id, u))).toHaveLength(0);
     expect(await testDb().select().from(foodLog).where(eq(foodLog.userId, u))).toHaveLength(0);
+  });
+  it("deleting the account removes their workouts, sets and weight log", async () => {
+    const u = await createUser();
+    const today = new Date().toISOString().slice(0, 10);
+    await logWeight(u, { date: today, kg: 72 });
+    await createWorkout(u, { kind: "gym", date: today, preset: "push", title: "Push day", intensity: "moderate", durationMin: 40,
+      exercises: [{ exerciseKey: "bench_press", name: "Bench press", sets: [{ weightKg: 60, reps: 8, done: true }] }] });
+    const [w] = await testDb().select({ id: workout.id }).from(workout).where(eq(workout.userId, u));
+    await deleteAccount(u);
+    expect(await testDb().select().from(workout).where(eq(workout.userId, u))).toHaveLength(0);
+    expect(await testDb().select().from(workoutExercise).where(eq(workoutExercise.workoutId, w!.id))).toHaveLength(0);
+    expect(await testDb().select().from(bodyWeight).where(eq(bodyWeight.userId, u))).toHaveLength(0);
+    expect(await testDb().select().from(workoutSet)).toHaveLength(0);
   });
 });

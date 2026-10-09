@@ -4,7 +4,7 @@ EATRi8 is a mobile-first daily food tracker — MyFitnessPal-style logging made 
 
 ## Prerequisites
 
-- Node.js ≥ 22
+- Node.js 24 (`package.json` `engines` pins `24.x`, which is also what Vercel builds with)
 - pnpm ≥ 10 (`corepack enable` or `npm i -g pnpm`)
 - Docker Desktop (for local Postgres)
 
@@ -82,7 +82,7 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 | `MODEL_FAST` | no | Model id for the (only) tier the engine currently calls. Defaults to `gemini-3.5-flash-lite` (`lib/engine/models.ts`). |
 | `MODEL_STRONG` | no | Reserved for a future strong-tier pass; not yet called by the engine. Defaults to `gemini-3.5-flash`. |
 | `DAILY_AI_SCAN_CAP` | no | Global cap on model-calling scans per UTC day, across all users combined. Defaults to `300`. Once hit, new AI scans get `503 SERVICE_BUSY` until the day rolls over (`lib/scans/deps.ts`, `lib/rate-limit.ts`). |
-| `PRO_GATES_ENFORCED` | no | Launch switch for the Pro-only features (Progress month view, data export, custom daily targets; `lib/credits/plans.ts`). Off by default, so everything stays free until Pro launches. Set `true` (or `1`) to enforce: Basic users then get a "Pro" lock on those features, and `GET /api/v1/progress?range=month` returns `403 PRO_REQUIRED`; saving new custom targets on Basic is rejected ("Custom targets are part of Pro."). Only writes are gated: targets a user saved before launch keep applying to Today and Progress, and a redone onboarding keeps them. The data export isn't built yet, so it has no route to gate. AI-scan allowances (20 Basic, 200 Pro) apply either way. |
+| `PRO_GATES_ENFORCED` | no | Launch switch for the Pro-only features (200 AI scans a month, Progress month view, workout insights (Month stats, trends, top exercises, how often), CSV data export, custom daily targets; `lib/credits/plan-features.ts`). Off by default, so everything stays open until Pro launches. Set `true` (or `1`) to enforce: Basic users get a "Pro" lock on those features and an upgrade sheet that joins the waitlist; `GET /api/v1/progress?range=month`, `GET /api/v1/fitness/stats?range=month` and `GET /api/v1/export` return `403 PRO_REQUIRED` (the Workouts page quietly falls back to Week and shows one blurred Pro preview in place of the insight cards); saving custom targets on Basic is rejected. Reads are gated too: a Basic user's stored custom targets are ignored and their goal preset applies everywhere (Today, Progress, scan grading), with a one-time notice on Today and Me. The stored overrides are kept, so they come back on upgrading. Try Pro locally with `pnpm plan:set <email> pro`. |
 
 ### Credits
 
@@ -92,8 +92,28 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 - Deleting the account keeps a tombstone — an HMAC of the normalised email with this month's used scans and today's count, no plain PII (`lib/credits/tombstone.ts`) — so signing up again with the same email starts from the same usage. A tombstone is kept only for its month: once that month ends it is deleted (`pruneTombstones`), on the next account deletion or sign-up.
 - Independent of credits, each user is capped at 25 AI-assisted scans per UTC day (`DAILY_AI_SCANS_PER_USER` in `lib/rate-limit.ts`); refunded scans still count toward it, so a refund can't be looped for free scans.
 
+### Scan photos on Cloudflare R2
+
+Each successful AI photo scan keeps **one** image: a 480 px (long edge) WebP made from the first photo, about 40–50 KB, rotated upright with no metadata (no EXIF, no GPS). It is kept until the scan is deleted. Originals and the other photos are never stored. Nothing is uploaded for a failed scan: the upload happens only after the scan has succeeded (`storeScanImage` in `lib/scans/photo-storage.ts`, processing in `lib/scans/photos.ts` with `sharp`), in the scan's background job, and can never fail, change or delay the scan or its charge. URLs are presigned for 10 minutes. Deleting a scan deletes its image (best effort, after the response); deleting the account deletes the user's whole `thumb/u/{userId}/` prefix first. Barcode scans have no image. There is no lifecycle or expiry rule.
+
+Storage is **off unless all four vars are set**; off, the app behaves exactly as without it (no uploads, `imageUrl: null`).
+
+| Var | Required | Source |
+|---|---|---|
+| `R2_ACCOUNT_ID` | for photo storage | Cloudflare dashboard → R2 → Account details (the account ID in `https://<id>.r2.cloudflarestorage.com`) |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | for photo storage | R2 → Manage API tokens → Create API token: **Object Read & Write**, applied to **this bucket only**. Shown once. |
+| `R2_BUCKET` | for photo storage | The bucket's name, e.g. `eatri8-photos` |
+
+Key: `thumb/u/{userId}/{scanId}.webp` (`lib/storage/keys.ts`). The bucket stays private (no public access, no custom domain): the app only hands out presigned GET URLs.
+
+Set up once per bucket, in three steps: (1) create the bucket (R2 → Create bucket, location Automatic, Standard storage class); (2) create the bucket-scoped **Object Read & Write** token above; (3) put the four env vars in `.env.local` (and the deployment's env).
+
+A bucket used with an earlier build of this branch may hold old objects under `display/`. Delete that prefix once (Cloudflare dashboard → the bucket → select the `display/` folder → Delete), and remove the `eatri8-display-30d` lifecycle rule if it was applied. No released version ever wrote there.
+
 ### Before launch
 
+- Run `pnpm db:migrate` against the production database before each deploy that adds migrations (this release: 0008–0012). Nothing runs them automatically, and the new code reads columns they add, so an unmigrated database returns a 500 on every signed-in page. Migrating first is safe for the build already live.
+- Scan image storage is on only when all four `R2_*` variables are set; the server logs a warning when some but not all are.
 - Rotate the old Gemini key: `NEXT_PUBLIC_GEMINI_API_KEY` is still in `master` history (added in `3afd1c4`, removed in `4d2b34c`). Revoke it in Google AI Studio and make sure `GOOGLE_GENERATIVE_AI_API_KEY` is a different, server-only key.
 
 ### Scanning eval harness
@@ -104,9 +124,9 @@ Scanning (barcode and AI-assisted photo extraction) is implemented from M2 onwar
 
 `pnpm scan:try <image...>` runs one real extraction against 1–3 image files and prints the result, usage and cost — a quick way to check a single label/photo without the eval harness.
 
-### No image storage
+### Scan photos and what is stored
 
-Scan photos are held in memory only for the single model call and then discarded — they are never written to disk or any bucket (`lib/engine/schema.ts`). R2/thumbnail storage is not part of M2.
+Scan photos are held in memory for the model call. The photos are never written to disk. Since Phase 2, a successful AI scan also keeps one small optimised image of its first photo in a private R2 bucket (see [Scan photos on Cloudflare R2](#scan-photos-on-cloudflare-r2)); without R2 configured, nothing is stored.
 
 ### Barcode decoding on /scan
 
@@ -117,17 +137,29 @@ supports EAN-13 (Chrome on Android/macOS), and otherwise lazily loads [`zxing-wa
 configured yet; when one is added, allow that origin in `connect-src` (and `script-src 'wasm-unsafe-eval'`),
 or self-host the wasm via `prepareZXingModule({ overrides: { locateFile } })`.
 
+## Workouts
+
+`/workouts` is the fitness hub. On first visit it asks for a weekly goal, goal weight and height ("Set up your training", skippable); until the first workout it shows the six ways to start a session; after that it has the weekly goal and next preset in your rotation, a week strip, weekly stats (sessions, volume, time, calories burned), body weight with its 30-day trend and the full paged history. Pro adds workout insights: a Week | Month switch, a Calendar | Volume trends card (monthly day-type calendar, 8-week volume), top exercises and how often you train each day type. With `PRO_GATES_ENFORCED` on, Basic users see one blurred preview with a "See Pro" button instead.
+
+| Route | Purpose |
+| --- | --- |
+| `/workouts` | The hub (setup form, empty state or full hub; `?range=month` is Pro) |
+| `GET /api/v1/fitness/stats` | Stats for `?range=week\|month` (month and the insight fields are Pro) |
+| `GET /api/v1/workouts/history` | Paged workout history (`?cursor=`) |
+| `POST /api/v1/me/fitness/setup` | Saves the first-visit setup (goal, goal weight, height) or skips it |
+
 ## Demo data and screenshots (dev only)
 
 Sign-in is Google-only, so headless checks use a seeded demo account instead:
 
 ```bash
-pnpm seed:demo                                # demo@eatri8.local ("Aarav Kapoor"), 10 days of diary, 4 scans, 18/20 credits
+pnpm seed:demo                                # demo@eatri8.local ("Aarav Kapoor"), 10 days of diary, 4 scans, 18/20 credits,
+                                              # this week's Push/Pull/Legs + 2 walks, 30 days of weight (goal 70 kg, 5 days a week)
 pnpm shot /today --w 390                      # → .superpowers/shots/today-390-light.png
 pnpm shot /history --w 1280 --dark --full     # desktop, dark, full page; --out file.png to pick the path
 ```
 
-`seed:demo` is idempotent (re-run it any time; it rebuilds the diary relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
+`seed:demo` is idempotent (re-run it any time; it rebuilds the diary, workouts and weight relative to today in IST) and refuses to run with `NODE_ENV=production` or a non-localhost `DATABASE_URL`. It needs `pnpm seed:foods` first. It seeds 10 weeks of workouts (one rest week, so the streak breaks) and writes a 30-day Better Auth session cookie to `.superpowers/demo-cookie.txt` (git-ignored). It also creates two more local users, touching no others: `fresh@demo.local` (no fitness setup, so `/workouts` shows the setup form; `.superpowers/demo-fresh-cookie.txt`) and `starter@demo.local` (set up, 68 kg, no workouts, so `/workouts` shows the empty hub; `.superpowers/demo-starter-cookie.txt`) and checks it against `/api/v1/me` when `pnpm dev` is running. `pnpm shot` needs the dev server and Google Chrome in `/Applications`.
 
 ## UI
 
@@ -139,7 +171,7 @@ The C1 "Lime & Ink" design (spec: `docs/superpowers/specs/2026-10-07-redesign-c1
 - **Lime is a fill, never text.** Text accents use `--brand-deep`; text on `--brand-soft` uses `--on-brand-soft`; text on lime uses `--brand-ink`. Grade letters use `--on-grade` / `--on-grade-light`, and macro numbers `--protein-ink` / `--carbs-ink` / `--fat-ink`, so all text meets WCAG AA.
 - **Tap targets are at least 44 × 44 px** (the element itself, a `::before`/`::after` hit area, or a parent that is the hit area).
 
-`pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
+`pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm, the Today energy strip, the Workouts page in each of its states (setup, empty, week, month, Volume tab, Pro-locked), `/weight` and its log sheet, the Me Fitness sheet), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
 
 ```bash
 pnpm seed:demo && pnpm ui:audit

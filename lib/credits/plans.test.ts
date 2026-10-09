@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { allows, PLANS, type GatedFeature } from "./plans";
+import { allows, lockedFeatures, PLANS, type GatedFeature } from "./plans";
 
-const GATED: GatedFeature[] = ["progressMonth", "dataExport", "customTargets"];
+const GATED: GatedFeature[] = ["progressMonth", "dataExport", "customTargets", "fitnessInsights"];
 
 describe("allows", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -33,5 +33,15 @@ describe("allows", () => {
   it("keeps the AI-scan allowances", () => {
     expect(PLANS.basic.aiScansPerMonth).toBe(20);
     expect(PLANS.pro.aiScansPerMonth).toBe(200);
+  });
+});
+
+describe("lockedFeatures", () => {
+  it("locks nothing while enforcement is off", () => {
+    expect(lockedFeatures("basic", false)).toEqual({ progressMonth: false, dataExport: false, customTargets: false, fitnessInsights: false });
+  });
+  it("locks every gated feature for Basic once enforced, and none for Pro", () => {
+    expect(lockedFeatures("basic", true)).toEqual({ progressMonth: true, dataExport: true, customTargets: true, fitnessInsights: true });
+    expect(lockedFeatures("pro", true)).toEqual({ progressMonth: false, dataExport: false, customTargets: false, fitnessInsights: false });
   });
 });

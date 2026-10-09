@@ -26,6 +26,11 @@ const schema = z.object({
   DAILY_AI_SCAN_CAP: z.preprocess((v) => (v === "" ? undefined : v), z.coerce.number().int().min(0).default(300)),
   /** Launch switch for the Pro-only features (lib/credits/plans.ts). Off until Pro launches. */
   PRO_GATES_ENFORCED: flag,
+  /** Scan photo storage (lib/storage/r2.ts): on only when all four are set; read through r2Config() below. */
+  R2_ACCOUNT_ID: optional,
+  R2_ACCESS_KEY_ID: optional,
+  R2_SECRET_ACCESS_KEY: optional,
+  R2_BUCKET: optional,
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
@@ -81,4 +86,33 @@ export function tombstonePepper(raw: Record<string, string | undefined> = proces
     console.warn("CREDIT_TOMBSTONE_PEPPER is not set; using BETTER_AUTH_SECRET");
   }
   return fallback.data;
+}
+
+let r2PartialWarned = false;
+
+export type R2Config = { accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string };
+
+/**
+ * The R2 photo store's settings, or null (storage off) unless all four values are set. Read fresh like
+ * proGatesEnforced, so it needs none of the other env vars (the integration tests don't set them).
+ */
+export function r2Config(raw: Record<string, string | undefined> = process.env): R2Config | null {
+  const read = (k: string) => {
+    const r = optional.safeParse(raw[k]);
+    return r.success ? r.data : undefined;
+  };
+  const accountId = read("R2_ACCOUNT_ID");
+  const accessKeyId = read("R2_ACCESS_KEY_ID");
+  const secretAccessKey = read("R2_SECRET_ACCESS_KEY");
+  const bucket = read("R2_BUCKET");
+  const set = [accountId, accessKeyId, secretAccessKey, bucket].filter(Boolean).length;
+  if (set < 4) {
+    // Some but not all: almost certainly a missing or misspelt variable, so say so once instead of silently storing nothing.
+    if (set > 0 && !r2PartialWarned) {
+      r2PartialWarned = true;
+      console.warn("Scan image storage is off: set all of R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET");
+    }
+    return null;
+  }
+  return { accountId: accountId!, accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey!, bucket: bucket! };
 }

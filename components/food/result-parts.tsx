@@ -1,18 +1,15 @@
 // Result parts shared by a scan result (/scans/[id]) and a food's page (/foods/[id]), after mock-c1:
-// tag chips, the grade hero (scans) or the one-line verdict (food pages), calories, the macro cards,
-// the "More nutrients" and "Vitamins & minerals" cards, flag chips, the better pick, "Why this grade"
-// and the sticky action bar. Server-safe: no hooks, data comes in as props.
+// the title, the one-line verdict, big calories, the macro cards, the "More nutrients" and
+// "Vitamins & minerals" cards, the better pick and the sticky action bar. Server-safe: no hooks, data comes in as props.
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronRight, Droplet, Droplets, Drumstick, Flame, Info, Leaf, Lightbulb, TriangleAlert, Wheat, type LucideIcon } from "lucide-react";
-import { dietChip, macroShare, sodiumLevel, verdict, warningFlags } from "@/lib/scans/result-display";
+import { ChevronRight, Droplet, Drumstick, Leaf, Lightbulb, Wheat, type LucideIcon } from "lucide-react";
+import { dietChip, macroShare, verdict } from "@/lib/scans/result-display";
 import { formatAmount, type Level, type NutrientRow } from "@/lib/nutrition/nutrient-display";
 import type { FoodIconKey } from "@/lib/foods/icon";
-import type { Diet, Flag, Grade, Nutrients, Reason } from "@/lib/nutrition/types";
-import { GRADE_FILL, GradeBadge } from "@/components/grade-badge";
+import type { Diet, Flag, Grade, Nutrients } from "@/lib/nutrition/types";
+import { GradeBadge } from "@/components/grade-badge";
 import { GRADE_UNAVAILABLE } from "@/lib/nutrition/grade-unavailable";
-import { ReasonList } from "@/components/food/food-verdict";
-import { FlagNotes } from "@/components/food/sheet-parts";
 import { NutrientFold } from "@/components/food/nutrient-fold";
 import { cn } from "@/lib/utils";
 
@@ -39,26 +36,9 @@ export function Tag({ icon: Icon, children }: { icon: LucideIcon; children: Reac
   );
 }
 
-export function Tags({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap justify-center gap-1.5">{children}</div>;
-}
-
-/** The centred result title and its brand line. */
-export function ResultTitle({ name, brand }: { name: string; brand?: string | null }) {
-  // A long product name (OFF's "Aptamil Gold Stage 3 Follow-up Formula Powder (From 12 Months
-  // Onwards)") steps down a size and stops at three lines; the full name is in the tooltip.
-  const long = name.length > 40;
-  return (
-    <header className="text-center">
-      <h1
-        title={long ? name : undefined}
-        className={cn("title m-0 line-clamp-3 leading-[1.05] font-[650] tracking-[-0.04em] break-words text-ink", long ? "text-[24px]" : "text-[30px]")}
-      >
-        {name}
-      </h1>
-      {brand && <p className="m-0 mt-1 truncate text-[13px] text-subtle">{brand}</p>}
-    </header>
-  );
+/** The tag row: centred, or left-aligned under a photo hero (`align="start"`). */
+export function Tags({ children, align = "center" }: { children: ReactNode; align?: "center" | "start" }) {
+  return <div className={cn("flex flex-wrap gap-1.5", align === "center" ? "justify-center" : "justify-start")}>{children}</div>;
 }
 
 /**
@@ -75,7 +55,7 @@ export function FoodTitle({ name, meta }: { name: string; meta: string }) {
       >
         {name}
       </h1>
-      <p className="m-0 mt-1 truncate text-[13px] text-subtle">{meta}</p>
+      <p className="m-0 mt-1 line-clamp-2 text-[13px] text-subtle">{meta}</p>
     </header>
   );
 }
@@ -121,80 +101,7 @@ export function BigCalories({ kcal, basis, portion }: { kcal: number; basis: str
   );
 }
 
-/* ---------- grade hero ---------- */
-
-const HERO_BG: Record<Grade, string> = {
-  A: "bg-grade-a/15", B: "bg-grade-b/15", C: "bg-grade-c/15", D: "bg-grade-d/15", E: "bg-grade-e/15",
-};
-const GRADES: Grade[] = ["A", "B", "C", "D", "E"];
-
-/**
- * The grade hero. With `unavailable` (lib/nutrition/grade-unavailable.ts: a dropped value the grade
- * scores) it shows no grade at all: a neutral "?" badge, "Grade unavailable" with that reason, and the
- * A–E scale with no position highlighted.
- */
-export function GradeHero({ grade, reason, unavailable }: { grade: Grade | null; reason: string | null; unavailable?: string | null }) {
-  if (unavailable) {
-    return (
-      <section className="grid gap-3.5 rounded-[28px] bg-sunken p-[18px]" aria-label="Grade">
-        <div className="flex items-center gap-3.5">
-          <GradeBadge grade={GRADE_UNAVAILABLE} size="lg" />
-          <p className="m-0 min-w-0 text-[14px] leading-[1.35] text-ink">
-            <b className="mb-0.5 block text-[16px] font-semibold">Grade unavailable</b>
-            {unavailable}
-          </p>
-        </div>
-        <GradeScale grade={null} />
-      </section>
-    );
-  }
-  return (
-    <section className={cn("grid gap-3.5 rounded-[28px] p-[18px]", grade ? HERO_BG[grade] : "bg-sunken")} aria-label="Grade">
-      <div className="flex items-center gap-3.5">
-        <GradeBadge grade={grade} size="lg" />
-        <p className="m-0 min-w-0 text-[14px] leading-[1.35] text-ink">
-          <b className="mb-0.5 block text-[16px] font-semibold">{verdict(grade)}</b>
-          {reason}
-        </p>
-      </div>
-      {grade && <GradeScale grade={grade} />}
-    </section>
-  );
-}
-
-/** The A–E strip under the hero; `grade` null highlights nothing. */
-function GradeScale({ grade }: { grade: Grade | null }) {
-  return (
-    <div className="grid grid-cols-5 gap-1" aria-hidden>
-      {GRADES.map((g) => (
-        <span
-          key={g}
-          className={cn(
-            "grid h-[26px] place-items-center rounded-[8px] text-[12px] font-bold",
-            GRADE_FILL[g],
-            g === grade ? "scale-y-[1.18] ring-2 ring-surface" : "opacity-45",
-          )}
-        >
-          {g}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 /* ---------- calories and macros ---------- */
-
-export function CalorieRow({ kcal, basis, portion }: { kcal: number; basis: string; portion: string | null }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-[20px] bg-brand-soft py-3 pr-3.5 pl-[18px]">
-      <span className="num inline-flex min-w-0 shrink-0 items-baseline gap-1 text-[16px] font-semibold whitespace-nowrap text-ink">
-        <Flame className="size-[18px] shrink-0 self-center text-brand-deep" aria-hidden />
-        {fmt(kcal)} kcal <small className="text-[13px] font-medium text-subtle">{basis}</small>
-      </span>
-      {portion && <span className="num min-w-0 truncate text-[13px] text-subtle">{portion}</span>}
-    </div>
-  );
-}
 
 const MACROS: { key: "protein" | "carbs" | "fat"; label: string; icon: LucideIcon; text: string }[] = [
   { key: "protein", label: "Protein", icon: Drumstick, text: "text-protein" },
@@ -286,55 +193,6 @@ export function vitaminsNote(fromIndb: boolean, n: Nutrients): string {
   return fromIndb && n.vitaminEMg !== undefined ? `${DV_NOTE} ${INDB_VITAMIN_E_NOTE}` : DV_NOTE;
 }
 
-/* ---------- flags ---------- */
-
-function FlagChip({ icon: Icon, tone, children }: { icon: LucideIcon; tone: string; children: ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-[12px] bg-sunken px-[11px] py-[7px] text-[13px] font-medium whitespace-nowrap text-ink">
-      <Icon className={cn("size-4 shrink-0", tone)} aria-hidden />
-      {children}
-    </span>
-  );
-}
-
-const SODIUM_TONE = { low: "text-ok", medium: "text-warn-ink", high: "text-bad" } as const;
-
-/**
- * Allergen, sodium and diet as short icon chips for a glance, then the allergen and diet sentences in
- * full (announced as alerts, as in M1/M2). Sodium is banded only per 100 g; a serving-only label gets a plain chip.
- */
-export function FlagChips({ flags, sodiumMg, sodiumPer100, basis = "per_100g", diet, ingredientsKnown }: {
-  flags: Flag[]; sodiumMg: number | undefined; sodiumPer100: number | undefined; basis?: "per_100g" | "per_100ml"; diet: Diet; ingredientsKnown: boolean;
-}) {
-  const allergens = flags.filter((f) => f.type === "allergen");
-  const dietFit = dietChip(diet, flags, ingredientsKnown);
-  const chips = [
-    ...allergens.map((f) => (
-      <FlagChip key={f.key} icon={TriangleAlert} tone="text-bad">
-        {f.severity === "may_contain" ? "May contain" : "Contains"} {f.key.replace("_", " ")}
-      </FlagChip>
-    )),
-    sodiumMg !== undefined && (
-      <FlagChip key="sodium" icon={Droplets} tone={sodiumPer100 !== undefined ? SODIUM_TONE[sodiumLevel(sodiumPer100, basis)] : "text-subtle"}>
-        <span className="num">Sodium {fmt(sodiumMg)} mg</span>
-      </FlagChip>
-    ),
-    dietFit && <FlagChip key="diet" icon={Leaf} tone={dietFit.fits ? "text-ok" : "text-bad"}>{dietFit.label}</FlagChip>,
-  ].filter(Boolean);
-  const warnings = warningFlags(flags);
-  if (chips.length === 0 && warnings.length === 0) return null;
-  return (
-    <>
-      {chips.length > 0 && (
-        <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="Flags">
-          {chips.map((c, i) => <li key={i} className="contents">{c}</li>)}
-        </ul>
-      )}
-      <FlagNotes flags={warnings} />
-    </>
-  );
-}
-
 /* ---------- better pick ---------- */
 
 /** A healthier food in the same category (a link to it), else the engine's tip, else nothing. */
@@ -361,23 +219,6 @@ export function BetterPick({ alt, tip }: { alt: { id: string; name: string; grad
 }
 
 /* ---------- details ---------- */
-
-/** "Why this grade": every reason, any hints, and the goal notes (allergen/diet sentences sit with the flag chips). */
-export function WhyGrade({ reasons, hints = [], goalFlags }: { reasons: Reason[]; hints?: string[]; goalFlags: Flag[] }) {
-  if (reasons.length === 0 && hints.length === 0 && goalFlags.length === 0) return null;
-  return (
-    <section className={cn(CARD, "flex flex-col gap-3")}>
-      <h2 className="section-title m-0">Why this grade</h2>
-      <ReasonList reasons={reasons} />
-      {hints.map((h) => (
-        <p key={h} className="m-0 flex items-start gap-2 text-sm text-subtle">
-          <Info className="mt-0.5 size-4 shrink-0" aria-hidden />{h}
-        </p>
-      ))}
-      <FlagNotes flags={goalFlags} />
-    </section>
-  );
-}
 
 /**
  * The sticky bottom action bar (mock-c1 `.actions`), fading the page out behind it. On wide screens
