@@ -1,6 +1,6 @@
 import { MarketingPage, ProseSection } from "@/components/marketing/marketing-page";
 
-export const metadata = { title: "Privacy — EATRi8" };
+export const metadata = { title: "Privacy", alternates: { canonical: "/privacy" } };
 
 // Deliberate exception to "all env vars go through lib/env.ts": lib/env.ts's env()
 // requires Google OAuth vars to be present, which would make this static,
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
       </ProseSection>
       <ProseSection title="Not medical advice">
         <p className="m-0">
-          EATRi8 shows nutrition information and honest grades to help you make your own choices. It is not medical advice. Talk to a doctor or
+          Santul shows nutrition information and honest grades to help you make your own choices. It is not medical advice. Talk to a doctor or
           dietitian for anything related to a health condition.
         </p>
       </ProseSection>

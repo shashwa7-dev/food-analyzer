@@ -47,7 +47,7 @@ export async function lookupOffByBarcode(code: string, opts: OffLookupOptions = 
   let res: Response;
   try {
     res = await fetchImpl(url, {
-      headers: { "User-Agent": `EATRi8/2.0 (${contactEmail})` },
+      headers: { "User-Agent": `Santul/2.0 (${contactEmail})` },
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {

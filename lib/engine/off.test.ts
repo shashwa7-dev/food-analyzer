@@ -35,7 +35,7 @@ describe("fetchOffByBarcode", () => {
     const [url, opts] = fake.mock.calls[0]!;
     expect(String(url)).toBe("https://world.openfoodfacts.org/api/v2/product/8901491101837?fields=code,product_name,brands,categories_tags,nutriments,serving_quantity,product_quantity,nova_group,additives_tags,allergens_tags,traces_tags,ingredients_text,nutrition_grades,countries_tags");
     const headers = opts!.headers as Record<string, string>;
-    expect(headers["User-Agent"]).toBe("EATRi8/2.0 (contact via app)");
+    expect(headers["User-Agent"]).toBe("Santul/2.0 (contact via app)");
     expect(opts!.signal).toBeInstanceOf(AbortSignal);
   });
 
@@ -45,7 +45,7 @@ describe("fetchOffByBarcode", () => {
     await fetchOffByBarcode("8901491101837", fake);
     const [, opts] = fake.mock.calls[0]!;
     const headers = opts!.headers as Record<string, string>;
-    expect(headers["User-Agent"]).toBe("EATRi8/2.0 (ops@eatri8.app)");
+    expect(headers["User-Agent"]).toBe("Santul/2.0 (ops@eatri8.app)");
   });
 
   it("returns null when the product is not found (status: 0)", async () => {

@@ -1,6 +1,8 @@
-# EATRi8
+# Santul
 
-EATRi8 is a mobile-first daily food tracker — MyFitnessPal-style logging made effortless by scanning — that tells you how healthy each food is, personalised to your diet, allergies and goals, and suggests a better option sold in your country. M1 shipped the tracker core: Google sign-in, onboarding, a seeded food catalogue (INDB + USDA FNDDS + Open Food Facts India, ~14.8k foods), search, food log, a Today view with a date switcher, and account settings. M2 adds scanning: free barcode lookups and AI-assisted photo extraction with a monthly credit allowance (see [Scanning](#scanning-m2)).
+Santul is a mobile-first daily food tracker — MyFitnessPal-style logging made effortless by scanning — that tells you how healthy each food is, personalised to your diet, allergies and goals, and suggests a better option sold in your country. M1 shipped the tracker core: Google sign-in, onboarding, a seeded food catalogue (INDB + USDA FNDDS + Open Food Facts India, ~14.8k foods), search, food log, a Today view with a date switcher, and account settings. M2 adds scanning: free barcode lookups and AI-assisted photo extraction with a monthly credit allowance (see [Scanning](#scanning-m2)).
+
+> The product was renamed from EATRi8 to Santul in October 2026. Internal identifiers (the `eatri8-theme` cookie, browser storage keys, database, package and CI names) still say `eatri8` on purpose: renaming them would reset people's theme and lose in-progress workouts.
 
 ## Prerequisites
 
@@ -65,7 +67,7 @@ The app runs at `http://localhost:3000`.
 | `BETTER_AUTH_URL` | yes | `http://localhost:3000` locally, your deployed URL in prod |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | yes | Google Cloud Console → OAuth 2.0 Web client; redirect URI `{BETTER_AUTH_URL}/api/auth/callback/google` |
 | `CREDIT_TOMBSTONE_PEPPER` | no | Keys the email HMAC kept when an account is deleted (so deleting and signing up again can't reset AI-scan usage). Falls back to `BETTER_AUTH_SECRET`; set a dedicated value (≥ 16 chars, `openssl rand -base64 32`) so rotating the auth secret doesn't orphan tombstones. In production the fallback logs a one-time warning. |
-| `OFF_CONTACT_EMAIL` | no | Contact email sent in the `User-Agent` header on Open Food Facts requests (`EATRi8/2.0 (<contact>)`) |
+| `OFF_CONTACT_EMAIL` | no | Contact email sent in the `User-Agent` header on Open Food Facts requests (`Santul/2.0 (<contact>)`) |
 | `TEST_DATABASE_URL` | yes, for `pnpm test:int` | Points at a separate local database, e.g. `postgres://eatri8:eatri8@localhost:5432/eatri8_test` |
 
 All env vars are validated at boot through `lib/env.ts` (zod; an empty string counts as unset). There are no `NEXT_PUBLIC_` secrets.
@@ -172,6 +174,8 @@ The C1 "Lime & Ink" design (spec: `docs/superpowers/specs/2026-10-07-redesign-c1
 - **Tap targets are at least 44 × 44 px** (the element itself, a `::before`/`::after` hit area, or a parent that is the hit area).
 
 `pnpm ui:audit` checks those rules in headless Chrome on every screen and the main interactive states (add-food and edit-entry sheets, date picker, delete confirm, the Today energy strip, the Workouts page in each of its states (setup, empty, week, month, Volume tab, Pro-locked), `/weight` and its log sheet, the Me Fitness sheet), at 390 × 844 and 1280 × 800, in Dark and Light (plus System under both OS schemes on `/today`). It exits 1 on any offender and saves screenshots to `docs/design/qa/` (git-ignored); see [`docs/design/qa/README.md`](docs/design/qa/README.md) for the page list and options. It is read-only (it never saves, deletes or completes onboarding) and needs `pnpm dev` and `pnpm seed:demo`:
+
+`pnpm brand:assets` rewrites the static brand files that are committed with the app: the icons (`app/icon.svg`, `app/favicon.ico`, `app/apple-icon.png`, `public/icons/`), the share card (`app/opengraph-image.png` and `app/twitter-image.png`, 1200 × 630, with their alt text) and the home page's phone screenshots (`public/landing/`). The screenshots are cut from `pnpm ui:audit`'s 390 px shots of Today, a label scan and Workouts, so run the audit first; re-run it whenever those screens change. It needs Google Chrome in `/Applications` and the network once (for the Geist font). The mark itself is drawn in `scripts/brand/mark.ts` and `components/brand/logo.tsx`.
 
 ```bash
 pnpm seed:demo && pnpm ui:audit

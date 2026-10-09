@@ -2,6 +2,8 @@ import { requireUser } from "@/lib/session";
 import { LiveSession } from "@/components/fitness/session/live-session";
 import { PRESET_KEYS, type Preset } from "@/lib/fitness/types";
 
+export const metadata = { title: "Workout session" };
+
 /**
  * The live gym session (spec §C screen 2). `?preset=push` starts that preset, `?preset=empty` an
  * empty session; with no `?preset=` an existing draft simply resumes (or an empty session starts).

@@ -21,6 +21,8 @@ import { IngredientsUnknownNote, INGREDIENTS_UNKNOWN_NOTE } from "@/components/f
 import { FullNutritionTable, PROVENANCE_LABEL, dominantProvenance } from "@/components/food/nutrition-table";
 import { FlagNotes } from "@/components/food/sheet-parts";
 
+export const metadata = { title: "Food" };
+
 /**
  * A food's page (mock-c1 "Food detail", option C). Left: the name, one verdict line, big calories,
  * Protein/Carbs/Fat cards, every other nutrient the food holds as cards (vitamins and minerals with

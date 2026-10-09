@@ -106,6 +106,32 @@ const expectAll = (...selectors: string[]) => async (page: Page): Promise<Findin
   for (const sel of selectors) if (!(await page.$(sel))) out.push({ rule: "missing", selector: sel, text: "", detail: "expected on this page while the Pro gates are on" });
   return out;
 };
+/**
+ * The home page (also /sign-in). On a phone the sign-in bar is pinned to the bottom: the Google
+ * button must be on screen before any scrolling, and at the end of the page the bar must not cover
+ * the last feature row or the links under it. From 900 px the page is one screen with no bar.
+ */
+async function landingBar(page: Page): Promise<Finding[]> {
+  return page.evaluate(async (): Promise<Finding[]> => {
+    const out: Finding[] = [];
+    const bar = document.querySelector<HTMLElement>("[data-signin-bar]");
+    const button = bar?.querySelector("button");
+    if (!bar || !button) return [{ rule: "missing", selector: "[data-signin-bar] button", text: "", detail: "the landing page's sign-in bar" }];
+    const b = button.getBoundingClientRect();
+    if (b.top < 0 || b.bottom > innerHeight) out.push({ rule: "missing", selector: "[data-signin-bar] button", text: button.textContent ?? "", detail: "Continue with Google is off screen before scrolling" });
+    if (getComputedStyle(bar).position !== "fixed") return out;
+    scrollTo(0, document.documentElement.scrollHeight);
+    await new Promise((r) => setTimeout(r, 200));
+    const buttonTop = button.getBoundingClientRect().top;
+    for (const sel of ["main ul > li:last-child", "main nav:last-of-type a:last-child"]) {
+      const el = [...document.querySelectorAll<HTMLElement>(sel)].find((e) => e.getBoundingClientRect().width > 0);
+      if (!el) out.push({ rule: "missing", selector: sel, text: "", detail: "expected on the landing page" });
+      else if (el.getBoundingClientRect().bottom > buttonTop) out.push({ rule: "missing", selector: sel, text: el.textContent ?? "", detail: "covered by the pinned sign-in bar at the end of the page" });
+    }
+    scrollTo(0, 0);
+    return out;
+  });
+}
 /** /workouts for a user who hasn't set up training: the setup form, every input labelled. */
 async function workoutsSetup(page: Page): Promise<Finding[]> {
   return page.evaluate((): Finding[] => {
@@ -282,11 +308,11 @@ const SCENARIOS: Scenario[] = [
   { name: "me-goal-locked", path: () => "/me", gates: "locked", viewportShot: true, setup: (p) => openRow(p, "Goal"), check: expectAll("[role=dialog] button[aria-label='Custom targets: part of Pro. See plans']") },
   { name: "me-export-upgrade", path: () => "/me", gates: "locked", viewportShot: true, setup: async (p) => { await centreClick(p, EXPORT_LOCK); await dialog(p); } },
   { name: "me-scans-upsell", path: () => "/me", gates: "locked", viewportShot: true, setup: (p) => openRow(p, "AI scans a month") },
-  { name: "home", path: () => "/", signedIn: false },
+  { name: "home", path: () => "/", signedIn: false, check: landingBar },
   { name: "privacy", path: () => "/privacy", signedIn: false },
   { name: "terms", path: () => "/terms", signedIn: false },
   { name: "about-data", path: () => "/about/data", signedIn: false },
-  { name: "sign-in", path: () => "/sign-in", signedIn: false },
+  { name: "sign-in", path: () => "/sign-in", signedIn: false, check: landingBar },
 ];
 
 function parseArgs(argv: string[]) {

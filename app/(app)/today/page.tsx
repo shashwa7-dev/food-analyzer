@@ -22,6 +22,8 @@ import { EnergyStrip } from "@/components/today/energy-strip";
 import { WorkoutsCard } from "@/components/today/workouts-card";
 import { ResumeBanner } from "@/components/fitness/resume-banner";
 
+export const metadata = { title: "Today" };
+
 // Meal cards follow the day: snacks sit between lunch and dinner (mock-c1).
 const DAY_ORDER = ["breakfast", "lunch", "snack", "dinner"] as const satisfies Meal[];
 

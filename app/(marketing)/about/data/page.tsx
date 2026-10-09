@@ -2,7 +2,7 @@ import { ArrowUpRight, Database } from "lucide-react";
 import { IconTile } from "@/components/ui/icon-tile";
 import { MarketingPage } from "@/components/marketing/marketing-page";
 
-export const metadata = { title: "Data sources — EATRi8" };
+export const metadata = { title: "Data sources", alternates: { canonical: "/about/data" } };
 
 const SOURCES = [
   {
@@ -26,7 +26,7 @@ export default function DataSourcesPage() {
   return (
     <MarketingPage
       title="Where our data comes from"
-      intro={<>EATRi8 grades and nutrition figures are built on these open datasets. We&apos;re grateful to the teams that maintain them.</>}
+      intro={<>Santul grades and nutrition figures are built on these open datasets. We&apos;re grateful to the teams that maintain them.</>}
     >
       <ul className="m-0 flex list-none flex-col p-0">
         {SOURCES.map((s) => {

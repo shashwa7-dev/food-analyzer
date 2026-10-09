@@ -9,6 +9,8 @@ import { BalanceChart } from "@/components/credits/balance-chart";
 import { ActivityList } from "@/components/credits/activity-list";
 import { PlanCards } from "@/components/credits/plan-cards";
 
+export const metadata = { title: "AI scans" };
+
 const MONTH_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 function Stat({ value, label }: { value: number; label: string }) {

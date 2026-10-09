@@ -45,7 +45,7 @@ describe("GET /api/v1/export", () => {
     const res = await call("diary");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
-    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="eatri8-diary-\d{4}-\d{2}-\d{2}\.csv"$/);
+    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="santul-diary-\d{4}-\d{2}-\d{2}\.csv"$/);
     const [header, ...rows] = await lines(res);
     expect(header).toBe("date,meal,food,portion,amount,grams,energy_kcal,protein_g,carbs_g,fat_g,fibre_g,sugars_g,sat_fat_g,sodium_mg,grade,logged_at");
     expect(rows).toHaveLength(2);
@@ -123,7 +123,7 @@ describe("GET /api/v1/export", () => {
     ]);
     const res = await call("workouts");
     expect(res.status).toBe(200);
-    expect(res.headers.get("content-disposition")).toMatch(/filename="eatri8-workouts-/);
+    expect(res.headers.get("content-disposition")).toMatch(/filename="santul-workouts-/);
     const [header, ...rows] = await lines(res);
     expect(header).toBe("date,started_at,title,kind,preset,activity,intensity,duration_min,kcal_burned,kcal_estimated,notes,exercise,set,weight_kg,reps,done");
     expect(rows).toEqual([

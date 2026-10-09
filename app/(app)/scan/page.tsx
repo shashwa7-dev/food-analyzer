@@ -4,6 +4,8 @@ import { normaliseBarcode } from "@/lib/engine/barcode";
 import { parseMode } from "@/lib/scans/modes";
 import { MEALS, type Meal } from "@/lib/nutrition/types";
 
+export const metadata = { title: "Scan" };
+
 type Params = { meal?: string; date?: string; barcode?: string; mode?: string };
 
 // ?meal=&date= come from the Add food sheet (carried through to the result's Add to meal);
