@@ -19,7 +19,8 @@ export function SessionKeepAlive() {
       try { last = Number(localStorage.getItem(STAMP_KEY)) || 0; } catch { /* storage blocked: refresh anyway */ }
       if (Date.now() - last < REFRESH_MS) return;
       try { localStorage.setItem(STAMP_KEY, String(Date.now())); } catch { /* as above */ }
-      void fetch("/api/auth/get-session", { credentials: "same-origin", cache: "no-store" }).catch(() => undefined);
+      // Read the body to the end: an unread response keeps its connection (and the request) open.
+      void fetch("/api/auth/get-session", { credentials: "same-origin", cache: "no-store" }).then((r) => r.arrayBuffer()).catch(() => undefined);
     }
     refreshIfDue();
     const timer = setInterval(refreshIfDue, 60_000);
