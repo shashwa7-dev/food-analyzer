@@ -162,7 +162,7 @@ export function WeightLog({ history, today }: { history: WeightHistory; today: s
       {history.entries.length > 0 && (
         <section aria-labelledby="weight-recent" className={`${CARD} grid gap-1 px-4 py-3.5 md:px-5`}>
           <h2 id="weight-recent" className="m-0 text-[15px] font-semibold whitespace-nowrap text-ink">Recent entries</h2>
-          <ul className="m-0 grid list-none p-0">
+          <ul className="m-0 grid list-none grid-cols-[minmax(0,1fr)] p-0">
             {history.entries.slice(0, 14).map((e) => (
               <li key={e.date} className="flex min-h-12 items-center gap-3 border-line not-first:border-t">
                 <span className="min-w-0 flex-1 truncate text-[14px] whitespace-nowrap text-ink">{dayText(e.date, today)}</span>
