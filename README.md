@@ -1,16 +1,75 @@
-# Santul
+<p align="center">
+  <a href="https://santul.shashwa7.in/">
+    <img src="app/opengraph-image.png" alt="Santul: eat well, train well, stay in balance. Three phone screens showing the day's calories, a scanned food's grade and a week of workouts." width="820">
+  </a>
+</p>
 
-Santul is a mobile-first daily food tracker — MyFitnessPal-style logging made effortless by scanning — that tells you how healthy each food is, personalised to your diet, allergies and goals, and suggests a better option sold in your country. M1 shipped the tracker core: Google sign-in, onboarding, a seeded food catalogue (INDB + USDA FNDDS + Open Food Facts India, ~14.8k foods), search, food log, a Today view with a date switcher, and account settings. M2 adds scanning: free barcode lookups and AI-assisted photo extraction with a monthly credit allowance (see [Scanning](#scanning-m2)).
+<h1 align="center">Santul</h1>
+
+<p align="center">
+  An open-source food and workout tracker that grades what you eat for <em>your</em> diet, allergies and goals.
+</p>
+
+<p align="center">
+  <a href="https://santul.shashwa7.in/"><strong>Try it live</strong></a>
+  ·
+  <a href="#getting-started">Run it locally</a>
+  ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+  ·
+  <a href="https://github.com/shashwa7-dev/food-analyzer/issues/new">Report a bug</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/shashwa7-dev/food-analyzer/actions/workflows/ci.yml"><img src="https://github.com/shashwa7-dev/food-analyzer/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a3d944" alt="MIT licence"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-a3d944" alt="Pull requests welcome"></a>
+</p>
+
+Santul is a mobile-first daily food tracker: MyFitnessPal-style logging made effortless by scanning. It tells you how healthy each food is, personalised to your diet, allergies and goals, and suggests a better option sold in your country.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/landing/today-dark.webp">
+    <img src="public/landing/today-light.webp" alt="Today: calories left, macros and the day's meals" width="260">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/landing/scan-dark.webp">
+    <img src="public/landing/scan-light.webp" alt="A scanned food with its grade, allergy warning and nutrients" width="260">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="public/landing/workouts-dark.webp">
+    <img src="public/landing/workouts-light.webp" alt="Workouts: weekly goal, week strip and monthly calendar" width="260">
+  </picture>
+</p>
+
+## What it does
+
+- **Scan instead of typing.** Barcode lookups are free; a photo of a label, pack or meal is read by AI (20 a month on Basic).
+- **A grade for every food.** Graded for your goal, with flags for your diet and allergies, and the reasons behind the grade.
+- **A catalogue that knows Indian food.** About 14,800 foods from INDB, USDA FNDDS and Open Food Facts India.
+- **Food diary.** Meals, a date switcher, daily calorie and macro targets, and limits for sodium, saturated fat and sugar.
+- **Workouts and weight.** Log sessions, follow a weekly goal, and see calories burned next to calories eaten.
+- **Progress.** Weekly and monthly trends, on-target days and logging streaks.
+- **Your data stays yours.** Google sign-in, CSV export, account deletion, no ads and no data sales.
+
+## Built with
+
+[Next.js 16](https://nextjs.org) (App Router) and React 19 · TypeScript · Tailwind CSS 4 and [Base UI](https://base-ui.com) · PostgreSQL with [Drizzle ORM](https://orm.drizzle.team) · [Better Auth](https://www.better-auth.com) · [Vercel AI SDK](https://ai-sdk.dev) with Gemini · Cloudflare R2 · Vitest
 
 > The product was renamed from EATRi8 to Santul in October 2026. Internal identifiers (the `eatri8-theme` cookie, browser storage keys, database, package and CI names) still say `eatri8` on purpose: renaming them would reset people's theme and lose in-progress workouts.
 
-## Prerequisites
+## Getting started
+
+You can have Santul running locally in a few minutes. Barcode scanning, the food catalogue, the diary and workouts need only Postgres and a Google OAuth client; AI photo scans also need a Gemini API key (see [Scanning](#scanning-m2)).
+
+### Prerequisites
 
 - Node.js 24 (`package.json` `engines` pins `24.x`, which is also what Vercel builds with)
 - pnpm ≥ 10 (`corepack enable` or `npm i -g pnpm`)
 - Docker Desktop (for local Postgres)
 
-## Local setup
+### Local setup
 
 ```bash
 cp .env.example .env.local
@@ -184,6 +243,17 @@ pnpm seed:demo && pnpm ui:audit
 pnpm ui:audit --only today,foods-dal-sheet --w 390 --theme light   # a subset
 ```
 
+## Contributing
+
+Contributions are welcome: bug reports, food data fixes, design polish and features. [CONTRIBUTING.md](CONTRIBUTING.md) has the full rules; the short version:
+
+1. **Open an issue first** for anything bigger than a small fix, so we can agree on the approach before you write code.
+2. **Branch from `master`** and keep each pull request to one change.
+3. **Make the checks pass**: `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm ui:audit` if you touched the UI.
+4. **Never commit secrets.** Keys live in `.env.local`, which is git-ignored.
+
+Found a security problem? Please don't open a public issue; see [Reporting a security issue](CONTRIBUTING.md#reporting-a-security-issue).
+
 ## Data attribution
 
 The food catalogue is built from:
@@ -198,3 +268,7 @@ Full attribution is shown in-app at `/about/data`.
 
 - Product & system design spec: [`docs/superpowers/specs/2026-10-06-eatri8-v2-design.md`](docs/superpowers/specs/2026-10-06-eatri8-v2-design.md)
 - M1 implementation plan: [`docs/superpowers/plans/2026-10-06-m1-tracker.md`](docs/superpowers/plans/2026-10-06-m1-tracker.md)
+
+## Licence
+
+The code is released under the [MIT licence](LICENSE). The food data under `data/sources/` is not covered by it: each dataset keeps its own licence (see [Data attribution](#data-attribution) and [`data/sources/ATTRIBUTION.md`](data/sources/ATTRIBUTION.md)).
