@@ -42,7 +42,7 @@ export function HistoryList({ initial, className }: { initial: HistoryPage; clas
       {items.length === 0 ? (
         <p className="m-0 truncate text-[13.5px] text-subtle">No workouts yet. Log one to see it here.</p>
       ) : (
-        <ul className="m-0 grid list-none gap-0.5 p-0">
+        <ul className="m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-0.5 p-0">
           {items.map((w) => (
             <li key={w.id}><WorkoutRow w={w} /></li>
           ))}

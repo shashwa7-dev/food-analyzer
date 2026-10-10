@@ -150,11 +150,11 @@ export function ActivityList({ initialPage, tz, now: nowIso }: { initialPage: Pa
       ) : groups.length === 0 ? (
         <Note>{EMPTY[filter]}</Note>
       ) : (
-        <div className="grid gap-3.5">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
           {groups.map((g) => (
-            <div key={g.label} className="grid gap-1.5">
+            <div key={g.label} className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
               <h3 className="m-0 pl-1 text-[12px] font-[650] text-subtle">{g.label}</h3>
-              <ul className="m-0 grid list-none gap-1.5 p-0">
+              <ul className="m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-1.5 p-0">
                 {g.items.map((it) => <Row key={it.id} it={it} />)}
               </ul>
             </div>

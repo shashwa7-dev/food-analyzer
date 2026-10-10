@@ -196,7 +196,7 @@ export function ScanList({ initialPage, tz, now: nowIso }: { initialPage: Page; 
           </div>
         )
       ) : (
-        <ul className="m-0 grid list-none gap-1.5 p-0">
+        <ul className="m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-1.5 p-0">
           {scans.map((s) => (
             <ScanRow key={s.id} s={s} tz={tz} now={now} />
           ))}
