@@ -3,7 +3,6 @@ import { getBalance } from "@/lib/credits/ledger";
 import { allows } from "@/lib/credits/plans";
 import { initialsOf } from "@/lib/initials";
 import { resetDayLabel } from "@/lib/credits/display";
-import { countVisibleScans } from "@/lib/scans/service";
 import { CreditStrip } from "@/components/credits/credit-strip";
 import { SettingsList } from "@/components/me/settings-list";
 import { AccountFooter } from "@/components/me/account-footer";
@@ -22,7 +21,7 @@ const PLAN_LABEL = { basic: "Basic", pro: "Pro" } as const;
  */
 export default async function MePage() {
   const { userId, profile, name, email } = await requireUser();
-  const [balance, historyCount] = await Promise.all([getBalance(userId, new Date(), profile), countVisibleScans(userId)]);
+  const balance = await getBalance(userId, new Date(), profile);
   const resetsLabel = resetDayLabel(balance.periodResetsAt, profile.timezone);
 
   return (
@@ -43,7 +42,6 @@ export default async function MePage() {
       {/* A locked plan's sheet shows the goal's presets (effective targets); stored overrides stay untouched. */}
       <SettingsList
         values={{ goal: profile.goal, diet: profile.diet, allergies: profile.allergies, targets: effectiveOverrides(profile), country: profile.country, customTargets: allows(profile.plan, "customTargets"), fitness: { weeklyWorkoutGoal: profile.weeklyWorkoutGoal, goalWeightKg: profile.goalWeightKg, heightCm: profile.heightCm } }}
-        historyCount={historyCount}
       />
       <ExportRow />
       <AccountFooter />
