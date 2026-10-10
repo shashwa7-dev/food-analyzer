@@ -18,7 +18,7 @@ const GAP = (W - 7 * BAR) / 6;
  * hatched, today is brand-soft with a brand edge, a day with nothing logged has no bar), then three
  * mini KPIs from the same week summary.
  */
-export function WeekCard({ week, goal }: { week: ProgressSummary; goal: Goal }) {
+export function WeekCard({ week, goal, className }: { week: ProgressSummary; goal: Goal; className?: string }) {
   const titleId = useId();
   const hatchId = `week-hatch-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
   const target = week.targets.energyKcal;
@@ -36,7 +36,7 @@ export function WeekCard({ week, goal }: { week: ProgressSummary; goal: Goal }) 
   ];
 
   return (
-    <RailCard labelledBy={titleId}>
+    <RailCard labelledBy={titleId} className={className}>
       <RailCardHead id={titleId} icon={BarChart3} title="This week">
         <RailCardLink href="/progress">Progress</RailCardLink>
       </RailCardHead>

@@ -33,7 +33,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const requested = (await searchParams).date;
   const date = requested && DateSchema.safeParse(requested).success ? requested : today;
   // The rail's week and scans don't follow the picked date: they are always the last 7 days and the
-  // latest scans. Read on phones too (the server can't know the width); the rail is hidden there.
+  // latest scans. Read on phones too (the server can't know the width); the rail is hidden there, and
+  // only This week is repeated under the day.
   const [day, week, recent, workouts] = await Promise.all([
     getDay(userId, date),
     getProgress(userId, "week"),
@@ -83,6 +84,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             ))}
           </div>
           <WorkoutsCard workouts={workouts} isToday={date === today} />
+          {/* Phones have no rail and no Progress tab: This week is the way to Progress from Today. */}
+          <WeekCard week={week} goal={profile.goal} className="md:hidden" />
         </div>
         <aside aria-label="Insights" className="hidden min-w-0 gap-3.5 md:grid md:gap-5 md:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] md:items-start @min-[840px]:grid-cols-1">
           <DailyLimitsCard progress={day.progress} />

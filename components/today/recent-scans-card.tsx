@@ -46,7 +46,7 @@ export function RecentScansCard({ scans }: { scans: ScanListItem[] }) {
           </Button>
         </div>
       ) : (
-        <ul className="m-0 grid list-none divide-y divide-line p-0">
+        <ul className="m-0 grid list-none grid-cols-[minmax(0,1fr)] divide-y divide-line p-0">
           {scans.map((s) => {
             const Icon = s.inputKind ? KIND_ICON[s.inputKind] : ScanLine;
             const meta = recentScanMeta(s);

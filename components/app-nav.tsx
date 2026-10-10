@@ -14,7 +14,7 @@ const PHONE_ITEMS: NavItem[] = [
   { href: "/today", label: "Today", icon: CalendarDays },
   { href: "/workouts", label: "Workouts", icon: Dumbbell },
   { href: "/scan", label: "Scan", icon: ScanLine, primary: true },
-  { href: "/progress", label: "Progress", icon: LineChart },
+  { href: "/history", label: "History", icon: History },
   { href: "/me", label: "Me", icon: User },
 ];
 
